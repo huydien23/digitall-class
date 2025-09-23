@@ -1,0 +1,557 @@
+import React, { useState, useEffect, useCallback } from 'react'
+import {
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  Button,
+  Chip,
+  Avatar,
+  LinearProgress,
+  Alert,
+  CircularProgress,
+  IconButton,
+  Tooltip,
+  Divider,
+  Stack,
+  Paper,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemSecondaryAction,
+} from '@mui/material'
+import {
+  Dashboard as DashboardIcon,
+  People as PeopleIcon,
+  School as SchoolIcon,
+  Assignment as AssignmentIcon,
+  QrCode as QrCodeIcon,
+  Schedule as ScheduleIcon,
+  Refresh as RefreshIcon,
+  PlayArrow as PlayArrowIcon,
+  Stop as StopIcon,
+  Visibility as VisibilityIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Upload as UploadIcon,
+  ContentCopy as CopyIcon,
+} from '@mui/icons-material'
+import { useSelector, useDispatch } from 'react-redux'
+import { motion } from 'framer-motion'
+import { Helmet } from 'react-helmet-async'
+import SessionManagement from '../../components/SessionManagement/SessionManagement'
+import ExcelDragDrop from '../../components/ExcelDragDrop/ExcelDragDrop'
+import classService from '../../services/classService'
+import attendanceService from '../../services/attendanceService'
+import gradeService from '../../services/gradeService'
+
+const ProperTeacherDashboard = () => {
+  const { user } = useSelector((state) => state.auth)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [excelUploadOpen, setExcelUploadOpen] = useState(false)
+  const [uploadType, setUploadType] = useState('students') // 'students', 'grades', 'attendance'
+  const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
+  const [teacherData, setTeacherData] = useState({
+    statistics: {
+      totalClasses: 0,
+      activeStudents: 0,
+      attendanceRate: 0,
+      averageGrade: 0
+    },
+    todaySessions: [],
+    assignedClasses: []
+  })
+
+  const loadTeacherData = useCallback(async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      // Load teacher's assigned classes
+      const classesResponse = await classService.getClasses()
+      const teacherClasses = classesResponse.data?.results?.filter(
+        classItem => classItem.teacher === user.id
+      ) || []
+
+      // Load today's attendance sessions for teacher's classes
+      const todaySessions = []
+      for (const classItem of teacherClasses) {
+        try {
+          const sessionsResponse = await attendanceService.getSessions({
+            class_id: classItem.id,
+            session_date: new Date().toISOString().split('T')[0]
+          })
+          todaySessions.push(...(sessionsResponse.data?.results || []))
+        } catch (err) {
+          console.warn(`Failed to load sessions for class ${classItem.id}:`, err)
+        }
+      }
+
+      // Load recent grades for teacher's classes
+      const recentGrades = []
+      for (const classItem of teacherClasses) {
+        try {
+          const gradesResponse = await gradeService.getGrades({
+            class_id: classItem.id,
+            ordering: '-created_at'
+          })
+          recentGrades.push(...(gradesResponse.data?.results || []).slice(0, 5))
+        } catch (err) {
+          console.warn(`Failed to load grades for class ${classItem.id}:`, err)
+        }
+      }
+
+      // Calculate statistics
+      const totalStudents = teacherClasses.reduce((sum, classItem) => 
+        sum + (classItem.students?.length || 0), 0
+      )
+
+      const attendanceRate = todaySessions.length > 0 
+        ? todaySessions.reduce((sum, session) => sum + (session.attendance_rate || 0), 0) / todaySessions.length
+        : 0
+
+      const averageGrade = recentGrades.length > 0
+        ? recentGrades.reduce((sum, grade) => sum + (grade.score || 0), 0) / recentGrades.length
+        : 0
+
+      setTeacherData({
+        assignedClasses: teacherClasses,
+        todaySessions,
+        recentGrades: recentGrades.slice(0, 10),
+        statistics: {
+          totalClasses: teacherClasses.length,
+          activeStudents: totalStudents,
+          attendanceRate: Math.round(attendanceRate),
+          averageGrade: Math.round(averageGrade * 100) / 100
+        }
+      })
+    } catch (err) {
+      console.error('Error loading teacher data:', err)
+      setError('Failed to load teacher data')
+    } finally {
+      setLoading(false)
+    }
+  }, [user.id])
+
+  useEffect(() => {
+    loadTeacherData()
+  }, [loadTeacherData])
+
+  const handleRefresh = () => {
+    loadTeacherData()
+  }
+
+  const handleGenerateQR = async (sessionId) => {
+    try {
+      const response = await attendanceService.generateQRCode(sessionId)
+      // Handle QR code generation
+      console.log('QR Code generated:', response.data)
+    } catch (err) {
+      console.error('Error generating QR code:', err)
+    }
+  }
+
+  const handleStartSession = async (sessionId) => {
+    try {
+      await attendanceService.updateSession(sessionId, { is_active: true })
+      loadTeacherData()
+    } catch (err) {
+      console.error('Error starting session:', err)
+    }
+  }
+
+  const handleExcelUpload = (uploadType) => {
+    setUploadType(uploadType)
+    setExcelUploadOpen(true)
+  }
+
+  const handleUploadSuccess = (result) => {
+    console.log('Upload successful:', result)
+    // Refresh data after successful upload
+    loadTeacherData()
+  }
+
+  const getUploadEndpoint = () => {
+    switch (uploadType) {
+      case 'students':
+        return '/api/students/import-excel/'
+      case 'grades':
+        return '/api/grades/import-excel/'
+      case 'attendance':
+        return '/api/attendance/import-excel/'
+      default:
+        return '/api/students/import-excel/'
+    }
+  }
+
+  const handleSessionCreated = () => {
+    console.log('Session created successfully')
+    loadTeacherData() // Refresh teacher data
+  }
+
+  const handleSessionUpdated = () => {
+    console.log('Session updated successfully')
+    loadTeacherData() // Refresh teacher data
+  }
+
+  const StatCard = ({ title, value, icon, color, subtitle }) => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <Card sx={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
+        <CardContent>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Avatar sx={{ bgcolor: `${color}.main`, width: 56, height: 56 }}>
+              {icon}
+            </Avatar>
+          </Box>
+          <Typography variant="h4" fontWeight={700} color={`${color}.main`} gutterBottom>
+            {value}
+          </Typography>
+          <Typography variant="h6" color="text.secondary" gutterBottom>
+            {title}
+          </Typography>
+          {subtitle && (
+            <Typography variant="body2" color="text.secondary">
+              {subtitle}
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress size={60} />
+      </Box>
+    )
+  }
+
+  return (
+    <>
+      <Helmet>
+        <title>Teacher Dashboard - Student Management System</title>
+      </Helmet>
+
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* Header */}
+        <Box mb={4}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
+                <AssignmentIcon />
+              </Avatar>
+              <Box>
+                <Typography variant="h4" fontWeight={700} gutterBottom>
+                  Teacher Dashboard
+                </Typography>
+                <Typography variant="body1" color="text.secondary">
+                  Welcome, {user.first_name} {user.last_name}
+                </Typography>
+              </Box>
+            </Box>
+            <Box display="flex" gap={1}>
+              <Tooltip title="Refresh Data">
+                <IconButton onClick={handleRefresh} color="primary">
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+          
+          {error && (
+            <Alert severity="error" sx={{ mb: 3 }}>
+              {error}
+            </Alert>
+          )}
+        </Box>
+
+        {/* Teacher Statistics */}
+        <Grid container spacing={3} mb={4}>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="My Classes"
+              value={teacherData.statistics.totalClasses}
+              icon={<SchoolIcon />}
+              color="primary"
+              subtitle="Assigned classes"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Students"
+              value={teacherData.statistics.activeStudents}
+              icon={<PeopleIcon />}
+              color="success"
+              subtitle="Total students"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Attendance Rate"
+              value={`${teacherData.statistics.attendanceRate}%`}
+              icon={<ScheduleIcon />}
+              color="info"
+              subtitle="Today's average"
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard
+              title="Average Grade"
+              value={teacherData.statistics.averageGrade}
+              icon={<AssignmentIcon />}
+              color="warning"
+              subtitle="Recent grades"
+            />
+          </Grid>
+        </Grid>
+
+        {/* Today's Sessions */}
+        <Grid container spacing={3} mb={4}>
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  Today's Attendance Sessions
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {teacherData.todaySessions.length === 0 ? (
+                  <Box textAlign="center" py={4}>
+                    <ScheduleIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="body1" color="text.secondary">
+                      No sessions scheduled for today
+                    </Typography>
+                  </Box>
+                ) : (
+                  <List>
+                    {teacherData.todaySessions.map((session) => (
+                      <ListItem key={session.id} divider>
+                        <ListItemIcon>
+                          <Avatar sx={{ bgcolor: session.is_active ? 'success.main' : 'grey.400' }}>
+                            <ScheduleIcon />
+                          </Avatar>
+                        </ListItemIcon>
+                        <ListItemText
+                          primary={session.session_name}
+                          secondary={`${session.start_time} - ${session.end_time} | ${session.location}`}
+                        />
+                        <ListItemSecondaryAction>
+                          <Box display="flex" gap={1}>
+                            {!session.is_active ? (
+                              <Button
+                                size="small"
+                                startIcon={<PlayArrowIcon />}
+                                onClick={() => handleStartSession(session.id)}
+                              >
+                                Start
+                              </Button>
+                            ) : (
+                              <Button
+                                size="small"
+                                startIcon={<StopIcon />}
+                                onClick={() => handleStopSession(session.id)}
+                                color="error"
+                              >
+                                Stop
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              startIcon={<QrCodeIcon />}
+                              onClick={() => handleGenerateQR(session.id)}
+                            >
+                              QR Code
+                            </Button>
+                            <Button
+                              size="small"
+                              startIcon={<VisibilityIcon />}
+                            >
+                              View
+                            </Button>
+                          </Box>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  My Classes
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                {teacherData.assignedClasses.length === 0 ? (
+                  <Box textAlign="center" py={4}>
+                    <SchoolIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                    <Typography variant="body1" color="text.secondary">
+                      No classes assigned
+                    </Typography>
+                  </Box>
+                ) : (
+                  <List>
+                    {teacherData.assignedClasses.map((classItem) => (
+                      <ListItem key={classItem.id} divider>
+                        <ListItemText
+                          primary={classItem.class_name}
+                          secondary={`${classItem.students?.length || 0} students`}
+                        />
+                        <ListItemSecondaryAction>
+                          <Button size="small" startIcon={<EditIcon />}>
+                            Manage
+                          </Button>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+
+        {/* Quick Actions */}
+        <Card>
+          <CardContent>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Quick Actions
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<AddIcon />}
+                  onClick={() => setSessionManagementOpen(true)}
+                  sx={{ py: 1.5 }}
+                >
+                  Create Session
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<QrCodeIcon />}
+                  sx={{ py: 1.5 }}
+                >
+                  Generate QR
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<AssignmentIcon />}
+                  sx={{ py: 1.5 }}
+                >
+                  Record Grades
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<VisibilityIcon />}
+                  sx={{ py: 1.5 }}
+                >
+                  View Reports
+                </Button>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+
+        {/* Excel Upload Actions */}
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Import Excel Files
+            </Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Upload file Excel để import dữ liệu hàng loạt
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<UploadIcon />}
+                  onClick={() => handleExcelUpload('students')}
+                  sx={{ py: 1.5 }}
+                >
+                  Import Sinh Viên
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={4}>
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<UploadIcon />}
+                  onClick={() => handleExcelUpload('grades')}
+                  sx={{ py: 1.5 }}
+                >
+                  Import Điểm Số
+                </Button>
+              </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<UploadIcon />}
+                        onClick={() => handleExcelUpload('attendance')}
+                        sx={{ py: 1.5 }}
+                      >
+                        Import Điểm Danh
+                      </Button>
+                    </Grid>
+                    <Grid item xs={12} sm={6} md={4}>
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        startIcon={<UploadIcon />}
+                        onClick={() => handleExcelUpload('students')}
+                        sx={{ py: 1.5 }}
+                      >
+                        Kéo Thả Excel
+                      </Button>
+                    </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+        {/* Session Management Dialog */}
+        <SessionManagement
+          open={sessionManagementOpen}
+          onClose={() => setSessionManagementOpen(false)}
+          onSessionCreated={handleSessionCreated}
+          onSessionUpdated={handleSessionUpdated}
+        />
+
+        {/* Excel Drag Drop Dialog */}
+        <ExcelDragDrop
+          open={excelUploadOpen}
+          onClose={() => setExcelUploadOpen(false)}
+          onImportSuccess={handleUploadSuccess}
+          maxFileSize={5 * 1024 * 1024} // 5MB
+        />
+      </Container>
+    </>
+  )
+}
+
+export default ProperTeacherDashboard
