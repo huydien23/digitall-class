@@ -19,13 +19,19 @@ class Class(models.Model):
         verbose_name = 'Lớp học'
         verbose_name_plural = 'Lớp học'
         ordering = ['class_id']
+        indexes = [
+            models.Index(fields=['class_id']),
+            models.Index(fields=['teacher']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['created_at']),
+        ]
     
     def __str__(self):
         return f"{self.class_id} - {self.class_name}"
     
     @property
     def current_students_count(self):
-        return self.students.count()
+        return self.class_students.filter(is_active=True).count()
     
     @property
     def is_full(self):
@@ -44,6 +50,12 @@ class ClassStudent(models.Model):
         verbose_name = 'Sinh viên trong lớp'
         verbose_name_plural = 'Sinh viên trong lớp'
         unique_together = ['class_obj', 'student']
+        indexes = [
+            models.Index(fields=['class_obj']),
+            models.Index(fields=['student']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['enrolled_at']),
+        ]
     
     def __str__(self):
         return f"{self.class_obj.class_id} - {self.student.student_id}"

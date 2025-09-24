@@ -13,6 +13,8 @@ urlpatterns = [
     path('api/students/', include('apps.students.urls')),
     path('api/grades/', include('apps.grades.urls')),
     path('api/attendance/', include('apps.attendance.urls')),
+    path('api/rooms/', include('apps.rooms.urls')),
+    path('api/teachers/', include('apps.accounts.teacher_urls')),
 ]
 
 if settings.DEBUG:

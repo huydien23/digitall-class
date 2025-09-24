@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import RegexValidator
+from apps.accounts.models import User
 
 
 class Student(models.Model):
@@ -9,6 +10,16 @@ class Student(models.Model):
         ('female', 'Nữ'),
         ('other', 'Khác'),
     ]
+    
+    # Relationship with User account
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='student_profile',
+        blank=True,
+        null=True,
+        verbose_name='Tài khoản người dùng'
+    )
     
     student_id = models.CharField(
         max_length=20, 
@@ -35,6 +46,13 @@ class Student(models.Model):
         verbose_name = 'Sinh viên'
         verbose_name_plural = 'Sinh viên'
         ordering = ['student_id']
+        indexes = [
+            models.Index(fields=['student_id']),
+            models.Index(fields=['email']),
+            models.Index(fields=['last_name', 'first_name']),
+            models.Index(fields=['is_active']),
+            models.Index(fields=['created_at']),
+        ]
     
     def __str__(self):
         return f"{self.student_id} - {self.full_name}"

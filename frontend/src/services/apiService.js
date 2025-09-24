@@ -6,7 +6,8 @@
 import axios from 'axios'
 
 // API Configuration - Use localhost for development
-const API_BASE_URL = 'http://localhost:8001/api'
+// Prefer env var VITE_API_BASE if set, else default to 127.0.0.1:8001
+const API_BASE_URL = (import.meta && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://127.0.0.1:8001/api'
 const AUTH_ENDPOINTS = {
   LOGIN: '/auth/login/',
   REGISTER: '/auth/register/',
@@ -93,6 +94,25 @@ class APIService {
 
   isAuthenticated() {
     return !!this.getAccessToken()
+  }
+
+  // Generic helpers
+  async get(url, params = {}) {
+    try {
+      const response = await this.axiosInstance.get(url, { params })
+      return { success: true, data: response.data?.data ?? response.data }
+    } catch (error) {
+      return { success: false, error: error.response?.data || { message: 'Request failed' } }
+    }
+  }
+
+  async post(url, data = {}) {
+    try {
+      const response = await this.axiosInstance.post(url, data)
+      return { success: true, data: response.data }
+    } catch (error) {
+      return { success: false, error: error.response?.data || { message: 'Request failed' } }
+    }
   }
 
   // Authentication Methods

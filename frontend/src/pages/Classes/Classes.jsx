@@ -13,7 +13,7 @@ import {
 import { useSelector } from 'react-redux'
 import classService from '../../services/classService'
 import StudentClassList from '../../components/Class/StudentClassList'
-import TeacherClassManagement from '../../components/Class/TeacherClassManagement'
+import ImprovedClassManagement from '../../components/Class/ImprovedClassManagementComplete'
 import { TeacherMockDataProvider } from '../../components/Dashboard/TeacherMockDataProvider'
 
 const Classes = () => {
@@ -69,12 +69,10 @@ const Classes = () => {
     )
   }
 
-  // For teachers, show TeacherClassManagement component
+  // For teachers, show ImprovedClassManagement component
   if (userRole === 'teacher') {
     return (
-      <TeacherMockDataProvider user={user}>
-        <TeacherClassManagement />
-      </TeacherMockDataProvider>
+      <ImprovedClassManagement />
     )
   }
 

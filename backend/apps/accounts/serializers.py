@@ -41,6 +41,15 @@ class RegisterSerializer(serializers.ModelSerializer):
             'email', 'first_name', 'last_name', 'password', 'password_confirm',
             'role', 'phone', 'student_id', 'teacher_id', 'department'
         ]
+        extra_kwargs = {
+            'first_name': {'required': False, 'allow_blank': True},
+            'last_name': {'required': False, 'allow_blank': True},
+            'role': {'required': False},
+            'phone': {'required': False, 'allow_blank': True},
+            'student_id': {'required': False, 'allow_blank': True},
+            'teacher_id': {'required': False, 'allow_blank': True},
+            'department': {'required': False, 'allow_blank': True},
+        }
     
     def validate_email(self, value):
         if User.objects.filter(email=value).exists():
@@ -64,26 +73,23 @@ class RegisterSerializer(serializers.ModelSerializer):
                 'password_confirm': "Mật khẩu xác nhận không khớp."
             })
         
-        role = attrs.get('role')
+        role = attrs.get('role') or User.Role.STUDENT
         student_id = attrs.get('student_id')
         teacher_id = attrs.get('teacher_id')
         department = attrs.get('department')
         
-        if role == User.Role.STUDENT and not student_id:
-            raise serializers.ValidationError({
-                'student_id': "Mã sinh viên là bắt buộc."
-            })
+        # Không bắt buộc student_id cho sinh viên ở bước đăng ký
+        # Nếu là giảng viên thì yêu cầu đủ thông tin
+        if role == User.Role.TEACHER:
+            missing = {}
+            if not teacher_id:
+                missing['teacher_id'] = "Mã giảng viên là bắt buộc cho giảng viên."
+            if not department:
+                missing['department'] = "Khoa/Phòng ban là bắt buộc cho giảng viên."
+            if missing:
+                raise serializers.ValidationError(missing)
         
-        if role == User.Role.TEACHER and not teacher_id:
-            raise serializers.ValidationError({
-                'teacher_id': "Mã giảng viên là bắt buộc."
-            })
-        
-        if role == User.Role.TEACHER and not department:
-            raise serializers.ValidationError({
-                'department': "Khoa/Phòng ban là bắt buộc cho giảng viên."
-            })
-        
+        attrs['role'] = role
         return attrs
     
     def create(self, validated_data):

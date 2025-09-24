@@ -27,8 +27,13 @@ export const register = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       const response = await apiService.register(userData)
-      // Don't auto-login after register, let user verify email first
-      return response.data
+      if (response.success) {
+        return response.data
+      } else {
+        // Normalize error message
+        const err = response.error || { message: 'Đăng ký thất bại' }
+        return rejectWithValue(err)
+      }
     } catch (error) {
       return rejectWithValue(error.response?.data || error.message)
     }
@@ -125,11 +130,6 @@ const authSlice = createSlice({
       })
       .addCase(register.fulfilled, (state, action) => {
         state.isLoading = false
-        // Don't auto-login after register, let user verify email first
-        // state.isAuthenticated = true
-        // state.user = action.payload.user
-        // state.token = action.payload.tokens.access
-        // state.refreshToken = action.payload.tokens.refresh
       })
       .addCase(register.rejected, (state, action) => {
         state.isLoading = false

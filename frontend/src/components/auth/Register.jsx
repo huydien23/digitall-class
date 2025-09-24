@@ -40,7 +40,8 @@ const Register = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [formData, setFormData] = useState({
-    fullName: '',
+    firstName: '',
+    lastName: '',
     email: '',
     phone: '',
     password: '',
@@ -92,26 +93,24 @@ const Register = () => {
   };  const validateForm = () => {
     const newErrors = {};
 
-    // Full name validation
-    if (!formData.fullName?.trim()) {
-      newErrors.fullName = 'Họ và tên là bắt buộc';
-    } else if (formData.fullName.trim().length < 2) {
-      newErrors.fullName = 'Họ và tên phải có ít nhất 2 ký tự';
+    // First/Last name optional: only validate if provided
+    if (formData.firstName?.trim() && formData.firstName.trim().length < 2) {
+      newErrors.firstName = 'Tên phải có ít nhất 2 ký tự';
+    }
+    if (formData.lastName?.trim() && formData.lastName.trim().length < 2) {
+      newErrors.lastName = 'Họ phải có ít nhất 2 ký tự';
     }
 
-
-    // Phone validation
+    // Phone optional: validate format only when provided
     const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})$/;
-    if (!formData.phone?.trim()) {
-      newErrors.phone = 'Số điện thoại là bắt buộc';
-    } else if (!phoneRegex.test(formData.phone.trim())) {
+    if (formData.phone?.trim() && !phoneRegex.test(formData.phone.trim())) {
       newErrors.phone = 'Số điện thoại không hợp lệ';
     }
 
     // Password validation
     const passwordValidation = AuthUtils.validatePassword(formData.password);
     if (!passwordValidation.isValid) {
-      newErrors.password = passwordValidation.errors[0]; // Show first error
+      newErrors.password = passwordValidation.errors[0];
     }
 
     // Confirm password validation
@@ -121,7 +120,7 @@ const Register = () => {
       newErrors.confirmPassword = 'Mật khẩu xác nhận không khớp';
     }
 
-    // Email validation (must be .edu domain)
+    // Email validation
     const emailValidation = AuthUtils.validateEmail(formData.email);
     if (!emailValidation.isValid) {
       newErrors.email = emailValidation.error;
@@ -129,9 +128,11 @@ const Register = () => {
 
     // Role-specific validation
     if (formData.role === 'student') {
-      const studentIdValidation = AuthUtils.validateStudentId(formData.studentId);
-      if (!studentIdValidation.isValid) {
-        newErrors.studentId = studentIdValidation.error;
+      if (formData.studentId?.trim()) {
+        const studentIdValidation = AuthUtils.validateStudentId(formData.studentId);
+        if (!studentIdValidation.isValid) {
+          newErrors.studentId = studentIdValidation.error;
+        }
       }
     }
 
@@ -140,10 +141,9 @@ const Register = () => {
       if (!teacherIdValidation.isValid) {
         newErrors.teacherId = teacherIdValidation.error;
       }
-    }
-
-    if ((formData.role === 'student' || formData.role === 'teacher') && !formData.department) {
-      newErrors.department = 'Khoa là bắt buộc';
+      if (!formData.department) {
+        newErrors.department = 'Khoa là bắt buộc cho giảng viên';
+      }
     }
 
     setErrors(newErrors);
@@ -159,52 +159,65 @@ const Register = () => {
 
     setLoading(true);
     setMessage('');    try {
-      // Split full name into first and last name
-      const nameParts = formData.fullName.trim().split(' ');
-      const firstName = nameParts[0];
-      const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-
-      // Prepare registration data
+      // Prepare registration data (only include optional fields when provided)
       const registrationData = {
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
         password_confirm: formData.confirmPassword,
-        first_name: firstName,
-        last_name: lastName,
-        phone: formData.phone,
         role: formData.role,
       };
 
+      if (formData.firstName?.trim()) {
+        registrationData.first_name = formData.firstName.trim();
+      }
+      if (formData.lastName?.trim()) {
+        registrationData.last_name = formData.lastName.trim();
+      }
+      if (formData.phone?.trim()) {
+        registrationData.phone = formData.phone.trim();
+      }
+
       // Add role-specific fields
       if (formData.role === 'student') {
-        registrationData.student_id = formData.studentId;
+        if (formData.studentId?.trim()) {
+          registrationData.student_id = formData.studentId.trim();
+        }
+        if (formData.department?.trim()) {
+          registrationData.department = formData.department.trim();
+        }
       }
 
       if (formData.role === 'teacher') {
-        registrationData.teacher_id = formData.teacherId;
-      }
-
-      if (formData.role === 'student' || formData.role === 'teacher') {
-        registrationData.department = formData.department;
+        registrationData.teacher_id = formData.teacherId.trim();
+        registrationData.department = formData.department.trim();
       }
 
       const result = await dispatch(register(registrationData)).unwrap();
       
-      if (result.requireApproval) {
-        setMessage('Đăng ký thành công! Vui lòng đợi admin phê duyệt.');
+      if (result?.requireApproval || result?.require_approval) {
+        setMessage(result?.message || 'Đăng ký thành công! Vui lòng đợi admin phê duyệt.');
         // Redirect to pending approval page
         setTimeout(() => {
           navigate('/pending-approval');
         }, 2000);
       } else {
-        setMessage('Đăng ký thành công! Bạn có thể đăng nhập ngay.');
+        setMessage(result?.message || 'Đăng ký thành công! Bạn có thể đăng nhập ngay.');
         // Redirect to login page
         setTimeout(() => {
           navigate('/login');
         }, 2000);
       }
     } catch (error) {
-      setMessage(error.message || 'Đăng ký thất bại. Vui lòng thử lại.');
+      let errText = 'Đăng ký thất bại. Vui lòng thử lại.';
+      if (typeof error === 'string') errText = error;
+      else if (error?.message) errText = error.message;
+      else if (error?.response?.data) {
+        const data = error.response.data;
+        if (typeof data === 'string') errText = data;
+        else if (data?.message) errText = data.message;
+        else errText = Object.values(data).flat().join(', ');
+      }
+      setMessage(errText);
     } finally {
       setLoading(false);
     }
@@ -305,7 +318,7 @@ const Register = () => {
             <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
               <Grid container spacing={2}>
                 {/* Vai trò */}
-                <Grid item xs={12}>
+                <Grid item xs={12} sm={6}>
                   <FormControl fullWidth>
                     <InputLabel id="role-label">Vai trò</InputLabel>
                     <Select
@@ -350,20 +363,52 @@ const Register = () => {
                   </FormControl>
                 </Grid>
 
-                {/* Họ và tên */}
-                <Grid item xs={12}>
+                {/* Họ (last name) */}
+                <Grid item xs={12} sm={6}>
                   <TextField
-                    required
                     fullWidth
-                    id="fullName"
-                    name="fullName"
-                    label="Họ và tên"
-                    value={formData.fullName}
+                    id="lastName"
+                    name="lastName"
+                    label="Họ (tùy chọn)"
+                    value={formData.lastName}
                     onChange={handleChange}
                     disabled={loading}
-                    error={!!errors.fullName}
-                    helperText={errors.fullName}
-                    placeholder="Nguyễn Văn A"
+                    error={!!errors.lastName}
+                    helperText={errors.lastName}
+                    placeholder="Nguyễn"
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <AccountCircle sx={{ color: '#6366f1' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': {
+                          borderColor: '#6366f1',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#6366f1',
+                        },
+                      },
+                    }}
+                  />
+                </Grid>
+
+                {/* Tên (first name) */}
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    id="firstName"
+                    name="firstName"
+                    label="Tên (tùy chọn)"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    disabled={loading}
+                    error={!!errors.firstName}
+                    helperText={errors.firstName}
+                    placeholder="Văn A"
                     InputProps={{
                       startAdornment: (
                         <InputAdornment position="start">
@@ -385,7 +430,7 @@ const Register = () => {
                 </Grid>
 
                 {/* Email */}
-                <Grid item xs={12}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     required
                     fullWidth
@@ -421,9 +466,8 @@ const Register = () => {
                 </Grid>
 
                 {/* Số điện thoại */}
-                <Grid item xs={12}>
+                <Grid item xs={12} sm={6}>
                   <TextField
-                    required
                     fullWidth
                     id="phone"
                     name="phone"
@@ -456,9 +500,8 @@ const Register = () => {
 
                 {/* Mã sinh viên (chỉ hiển thị cho sinh viên) */}
                 {formData.role === 'student' && (
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
-                      required
                       fullWidth
                       id="studentId"
                       name="studentId"
@@ -485,7 +528,7 @@ const Register = () => {
 
                 {/* Mã giảng viên (chỉ hiển thị cho giảng viên) */}
                 {formData.role === 'teacher' && (
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       required
                       fullWidth
@@ -514,7 +557,7 @@ const Register = () => {
 
                 {/* Khoa (cho sinh viên và giảng viên) */}
                 {(formData.role === 'student' || formData.role === 'teacher') && (
-                  <Grid item xs={12}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl fullWidth error={!!errors.department}>
                       <InputLabel id="department-label">Khoa</InputLabel>
                       <Select
@@ -555,7 +598,7 @@ const Register = () => {
                 )}
 
                 {/* Mật khẩu */}
-                <Grid item xs={12}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     required
                     fullWidth
@@ -598,7 +641,7 @@ const Register = () => {
                 </Grid>
 
                 {/* Xác nhận mật khẩu */}
-                <Grid item xs={12}>
+                <Grid item xs={12} sm={6}>
                   <TextField
                     required
                     fullWidth

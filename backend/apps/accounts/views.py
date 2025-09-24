@@ -16,6 +16,74 @@ from .serializers import (
     # ResetPasswordSerializer
 )
 
+# -----------------------
+# Admin Teacher Approval APIs
+# -----------------------
+class PendingTeachersView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        # Only admin/staff can access
+        if not (request.user.is_superuser or request.user.is_staff or getattr(request.user, 'role', None) == User.Role.ADMIN):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+
+        teachers = User.objects.filter(
+            role=User.Role.TEACHER,
+            account_status=User.AccountStatus.PENDING
+        ).order_by('-created_at')
+
+        data = [
+            {
+                'id': t.id,
+                'email': t.email,
+                'first_name': t.first_name,
+                'last_name': t.last_name,
+                'full_name': t.full_name,
+                'department': t.department,
+                'phone': t.phone,
+                'account_status': t.account_status,
+                'created_at': t.created_at,
+            }
+            for t in teachers
+        ]
+        return Response({'data': data}, status=status.HTTP_200_OK)
+
+
+class ApproveTeacherView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id):
+        if not (request.user.is_superuser or request.user.is_staff or getattr(request.user, 'role', None) == User.Role.ADMIN):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            user = User.objects.get(id=user_id, role=User.Role.TEACHER)
+            user.account_status = User.AccountStatus.ACTIVE
+            user.is_active = True
+            user.save(update_fields=['account_status', 'is_active', 'updated_at'])
+            return Response({'message': 'Teacher approved successfully'}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+
+class RejectTeacherView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, user_id):
+        if not (request.user.is_superuser or request.user.is_staff or getattr(request.user, 'role', None) == User.Role.ADMIN):
+            return Response({'message': 'Forbidden'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            user = User.objects.get(id=user_id, role=User.Role.TEACHER)
+            user.account_status = User.AccountStatus.REJECTED
+            user.is_active = False
+            # accept optional reason
+            reason = request.data.get('reason')
+            if reason:
+                user.status_note = reason
+            user.save(update_fields=['account_status', 'is_active', 'status_note', 'updated_at'])
+            return Response({'message': 'Teacher rejected successfully'}, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            return Response({'message': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
 
 class RegisterView(generics.CreateAPIView):
     """User Registration API"""

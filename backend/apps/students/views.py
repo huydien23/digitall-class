@@ -1,6 +1,11 @@
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from django.core.exceptions import ValidationError
+from django.db import transaction
+import logging
+
+logger = logging.getLogger(__name__)
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Q
@@ -11,7 +16,7 @@ from .bulk_views import bulk_create_students
 
 class StudentListCreateView(generics.ListCreateAPIView):
     """List and create students with pagination"""
-    queryset = Student.objects.all()
+    queryset = Student.objects.select_related('user').all()
     permission_classes = [permissions.IsAuthenticated]
     
     def get_serializer_class(self):
@@ -20,57 +25,169 @@ class StudentListCreateView(generics.ListCreateAPIView):
         return StudentSerializer
     
     def get_queryset(self):
-        queryset = Student.objects.all()
-        search = self.request.query_params.get('search', None)
-        if search is not None:
-            queryset = queryset.filter(
-                Q(first_name__icontains=search) |
-                Q(last_name__icontains=search) |
-                Q(student_id__icontains=search) |
-                Q(email__icontains=search)
+        try:
+            queryset = Student.objects.select_related('user').all()
+            search = self.request.query_params.get('search', None)
+            is_active = self.request.query_params.get('is_active', None)
+            
+            if search is not None:
+                queryset = queryset.filter(
+                    Q(first_name__icontains=search) |
+                    Q(last_name__icontains=search) |
+                    Q(student_id__icontains=search) |
+                    Q(email__icontains=search)
+                )
+            
+            if is_active is not None:
+                is_active = is_active.lower() == 'true'
+                queryset = queryset.filter(is_active=is_active)
+                
+            return queryset.order_by('-created_at')
+        except Exception as e:
+            logger.error(f'Error in get_queryset: {str(e)}')
+            return Student.objects.none()
+    
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except ValidationError as e:
+            logger.warning(f'Validation error creating student: {str(e)}')
+            return Response(
+                {'error': 'Validation failed', 'details': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
             )
-        return queryset.order_by('-created_at')
+        except Exception as e:
+            logger.error(f'Unexpected error creating student: {str(e)}')
+            return Response(
+                {'error': 'An unexpected error occurred'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Retrieve, update or delete a student"""
-    queryset = Student.objects.all()
+    queryset = Student.objects.select_related('user').all()
     serializer_class = StudentSerializer
     permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'student_id'
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
             return StudentCreateSerializer
         return StudentSerializer
+    
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            return super().retrieve(request, *args, **kwargs)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f'Error retrieving student: {str(e)}')
+            return Response(
+                {'error': 'An unexpected error occurred'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except ValidationError as e:
+            logger.warning(f'Validation error updating student: {str(e)}')
+            return Response(
+                {'error': 'Validation failed', 'details': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            logger.error(f'Error updating student: {str(e)}')
+            return Response(
+                {'error': 'An unexpected error occurred'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            # Soft delete instead of hard delete
+            instance.is_active = False
+            instance.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Student.DoesNotExist:
+            return Response(
+                {'error': 'Student not found'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            logger.error(f'Error deleting student: {str(e)}')
+            return Response(
+                {'error': 'An unexpected error occurred'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def bulk_create_students(request):
-    """Bulk create students (simplified version without Excel import)"""
+    """Bulk create students with transaction support"""
+    if not isinstance(request.data.get('students'), list):
+        return Response(
+            {'error': 'Invalid data format. Expected {"students": [...]}'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    students_data = request.data.get('students', [])
+    if not students_data:
+        return Response(
+            {'error': 'No students data provided'}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    created_students = []
+    errors = []
+    
     try:
-        students_data = request.data.get('students', [])
-        created_students = []
-        errors = []
-        
-        for student_data in students_data:
-            serializer = StudentCreateSerializer(data=student_data)
-            if serializer.is_valid():
-                student = serializer.save()
-                created_students.append(StudentSerializer(student).data)
-            else:
-                errors.append(serializer.errors)
+        with transaction.atomic():
+            for i, student_data in enumerate(students_data):
+                try:
+                    serializer = StudentCreateSerializer(data=student_data)
+                    if serializer.is_valid():
+                        student = serializer.save()
+                        created_students.append(StudentSerializer(student).data)
+                        logger.info(f'Successfully created student: {student.student_id}')
+                    else:
+                        errors.append({
+                            'index': i,
+                            'data': student_data,
+                            'errors': serializer.errors
+                        })
+                        logger.warning(f'Validation failed for student at index {i}: {serializer.errors}')
+                except Exception as e:
+                    errors.append({
+                        'index': i,
+                        'data': student_data,
+                        'error': str(e)
+                    })
+                    logger.error(f'Error creating student at index {i}: {str(e)}')
         
         return Response({
-            'success': True,
+            'success': len(created_students) > 0,
             'created_count': len(created_students),
+            'error_count': len(errors),
             'created_students': created_students,
             'errors': errors
         })
     except Exception as e:
+        logger.error(f'Bulk create transaction failed: {str(e)}')
         return Response({
             'success': False,
-            'error': str(e)
+            'error': 'Transaction failed: ' + str(e)
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

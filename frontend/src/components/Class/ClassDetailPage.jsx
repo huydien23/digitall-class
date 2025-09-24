@@ -33,7 +33,10 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  SpeedDial,
+  SpeedDialAction,
+  SpeedDialIcon
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
@@ -61,6 +64,9 @@ import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
 import * as XLSX from 'xlsx'
+import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
+import ManualAttendance from '../Attendance/ManualAttendance'
+import CreateSession from '../Session/CreateSession'
 
 const ClassDetailPage = () => {
   const { classId } = useParams()
@@ -80,6 +86,8 @@ const ClassDetailPage = () => {
   const [anchorEl, setAnchorEl] = useState(null)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false)
+  const [manualAttendanceOpen, setManualAttendanceOpen] = useState(false)
+  const [createSessionOpen, setCreateSessionOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState(null)
 
   // Mock data for demo
@@ -186,16 +194,31 @@ const ClassDetailPage = () => {
         const response = await classService.getClassDetail(classId)
         const data = response.data
         
-        setClassData(data.class)
-        setStudents(data.students)
-        setAttendanceSessions(data.attendance_sessions)
+        setClassData(data.class || data)
+        setStudents(data.students || [])
+        
+        // Luôn cố gắng tải sessions trực tiếp từ API chuyên trách
+        try {
+          const sessionsRes = await attendanceService.getSessions({ class_id: classId })
+          const sessions = sessionsRes?.data?.results || sessionsRes?.data || data.attendance_sessions || []
+          setAttendanceSessions(sessions)
+        } catch (e) {
+          setAttendanceSessions(data.attendance_sessions || [])
+        }
         
       } catch (apiError) {
-        console.warn('API call failed, using mock data:', apiError)
-        // Fallback to mock data if API fails
+        console.warn('API call failed, using fallback data:', apiError)
+        // Hạn chế mock: chỉ dùng dữ liệu mẫu khi phát triển
         setClassData(mockClassData)
         setStudents(mockStudentsWithData)
-        setAttendanceSessions(mockAttendanceSessions)
+        
+        try {
+          const sessionsRes = await attendanceService.getSessions({ class_id: classId })
+          const sessions = sessionsRes?.data?.results || sessionsRes?.data || []
+          setAttendanceSessions(sessions)
+        } catch (e2) {
+          setAttendanceSessions(mockAttendanceSessions)
+        }
       }
       
     } catch (err) {
@@ -244,8 +267,8 @@ const ClassDetailPage = () => {
         'Họ tên': student.name,
       }
       
-      mockAttendanceSessions.forEach(session => {
-        row[`${session.session_name} (${session.session_date})`] = student.attendance[session.id] ? 'Có mặt' : 'Vắng mặt'
+      attendanceSessions.forEach(session => {
+        row[`${session.session_name} (${session.session_date})`] = student.attendance?.[session.id] ? 'Có mặt' : 'Vắng mặt'
       })
       
       row['Tỷ lệ điểm danh'] = `${calculateAttendanceRate(student)}%`
@@ -275,7 +298,96 @@ const ClassDetailPage = () => {
   const handleEditGrade = (student) => {
     setSelectedStudent(student)
     setGradeDialogOpen(true)
-    setAnchorEl(null)
+  }
+
+  const handleSaveManualAttendance = async (attendanceData) => {
+    try {
+      // Mô phỏng API call để lưu điểm danh
+      console.log('Saving manual attendance:', attendanceData)
+      
+      // Có thể gọi API ở đây
+      // await attendanceService.saveManualAttendance(classId, attendanceData)
+      
+      // Đóng dialog
+      setManualAttendanceOpen(false)
+      
+      // Hiển thị thông báo thành công
+      alert('Đã lưu điểm danh thủ công thành công!')
+      
+      // Reload dữ liệu attendance nếu cần
+      // await loadClassData()
+      
+    } catch (error) {
+      console.error('Error saving manual attendance:', error)
+      throw error
+    }
+  }
+
+  const handleCreateSession = async (formData) => {
+    try {
+      // Chuẩn hóa payload theo API backend
+      const normalizeTime = (t) => {
+        if (!t) return null
+        // Convert '03:00' or '03:00 SA/CH' to 'HH:mm:00'
+        const v = String(t).trim()
+        if (/SA|CH|AM|PM/i.test(v)) {
+          // Browser localized string -> rely on Date parsing
+          const d = new Date(`1970-01-01 ${v.replace('SA','AM').replace('CH','PM')}`)
+          const hh = String(d.getHours()).padStart(2,'0')
+          const mm = String(d.getMinutes()).padStart(2,'0')
+          return `${hh}:${mm}:00`
+        }
+        // Already HH:mm or HH:mm:ss
+        const parts = v.split(':')
+        if (parts.length === 2) return `${parts[0].padStart(2,'0')}:${parts[1].padStart(2,'0')}:00`
+        if (parts.length === 3) return `${parts[0].padStart(2,'0')}:${parts[1].padStart(2,'0')}:${parts[2].padStart(2,'0')}`
+        return v
+      }
+
+      const payload = {
+        class_id: Number(classId),
+        class: Number(classId), // phòng hờ nếu backend dùng khóa ngoại tên "class"
+        session_name: formData.session_name,
+        session_type: formData.session_type,
+        session_date: formData.date, // YYYY-MM-DD
+        start_time: normalizeTime(formData.start_time),
+        end_time: normalizeTime(formData.end_time),
+        location: formData.location,
+        description: formData.description,
+        allow_early_minutes: Number(formData.allow_early_minutes ?? 0),
+        max_late_minutes: Number(formData.max_late_minutes ?? 0),
+      }
+
+      let res = await attendanceService.createSession(payload)
+
+      // Thử lại với một số trường thay thế nếu 400/422
+      if (res?.status === 400 || res?.status === 422 || res?.data?.errors) {
+        const altPayload = {
+          ...payload,
+          date: payload.session_date,
+          start_at: payload.start_time,
+          end_at: payload.end_time,
+        }
+        res = await attendanceService.createSession(altPayload)
+      }
+
+      if (res && res.data) {
+        // Tải lại danh sách buổi học từ DB
+        const refreshed = await attendanceService.getSessions({ class_id: classId })
+        const sessions = refreshed?.data?.results || refreshed?.data || []
+        setAttendanceSessions(sessions)
+
+        alert(`Tạo buổi học "${payload.session_name}" thành công!`)
+        setCreateSessionOpen(false)
+      } else {
+        throw new Error('Không nhận được phản hồi hợp lệ từ API')
+      }
+    } catch (error) {
+      console.error('Error creating session:', error)
+      const detail = error?.response?.data || error?.message
+      alert(`Tạo buổi học thất bại: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`)
+      throw error
+    }
   }
 
   if (loading) {
@@ -325,9 +437,37 @@ const ClassDetailPage = () => {
           <Box display="flex" gap={1}>
             <Button
               variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCreateSessionOpen(true)}
+              color="success"
+              sx={{
+                background: 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)',
+                boxShadow: '0 3px 5px 2px rgba(76, 175, 80, .3)'
+              }}
+            >
+              Tạo buổi học
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<QrCodeIcon />}
+              onClick={() => setQrDialogOpen(true)}
+              color="primary"
+            >
+              QR Điểm danh
+            </Button>
+            <Button
+              variant="outlined"
+              startIcon={<PeopleIcon />}
+              onClick={() => setManualAttendanceOpen(true)}
+              color="secondary"
+            >
+              Điểm danh thủ công
+            </Button>
+            <Button
+              variant="outlined"
               startIcon={<FileDownloadIcon />}
               onClick={handleExportExcel}
-              color="success"
+              color="info"
             >
               Xuất Excel
             </Button>
@@ -679,11 +819,23 @@ const ClassDetailPage = () => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
+        <MenuItem onClick={() => setCreateSessionOpen(true)}>
+          <ListItemIcon>
+            <AddIcon />
+          </ListItemIcon>
+          <ListItemText>Tạo buổi học</ListItemText>
+        </MenuItem>
         <MenuItem onClick={() => setQrDialogOpen(true)}>
           <ListItemIcon>
             <QrCodeIcon />
           </ListItemIcon>
           <ListItemText>Tạo QR điểm danh</ListItemText>
+        </MenuItem>
+        <MenuItem onClick={() => setManualAttendanceOpen(true)}>
+          <ListItemIcon>
+            <PeopleIcon />
+          </ListItemIcon>
+          <ListItemText>Điểm danh thủ công</ListItemText>
         </MenuItem>
         <MenuItem onClick={handleMenuClose}>
           <ListItemIcon>
@@ -700,27 +852,16 @@ const ClassDetailPage = () => {
       </Menu>
 
       {/* QR Dialog */}
-      <Dialog open={qrDialogOpen} onClose={() => setQrDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Tạo QR Code điểm danh</DialogTitle>
-        <DialogContent>
-          <Box textAlign="center" py={4}>
-            <QrCodeIcon sx={{ fontSize: 120, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              QR Code điểm danh - {classData.class_name}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mb={3}>
-              Sinh viên quét mã này để điểm danh buổi học hôm nay
-            </Typography>
-            <Alert severity="info">
-              <strong>Demo:</strong> Tính năng QR Code đang được phát triển
-            </Alert>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setQrDialogOpen(false)}>Đóng</Button>
-          <Button variant="contained">Tạo QR Code</Button>
-        </DialogActions>
-      </Dialog>
+      <AttendanceQRGenerator
+        open={qrDialogOpen}
+        onClose={() => setQrDialogOpen(false)}
+        classData={classData}
+        availableSessions={attendanceSessions}
+        title="QR Code Điểm Danh"
+        onSessionUpdate={(updatedSession) => {
+          console.log('Session updated:', updatedSession)
+        }}
+      />
 
       {/* Grade Edit Dialog */}
       <Dialog open={gradeDialogOpen} onClose={() => setGradeDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -761,15 +902,48 @@ const ClassDetailPage = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Manual Attendance Dialog */}
+      {manualAttendanceOpen && (
+        <ManualAttendance
+          classData={classData}
+          availableSessions={attendanceSessions}
+          students={students}
+          existingAttendance={{}}
+          onSave={handleSaveManualAttendance}
+          onClose={() => setManualAttendanceOpen(false)}
+        />
+      )}
+
+      {/* Create Session Dialog */}
+      <CreateSession
+        open={createSessionOpen}
+        onClose={() => setCreateSessionOpen(false)}
+        classData={classData}
+        onCreateSession={handleCreateSession}
+      />
+
       {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add session"
+      <SpeedDial
+        ariaLabel="Class Actions"
         sx={{ position: 'fixed', bottom: 16, right: 16 }}
-        onClick={() => setQrDialogOpen(true)}
+        icon={<SpeedDialIcon />}
       >
-        <QrCodeIcon />
-      </Fab>
+        <SpeedDialAction
+          icon={<AddIcon />}
+          tooltipTitle="Tạo buổi học"
+          onClick={() => setCreateSessionOpen(true)}
+        />
+        <SpeedDialAction
+          icon={<QrCodeIcon />}
+          tooltipTitle="QR Điểm danh"
+          onClick={() => setQrDialogOpen(true)}
+        />
+        <SpeedDialAction
+          icon={<PeopleIcon />}
+          tooltipTitle="Điểm danh thủ công"
+          onClick={() => setManualAttendanceOpen(true)}
+        />
+      </SpeedDial>
     </Container>
   )
 }

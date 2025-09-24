@@ -62,6 +62,7 @@ import {
   BarChart as BarChartIcon
 } from '@mui/icons-material'
 import { useAdminMockData } from '../../components/Dashboard/AdminMockDataProvider'
+import TeacherApprovalManagement from '../../components/Admin/TeacherApprovalManagement'
 
 const ProductionAdminDashboard = () => {
   const { mockData, isLoading, refreshData } = useAdminMockData()
@@ -206,6 +207,10 @@ const ProductionAdminDashboard = () => {
               fullWidth
               variant="contained"
               startIcon={<PersonAddIcon />}
+              onClick={() => {
+                const el = document.getElementById('teacher-approvals')
+                if (el) el.scrollIntoView({ behavior: 'smooth' })
+              }}
               sx={{ mb: 1 }}
             >
               Duyệt tài khoản
@@ -432,6 +437,11 @@ const ProductionAdminDashboard = () => {
             {/* Schedule Management */}
             <Grid item xs={12}>
               <ScheduleManagementCard />
+            </Grid>
+
+            {/* Teacher Approval Management */}
+            <Grid item xs={12}>
+              <TeacherApprovalManagement />
             </Grid>
           </Grid>
         </Grid>

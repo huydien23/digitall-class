@@ -19,6 +19,14 @@ import {
   Grid,
   Card,
   CardContent,
+  TextField,
+  InputAdornment,
+  IconButton,
+  TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import { 
   Check, 
@@ -37,6 +45,12 @@ const TeacherApprovalManagement = () => {
   const [selectedTeacher, setSelectedTeacher] = useState(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [search, setSearch] = useState('')
+  const [departmentFilter, setDepartmentFilter] = useState('')
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(5)
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
   const { showSuccess, showError } = useNotification()
 
   useEffect(() => {
@@ -58,28 +72,38 @@ const TeacherApprovalManagement = () => {
   const approveTeacher = async (teacherId) => {
     setActionLoading(true)
     try {
-      await apiService.post(`/teachers/${teacherId}/approve`)
+      const res = await apiService.post(`/teachers/${teacherId}/approve`)
+      if (!res.success) throw new Error(res.error?.message || 'Approve failed')
       showSuccess('Đã phê duyệt tài khoản giáo viên thành công')
       await fetchPendingTeachers()
       setSelectedTeacher(null)
     } catch (error) {
       console.error('Error approving teacher:', error)
-      showError('Không thể phê duyệt tài khoản')
+      showError(error?.message || 'Không thể phê duyệt tài khoản')
     } finally {
       setActionLoading(false)
     }
   }
 
-  const rejectTeacher = async (teacherId) => {
+  const openRejectDialog = (teacher) => {
+    setSelectedTeacher(teacher)
+    setRejectReason('')
+    setRejectOpen(true)
+  }
+
+  const confirmRejectTeacher = async () => {
+    if (!selectedTeacher) return
     setActionLoading(true)
     try {
-      await apiService.post(`/teachers/${teacherId}/reject`)
+      const res = await apiService.post(`/teachers/${selectedTeacher.id}/reject`, { reason: rejectReason })
+      if (!res.success) throw new Error(res.error?.message || 'Reject failed')
       showSuccess('Đã từ chối tài khoản giáo viên')
       await fetchPendingTeachers()
       setSelectedTeacher(null)
+      setRejectOpen(false)
     } catch (error) {
       console.error('Error rejecting teacher:', error)
-      showError('Không thể từ chối tài khoản')
+      showError(error?.message || 'Không thể từ chối tài khoản')
     } finally {
       setActionLoading(false)
     }
@@ -99,55 +123,113 @@ const TeacherApprovalManagement = () => {
 
   if (loading) return <Typography>Đang tải...</Typography>
 
+  // client-side filter
+  const filtered = pendingTeachers.filter(t => {
+    const q = search.trim().toLowerCase()
+    const matchesSearch = !q || (t.full_name?.toLowerCase().includes(q) || t.email?.toLowerCase().includes(q))
+    const matchesDept = !departmentFilter || t.department === departmentFilter
+    return matchesSearch && matchesDept
+  })
+  const start = page * rowsPerPage
+  const pageRows = filtered.slice(start, start + rowsPerPage)
+  const departments = Array.from(new Set(pendingTeachers.map(t => t.department).filter(Boolean)))
+
   return (
-    <Box>
+    <Box id="teacher-approvals">
       <Typography variant="h5" gutterBottom>
         Quản lý phê duyệt tài khoản giáo viên
       </Typography>
 
-      {pendingTeachers.length === 0 ? (
+      <Box display="flex" gap={2} alignItems="center" mb={2}>
+        <TextField 
+          size="small" 
+          placeholder="Tìm theo tên hoặc email"
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(0) }}
+        />
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Khoa</InputLabel>
+          <Select 
+            label="Khoa" 
+            value={departmentFilter}
+            onChange={(e) => { setDepartmentFilter(e.target.value); setPage(0) }}
+          >
+            <MenuItem value="">Tất cả</MenuItem>
+            {departments.map((d) => (<MenuItem key={d} value={d}>{d}</MenuItem>))}
+          </Select>
+        </FormControl>
+      </Box>
+
+      {filtered.length === 0 ? (
         <Alert severity="info">
           Không có tài khoản giáo viên nào cần phê duyệt
         </Alert>
       ) : (
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Họ tên</TableCell>
-                <TableCell>Email</TableCell>
-                <TableCell>Khoa</TableCell>
-                <TableCell>Ngày đăng ký</TableCell>
-                <TableCell>Trạng thái</TableCell>
-                <TableCell>Thao tác</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {pendingTeachers.map((teacher) => (
-                <TableRow key={teacher.id}>
-                  <TableCell>{teacher.full_name}</TableCell>
-                  <TableCell>{teacher.email}</TableCell>
-                  <TableCell>{teacher.department}</TableCell>
-                  <TableCell>
-                    {new Date(teacher.created_at).toLocaleDateString('vi-VN')}
-                  </TableCell>
-                  <TableCell>
-                    {getStatusChip(teacher.account_status)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="small"
-                      startIcon={<Visibility />}
-                      onClick={() => setSelectedTeacher(teacher)}
-                    >
-                      Xem chi tiết
-                    </Button>
-                  </TableCell>
+        <>
+          <TableContainer component={Paper}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Họ tên</TableCell>
+                  <TableCell>Email</TableCell>
+                  <TableCell>Khoa</TableCell>
+                  <TableCell>Ngày đăng ký</TableCell>
+                  <TableCell>Trạng thái</TableCell>
+                  <TableCell>Thao tác</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+              </TableHead>
+              <TableBody>
+                {pageRows.map((teacher) => (
+                  <TableRow key={teacher.id}>
+                    <TableCell>{teacher.full_name}</TableCell>
+                    <TableCell>{teacher.email}</TableCell>
+                    <TableCell>{teacher.department}</TableCell>
+                    <TableCell>
+                      {new Date(teacher.created_at).toLocaleDateString('vi-VN')}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusChip(teacher.account_status)}
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        startIcon={<Visibility />}
+                        onClick={() => setSelectedTeacher(teacher)}
+                      >
+                        Xem chi tiết
+                      </Button>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => openRejectDialog(teacher)}
+                        sx={{ ml: 1 }}
+                      >
+                        Từ chối
+                      </Button>
+                      <Button
+                        size="small"
+                        color="success"
+                        onClick={() => approveTeacher(teacher.id)}
+                        sx={{ ml: 1 }}
+                      >
+                        Duyệt
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+          <TablePagination
+            component="div"
+            count={filtered.length}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }}
+            rowsPerPageOptions={[5, 10, 25]}
+          />
+        </>
       )}
 
       {/* Teacher Detail Dialog */}
@@ -207,7 +289,7 @@ const TeacherApprovalManagement = () => {
             Đóng
           </Button>
           <Button
-            onClick={() => rejectTeacher(selectedTeacher.id)}
+            onClick={() => openRejectDialog(selectedTeacher)}
             startIcon={<Close />}
             color="error"
             disabled={actionLoading}
@@ -222,6 +304,28 @@ const TeacherApprovalManagement = () => {
             disabled={actionLoading}
           >
             Phê duyệt
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reject Reason Dialog */}
+      <Dialog open={rejectOpen} onClose={() => setRejectOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Lý do từ chối tài khoản</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            placeholder="Nhập lý do từ chối (tùy chọn)"
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectOpen(false)}>Hủy</Button>
+          <Button color="error" variant="contained" onClick={confirmRejectTeacher} disabled={actionLoading}>
+            Xác nhận từ chối
           </Button>
         </DialogActions>
       </Dialog>

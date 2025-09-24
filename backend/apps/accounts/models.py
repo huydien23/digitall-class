@@ -106,6 +106,13 @@ class User(AbstractUser):
         null=True,
         verbose_name='Khoa/Phòng ban'
     )
+
+    # Admin notes / status note
+    status_note = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name='Ghi chú trạng thái'
+    )
     
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Ngày tạo')
