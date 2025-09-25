@@ -2,7 +2,7 @@ import React from 'react'
 import { useSelector } from 'react-redux'
 import { Box, CircularProgress, Typography } from '@mui/material'
 import ProductionAdminDashboard from './ProductionAdminDashboard'
-import ProductionTeacherDashboard from './ProductionTeacherDashboard'
+import ProperTeacherDashboard from './ProperTeacherDashboard'
 import ProductionStudentDashboard from './ProductionStudentDashboard'
 import { AdminMockDataProvider } from '../../components/Dashboard/AdminMockDataProvider'
 
@@ -43,7 +43,7 @@ const Dashboard = () => {
         </AdminMockDataProvider>
       )
     case 'teacher':
-      return <ProductionTeacherDashboard />
+      return <ProperTeacherDashboard />
     case 'student':
     default:
       return <ProductionStudentDashboard />

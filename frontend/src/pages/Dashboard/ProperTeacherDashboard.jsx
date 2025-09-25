@@ -74,9 +74,8 @@ const ProperTeacherDashboard = () => {
 
       // Load teacher's assigned classes
       const classesResponse = await classService.getClasses()
-      const teacherClasses = classesResponse.data?.results?.filter(
-        classItem => classItem.teacher === user.id
-      ) || []
+      // Backend đã lọc theo giảng viên cho vai trò 'teacher'
+      const teacherClasses = classesResponse.data?.results || classesResponse.data || []
 
       // Load today's attendance sessions for teacher's classes
       const todaySessions = []
@@ -108,7 +107,7 @@ const ProperTeacherDashboard = () => {
 
       // Calculate statistics
       const totalStudents = teacherClasses.reduce((sum, classItem) => 
-        sum + (classItem.students?.length || 0), 0
+        sum + (classItem.current_students_count || 0), 0
       )
 
       const attendanceRate = todaySessions.length > 0 
@@ -239,7 +238,7 @@ const ProperTeacherDashboard = () => {
   return (
     <>
       <Helmet>
-        <title>Teacher Dashboard - Student Management System</title>
+        <title>Dashboard Giảng viên - Hệ thống Quản lý Sinh viên</title>
       </Helmet>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -252,15 +251,15 @@ const ProperTeacherDashboard = () => {
               </Avatar>
               <Box>
                 <Typography variant="h4" fontWeight={700} gutterBottom>
-                  Teacher Dashboard
+                  Dashboard Giảng viên
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Welcome, {user.first_name} {user.last_name}
+                  Chào mừng, {user.first_name} {user.last_name}
                 </Typography>
               </Box>
             </Box>
             <Box display="flex" gap={1}>
-              <Tooltip title="Refresh Data">
+              <Tooltip title="Làm mới dữ liệu">
                 <IconButton onClick={handleRefresh} color="primary">
                   <RefreshIcon />
                 </IconButton>
@@ -279,38 +278,38 @@ const ProperTeacherDashboard = () => {
         <Grid container spacing={3} mb={4}>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="My Classes"
+              title="Lớp của tôi"
               value={teacherData.statistics.totalClasses}
               icon={<SchoolIcon />}
               color="primary"
-              subtitle="Assigned classes"
+              subtitle="Lớp được phân công"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Students"
+              title="Sinh viên"
               value={teacherData.statistics.activeStudents}
               icon={<PeopleIcon />}
               color="success"
-              subtitle="Total students"
+              subtitle="Tổng sinh viên"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Attendance Rate"
+              title="Tỷ lệ điểm danh"
               value={`${teacherData.statistics.attendanceRate}%`}
               icon={<ScheduleIcon />}
               color="info"
-              subtitle="Today's average"
+              subtitle="Trung bình hôm nay"
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Average Grade"
+              title="Điểm trung bình"
               value={teacherData.statistics.averageGrade}
               icon={<AssignmentIcon />}
               color="warning"
-              subtitle="Recent grades"
+              subtitle="Điểm gần đây"
             />
           </Grid>
         </Grid>
@@ -321,14 +320,14 @@ const ProperTeacherDashboard = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Today's Attendance Sessions
+                  Buổi điểm danh hôm nay
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 {teacherData.todaySessions.length === 0 ? (
                   <Box textAlign="center" py={4}>
                     <ScheduleIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="body1" color="text.secondary">
-                      No sessions scheduled for today
+                      Hôm nay chưa có buổi điểm danh
                     </Typography>
                   </Box>
                 ) : (
@@ -352,7 +351,7 @@ const ProperTeacherDashboard = () => {
                                 startIcon={<PlayArrowIcon />}
                                 onClick={() => handleStartSession(session.id)}
                               >
-                                Start
+                                Bắt đầu
                               </Button>
                             ) : (
                               <Button
@@ -361,7 +360,7 @@ const ProperTeacherDashboard = () => {
                                 onClick={() => handleStopSession(session.id)}
                                 color="error"
                               >
-                                Stop
+                                Kết thúc
                               </Button>
                             )}
                             <Button
@@ -369,13 +368,13 @@ const ProperTeacherDashboard = () => {
                               startIcon={<QrCodeIcon />}
                               onClick={() => handleGenerateQR(session.id)}
                             >
-                              QR Code
+                              QR điểm danh
                             </Button>
                             <Button
                               size="small"
                               startIcon={<VisibilityIcon />}
                             >
-                              View
+                              Xem
                             </Button>
                           </Box>
                         </ListItemSecondaryAction>
@@ -391,14 +390,14 @@ const ProperTeacherDashboard = () => {
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  My Classes
+                  Lớp của tôi
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 {teacherData.assignedClasses.length === 0 ? (
                   <Box textAlign="center" py={4}>
                     <SchoolIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="body1" color="text.secondary">
-                      No classes assigned
+                      Chưa được phân công lớp nào
                     </Typography>
                   </Box>
                 ) : (
@@ -407,7 +406,7 @@ const ProperTeacherDashboard = () => {
                       <ListItem key={classItem.id} divider>
                         <ListItemText
                           primary={classItem.class_name}
-                          secondary={`${classItem.students?.length || 0} students`}
+                          secondary={`${classItem.current_students_count || 0} sinh viên`}
                         />
                         <ListItemSecondaryAction>
                           <Button size="small" startIcon={<EditIcon />}>
@@ -427,7 +426,7 @@ const ProperTeacherDashboard = () => {
         <Card>
           <CardContent>
             <Typography variant="h6" fontWeight={600} gutterBottom>
-              Quick Actions
+              Thao tác nhanh
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -439,7 +438,7 @@ const ProperTeacherDashboard = () => {
                   onClick={() => setSessionManagementOpen(true)}
                   sx={{ py: 1.5 }}
                 >
-                  Create Session
+                  Tạo buổi học
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -449,7 +448,7 @@ const ProperTeacherDashboard = () => {
                   startIcon={<QrCodeIcon />}
                   sx={{ py: 1.5 }}
                 >
-                  Generate QR
+                  Tạo QR
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -459,7 +458,7 @@ const ProperTeacherDashboard = () => {
                   startIcon={<AssignmentIcon />}
                   sx={{ py: 1.5 }}
                 >
-                  Record Grades
+                  Nhập điểm
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -469,7 +468,7 @@ const ProperTeacherDashboard = () => {
                   startIcon={<VisibilityIcon />}
                   sx={{ py: 1.5 }}
                 >
-                  View Reports
+                  Xem báo cáo
                 </Button>
               </Grid>
             </Grid>
@@ -480,10 +479,10 @@ const ProperTeacherDashboard = () => {
         <Card sx={{ mt: 3 }}>
           <CardContent>
             <Typography variant="h6" fontWeight={600} gutterBottom>
-              Import Excel Files
+              Import từ Excel
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Upload file Excel để import dữ liệu hàng loạt
+              Tải file Excel để nhập dữ liệu hàng loạt
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>

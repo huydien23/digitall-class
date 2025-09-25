@@ -64,6 +64,7 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import ClassJoinQRCode from './ClassJoinQRCode'
 import StudentImportDialog from './StudentImportDialog'
+import classService from '../../services/classService'
 
 const ImprovedClassManagement = () => {
   const navigate = useNavigate()
@@ -88,63 +89,35 @@ const ImprovedClassManagement = () => {
     room: ''
   })
 
-  // Sample data - Replace with actual API call
-  const sampleClasses = [
-    {
-      id: 1,
-      class_id: 'CS101',
-      class_name: 'Lập trình Web - DH22TIN01',
-      description: 'Học phần lập trình web với ReactJS và Django',
-      current_students: 45,
-      max_students: 50,
-      schedule: 'Thứ 2: 07:00-11:00',
-      room: 'Phòng 14-02',
-      is_active: true,
-      attendance_rate: 85,
-      created_at: '2024-09-01',
-      teacher_name: 'TS. Nguyễn Văn A'
-    },
-    {
-      id: 2,
-      class_id: 'CS102',
-      class_name: 'Cấu trúc dữ liệu - DH22TIN02',
-      description: 'Học phần cấu trúc dữ liệu và giải thuật',
-      current_students: 38,
-      max_students: 45,
-      schedule: 'Thứ 3: 13:00-17:00',
-      room: 'Phòng 12-01',
-      is_active: true,
-      attendance_rate: 90,
-      created_at: '2024-09-01',
-      teacher_name: 'PGS. Trần Thị B'
-    },
-    {
-      id: 3,
-      class_id: 'CS103',
-      class_name: 'Cơ sở dữ liệu - DH22TIN03',
-      description: 'Học phần cơ sở dữ liệu với MySQL và MongoDB',
-      current_students: 42,
-      max_students: 50,
-      schedule: 'Thứ 4: 07:00-11:00',
-      room: 'Phòng 15-03',
-      is_active: true,
-      attendance_rate: 88,
-      created_at: '2024-09-01',
-      teacher_name: 'ThS. Lê Văn C'
-    }
-  ]
-
   useEffect(() => {
     fetchClasses()
   }, [])
 
   const fetchClasses = async () => {
-    setLoading(true)
-    // Simulate API call
-    setTimeout(() => {
-      setClasses(sampleClasses)
+    try {
+      setLoading(true)
+      const res = await classService.getClasses()
+      const apiData = res.data?.results || res.data || []
+      const mapped = apiData.map(c => ({
+        id: c.id,
+        class_id: c.class_id,
+        class_name: c.class_name,
+        description: c.description || '',
+        current_students: c.current_students_count ?? 0,
+        max_students: c.max_students ?? 0,
+        schedule: c.schedule || '-',
+        room: c.room || '-',
+        is_active: !!c.is_active,
+        attendance_rate: 0,
+        created_at: c.created_at
+      }))
+      setClasses(mapped)
+    } catch (e) {
+      console.error('Failed to load classes', e)
+      setClasses([])
+    } finally {
       setLoading(false)
-    }, 1000)
+    }
   }
 
   const handleCreateClass = async () => {
@@ -158,51 +131,43 @@ const ImprovedClassManagement = () => {
       return
     }
 
-    // Simulate API call to create class
-    setLoading(true)
-    setTimeout(() => {
-      const createdClass = {
-        ...newClass,
-        id: classes.length + 1,
-        current_students: 0,
-        is_active: true,
-        attendance_rate: 0,
-        teacher_name: 'Bạn',
-        created_at: new Date().toISOString().split('T')[0]
+    try {
+      setLoading(true)
+      const payload = {
+        class_id: newClass.class_id,
+        class_name: newClass.class_name,
+        description: newClass.description,
+        max_students: Number(newClass.max_students) || 50
       }
-      
-      setClasses([createdClass, ...classes])
+      await classService.createClass(payload)
       setCreateDialogOpen(false)
-      setNewClass({
-        class_id: '',
-        class_name: '',
-        description: '',
-        max_students: 50,
-        schedule: '',
-        room: ''
-      })
-      
-      setSnackbar({
-        open: true,
-        message: 'Tạo lớp học thành công!',
-        severity: 'success'
-      })
+      setNewClass({ class_id: '', class_name: '', description: '', max_students: 50, schedule: '', room: '' })
+      setSnackbar({ open: true, message: 'Tạo lớp học thành công!', severity: 'success' })
+      await fetchClasses()
+    } catch (e) {
+      console.error('Create class failed', e)
+      setSnackbar({ open: true, message: 'Tạo lớp học thất bại', severity: 'error' })
+    } finally {
       setLoading(false)
-    }, 1500)
+    }
   }
 
   const handleEditClass = (classId) => {
     navigate(`/classes/${classId}/edit`)
   }
 
-  const handleDeleteClass = (classId) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa lớp học này?')) {
-      setClasses(classes.filter(c => c.id !== classId))
-      setSnackbar({
-        open: true,
-        message: 'Đã xóa lớp học',
-        severity: 'info'
-      })
+  const handleDeleteClass = async (classId) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa lớp học này?')) return
+    try {
+      setLoading(true)
+      await classService.deleteClass(classId)
+      setSnackbar({ open: true, message: 'Đã xóa lớp học', severity: 'info' })
+      await fetchClasses()
+    } catch (e) {
+      console.error('Delete class failed', e)
+      setSnackbar({ open: true, message: 'Xóa lớp học thất bại', severity: 'error' })
+    } finally {
+      setLoading(false)
     }
   }
 

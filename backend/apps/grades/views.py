@@ -1,6 +1,7 @@
 from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from django.db.models import Q, Avg, Count
 from django.http import HttpResponse, JsonResponse
 from .models import Grade
@@ -23,11 +24,29 @@ class GradeListCreateView(generics.ListCreateAPIView):
         class_id = self.request.query_params.get('class_id', None)
         
         if student_id is not None:
-            queryset = queryset.filter(student_id=student_id)
+            queryset = queryset.filter(student__student_id=student_id)
         if class_id is not None:
-            queryset = queryset.filter(class_instance_id=class_id)
+            queryset = queryset.filter(class_obj_id=class_id)
             
         return queryset.order_by('-created_at')
+
+    def perform_create(self, serializer):
+        user = self.request.user
+        class_id = self.request.data.get('class_id')
+        grade_type = self.request.data.get('grade_type')
+        from apps.classes.models import Class
+        try:
+            class_obj = Class.objects.get(id=class_id)
+        except Class.DoesNotExist:
+            raise PermissionDenied('Không tìm thấy lớp học')
+
+        if user.role != 'admin' and class_obj.teacher != user:
+            raise PermissionDenied('Bạn không có quyền nhập điểm cho lớp này')
+
+        if user.role == 'teacher' and grade_type not in ['regular', 'midterm']:
+            raise PermissionDenied('Giảng viên chỉ được nhập điểm Thường xuyên (10%) và Giữa kỳ (30%)')
+
+        serializer.save()
 
 
 class GradeDetailView(generics.RetrieveUpdateDestroyAPIView):

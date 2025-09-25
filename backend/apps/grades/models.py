@@ -28,6 +28,7 @@ class Subject(models.Model):
 class Grade(models.Model):
     """Grade model"""
     GRADE_TYPE_CHOICES = [
+        ('regular', 'Thường xuyên'),
         ('midterm', 'Giữa kỳ'),
         ('final', 'Cuối kỳ'),
         ('assignment', 'Bài tập'),

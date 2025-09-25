@@ -10,7 +10,7 @@ import io
 import base64
 from datetime import datetime, timedelta
 from .models import Attendance, AttendanceSession
-from .serializers import AttendanceSerializer, AttendanceSessionSerializer
+from .serializers import AttendanceSerializer, AttendanceSessionSerializer, AttendanceSessionCreateSerializer
 
 
 class AttendanceListCreateView(generics.ListCreateAPIView):
@@ -43,15 +43,18 @@ class AttendanceSessionListCreateView(generics.ListCreateAPIView):
     """List and create attendance sessions"""
     queryset = AttendanceSession.objects.all()
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = AttendanceSessionSerializer
-    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return AttendanceSessionCreateSerializer
+        return AttendanceSessionSerializer
+
     def get_queryset(self):
         queryset = AttendanceSession.objects.all()
         class_id = self.request.query_params.get('class_id', None)
         
         if class_id is not None:
-            queryset = queryset.filter(class_instance_id=class_id)
-            
+            queryset = queryset.filter(class_obj_id=class_id)
+        
         return queryset.order_by('-session_date', '-start_time')
 
 
