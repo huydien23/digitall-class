@@ -5,9 +5,9 @@
 
 import axios from 'axios'
 
-// API Configuration - Use localhost for development
-// Prefer env var VITE_API_BASE if set, else default to 127.0.0.1:8001
-const API_BASE_URL = (import.meta && import.meta.env && import.meta.env.VITE_API_BASE) || 'http://127.0.0.1:8001/api'
+// API Configuration
+// Prefer env var VITE_API_BASE; otherwise use relative '/api' to leverage Vite proxy in dev and same-origin in prod
+const API_BASE_URL = (import.meta?.env?.VITE_API_BASE) || '/api'
 const AUTH_ENDPOINTS = {
   LOGIN: '/auth/login/',
   REGISTER: '/auth/register/',

@@ -97,7 +97,7 @@ const Grades = () => {
                       {grade.student?.first_name} {grade.student?.last_name}
                     </TableCell>
                     <TableCell>{grade.class?.class_name}</TableCell>
-                    <TableCell>{grade.subject}</TableCell>
+                    <TableCell>{grade.subject?.subject_name ?? grade.subject}</TableCell>
                     <TableCell>
                       <Chip
                         label={grade.score}

@@ -63,13 +63,37 @@ const StudentGradesView = ({ user }) => {
         // Group by subject to fit the component structure
         const bySubject = {}
         list.forEach(g => {
-          const key = g.subject || g.class_name || g.class?.class_name || 'Môn học'
+          // Normalize fields from API so we always render strings, not objects
+          const subjectName =
+            g.subject?.subject_name ??
+            g.subject_name ??
+            (typeof g.subject === 'string' ? g.subject : undefined) ??
+            g.class_name ??
+            g.class?.class_name ??
+            'Môn học'
+
+          const subjectCode =
+            g.class_id ??
+            g.class?.class_id ??
+            g.subject?.subject_id ??
+            g.subject_id ??
+            ''
+
+          const teacherName =
+            g.teacher_name ??
+            g.teacher?.full_name ??
+            g.teacher?.name ??
+            g.class?.teacher_name ??
+            (typeof g.teacher === 'string' ? g.teacher : '')
+
+          const key = subjectName
+
           if (!bySubject[key]) {
             bySubject[key] = {
-              id: `${key}`,
-              subject: key,
-              subjectCode: g.class_id || g.class?.class_id || '',
-              teacher: g.teacher || (g.class?.teacher_name || ''),
+              id: String(subjectCode || subjectName),
+              subject: subjectName,
+              subjectCode: subjectCode,
+              teacher: teacherName,
               semester: g.semester || '',
               components: {
                 regular: { weight: 10, maxScore: 10, currentScore: 0, items: [] },

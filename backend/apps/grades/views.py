@@ -55,6 +55,144 @@ class GradeDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = GradeSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    def perform_update(self, serializer):
+        """Enforce permissions when updating a grade.
+        - Only admin or the class's teacher can update
+        - Teacher can only modify 'regular' (10%) and 'midterm' (30%)
+        """
+        instance = self.get_object()
+        user = self.request.user
+        class_obj = getattr(instance, 'class_obj', None)
+        if class_obj is None:
+            raise PermissionDenied('Thiếu thông tin lớp học của bản ghi điểm')
+
+        if user.role != 'admin' and class_obj.teacher != user:
+            raise PermissionDenied('Bạn không có quyền cập nhật điểm cho lớp này')
+
+        if user.role == 'teacher' and instance.grade_type not in ['regular', 'midterm']:
+            raise PermissionDenied('Giảng viên chỉ được cập nhật điểm Thường xuyên (10%) và Giữa kỳ (30%)')
+
+        serializer.save()
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def upsert_grade(request):
+    """Create or update a single grade item by (student_id, class_id, grade_type).
+
+    Body JSON:
+    - student_id: str (mã SV)
+    - class_id: int (ID lớp)
+    - grade_type: 'regular' | 'midterm' | 'final' | ...
+    - score: number (0..10)
+    - subject_id: optional int (nếu không truyền, sẽ suy luận từ lớp nếu có)
+    - component: optional
+
+    Permission:
+    - Admin: không hạn chế
+    - Teacher: phải là giáo viên của lớp, CHỈ được 'regular' và 'midterm'
+    """
+    try:
+        data = request.data
+        student_code = data.get('student_id')
+        class_id = data.get('class_id')
+        grade_type = data.get('grade_type')
+        score = data.get('score')
+        component = data.get('component')
+        subject_id = data.get('subject_id')
+
+        if not all([student_code, class_id, grade_type]):
+            return Response({'error': 'Thiếu student_id, class_id hoặc grade_type'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Coerce score
+        try:
+            score_val = float(score)
+        except (TypeError, ValueError):
+            return Response({'error': 'score phải là số'}, status=status.HTTP_400_BAD_REQUEST)
+        if score_val < 0 or score_val > 10:
+            return Response({'error': 'score phải trong khoảng 0..10'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Load models lazily to avoid circular import at module import time
+        from apps.classes.models import Class
+        from apps.students.models import Student
+        from .models import Subject
+
+        # Resolve entities
+        try:
+            class_obj = Class.objects.get(id=class_id)
+        except Class.DoesNotExist:
+            return Response({'error': 'Không tìm thấy lớp học'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Permission: owner or admin
+        user = request.user
+        if user.role != 'admin' and class_obj.teacher != user:
+            return Response({'error': 'Bạn không có quyền nhập điểm cho lớp này'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Teacher restrictions
+        if user.role == 'teacher' and grade_type not in ['regular', 'midterm']:
+            return Response({'error': 'Giảng viên chỉ được nhập điểm Thường xuyên (10%) và Giữa kỳ (30%)'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            student = Student.objects.get(student_id=student_code)
+        except Student.DoesNotExist:
+            return Response({'error': 'Không tìm thấy sinh viên với mã này'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Determine subject
+        subject = None
+        if subject_id:
+            try:
+                subject = Subject.objects.get(id=subject_id)
+            except Subject.DoesNotExist:
+                return Response({'error': 'Subject không tồn tại'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            # Try to infer from any existing grade in this class (any student)
+            existing_any = Grade.objects.filter(class_obj=class_obj).select_related('subject').first()
+            if existing_any and existing_any.subject:
+                subject = existing_any.subject
+            else:
+                # Heuristic: try to extract subject code from class name like "... - DH22TIN06"
+                try:
+                    from django.db.models import Q
+                    class_name = getattr(class_obj, 'class_name', '') or ''
+                    # Extract last token after '-' and trim
+                    candidate = class_name.split('-')[-1].strip() if '-' in class_name else ''
+                    if candidate:
+                        subject = Subject.objects.filter(Q(subject_id__iexact=candidate) | Q(subject_name__icontains=candidate)).first()
+                except Exception:
+                    subject = None
+                if not subject:
+                    return Response({'error': 'Không xác định được môn học cho lớp này. Hãy tạo ít nhất một bản ghi điểm có subject hoặc truyền subject_id.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Upsert grade
+        grade, created = Grade.objects.get_or_create(
+            student=student,
+            class_obj=class_obj,
+            subject=subject,
+            grade_type=grade_type,
+            defaults={
+                'score': score_val,
+                'max_score': 10.0,
+                'comment': data.get('comment', ''),
+                'created_by': user,
+                'component': component or None,
+            }
+        )
+        if not created:
+            # Update existing
+            grade.score = score_val
+            if component is not None:
+                grade.component = component or None
+            if 'comment' in data:
+                grade.comment = data.get('comment')
+            grade.save(update_fields=['score', 'component', 'comment', 'updated_at'])
+
+        return Response(GradeSerializer(grade).data, status=status.HTTP_200_OK if not created else status.HTTP_201_CREATED)
+
+    except PermissionDenied as pd:
+        return Response({'error': str(pd)}, status=status.HTTP_403_FORBIDDEN)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])

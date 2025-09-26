@@ -1,6 +1,12 @@
 from django.db import models
+from django.core.exceptions import ValidationError
+import os
 from apps.accounts.models import User
 from apps.classes.models import Class
+
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'zip'}
+MAX_FILE_SIZE_MB = 20
+MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
 
 class ClassMaterial(models.Model):
@@ -24,9 +30,24 @@ class ClassMaterial(models.Model):
     def __str__(self):
         return f"{self.class_obj.class_id} - {self.title}"
 
+    def clean(self):
+        # Ensure at least one of file or link is provided
+        if not self.file and not self.link:
+            raise ValidationError({'file': 'Cần chọn file hoặc nhập link.', 'link': 'Cần chọn file hoặc nhập link.'})
+        # Validate file extension and size if file is provided
+        if self.file:
+            ext = os.path.splitext(self.file.name)[1].lower().lstrip('.')
+            if ext not in ALLOWED_EXTENSIONS:
+                allowed = ', '.join(sorted(ALLOWED_EXTENSIONS))
+                raise ValidationError({'file': f'Định dạng không hợp lệ. Cho phép: {allowed}.'})
+            size = getattr(self.file, 'size', 0)
+            if size and size > MAX_FILE_SIZE:
+                raise ValidationError({'file': f'File quá lớn (>{MAX_FILE_SIZE_MB}MB). Vui lòng nén hoặc chia nhỏ.'})
+        return super().clean()
+
     @property
     def file_name(self):
         try:
-            return self.file.name.split('/')[-1] if self.file else ''
+            return os.path.basename(self.file.name) if self.file else ''
         except Exception:
             return ''

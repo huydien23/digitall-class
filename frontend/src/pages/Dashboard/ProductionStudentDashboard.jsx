@@ -735,10 +735,15 @@ const ProductionStudentDashboard = () => {
                       <TableCell>
                         <Box>
                           <Typography variant="body2" fontWeight={600}>
-                            {record.session?.subject || 'Unknown Subject'}
+                            {typeof record.session?.subject === 'string' 
+                              ? record.session.subject 
+                              : record.session?.subject?.subject_name ?? 'Unknown Subject'}
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {record.session?.teacher || 'Unknown Teacher'}
+                            {record.session?.teacher?.full_name 
+                              ?? record.session?.teacher?.name 
+                              ?? record.session?.teacher_name 
+                              ?? (typeof record.session?.teacher === 'string' ? record.session.teacher : 'Unknown Teacher')}
                           </Typography>
                         </Box>
                       </TableCell>
@@ -818,7 +823,7 @@ const ProductionStudentDashboard = () => {
                   </Avatar>
                 </ListItemIcon>
                 <ListItemText
-                  primary={grade.subject || 'Unknown Subject'}
+                  primary={grade.subject?.subject_name ?? grade.subject ?? 'Unknown Subject'}
                   secondary={`${grade.grade_type} - ${new Date(grade.created_at).toLocaleDateString()}`}
                 />
                 <ListItemSecondaryAction>
@@ -976,7 +981,7 @@ const ProductionStudentDashboard = () => {
                           </ListItemIcon>
                           <ListItemText
                             primary={assignment.title}
-                            secondary={`${assignment.subject} - Hạn: ${new Date(assignment.dueDate).toLocaleDateString('vi-VN')}`}
+                            secondary={`${(assignment.subject?.subject_name ?? assignment.subject ?? 'Môn học')} - Hạn: ${new Date(assignment.dueDate).toLocaleDateString('vi-VN')}`}
                           />
                           <ListItemSecondaryAction>
                             <Chip

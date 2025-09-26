@@ -7,6 +7,9 @@ const gradeService = {
   createGrade: (gradeData) => apiService.axiosInstance.post('/grades/', gradeData),
   updateGrade: (id, gradeData) => apiService.axiosInstance.put(`/grades/${id}/`, gradeData),
   deleteGrade: (id) => apiService.axiosInstance.delete(`/grades/${id}/`),
+
+  // Upsert a grade by composite key (student_id, class_id, grade_type)
+  upsertGrade: (payload) => apiService.axiosInstance.post('/grades/upsert/', payload),
   
   // Grade calculations and summaries
   getGradeStatistics: () => apiService.axiosInstance.get('/grades/statistics/'),

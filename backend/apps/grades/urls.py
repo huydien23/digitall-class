@@ -5,6 +5,9 @@ urlpatterns = [
     # Grades
     path('', views.GradeListCreateView.as_view(), name='grade_list_create'),
     path('<int:pk>/', views.GradeDetailView.as_view(), name='grade_detail'),
+
+    # Upsert (create or update) a grade for a student in a class
+    path('upsert/', views.upsert_grade, name='upsert_grade'),
     
     # Grade calculations and summaries
     path('statistics/', views.grade_statistics, name='grade_statistics'),

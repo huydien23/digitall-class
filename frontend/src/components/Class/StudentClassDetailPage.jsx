@@ -18,6 +18,7 @@ import {
   Grade as GradeIcon,
   Description as DescriptionIcon
 } from '@mui/icons-material'
+import { PictureAsPdf as PdfIcon, Slideshow as PptIcon, TableChart as XlsIcon, Archive as ZipIcon, Link as LinkIcon, InsertDriveFile as FileIcon } from '@mui/icons-material'
 
 import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
@@ -308,6 +309,8 @@ const StudentClassDetailPage = () => {
                       <TableCell>Tiêu đề</TableCell>
                       <TableCell>Mô tả</TableCell>
                       <TableCell>Ngày</TableCell>
+                      <TableCell>Định dạng</TableCell>
+                      <TableCell>Kích thước</TableCell>
                       <TableCell align="right">Tải về</TableCell>
                     </TableRow>
                   </TableHead>
@@ -317,6 +320,32 @@ const StudentClassDetailPage = () => {
                         <TableCell>{m.title}</TableCell>
                         <TableCell>{m.description || '-'}</TableCell>
                         <TableCell>{new Date(m.created_at).toLocaleString()}</TableCell>
+                        <TableCell>
+                          {(() => { 
+                            try { 
+                              const src = m?.file || m?.file_url || m?.link || m?.title || ''; 
+                              const clean = String(src).split('?')[0].split('#')[0]; 
+                              const base = clean.split('/').pop(); 
+                              const parts = base.split('.'); 
+                              const ext = (parts.length > 1 ? parts.pop() : (m?.link ? 'link' : ''))
+                              const up = String(ext).toUpperCase() || '—'
+                              const icon = (() => {
+                                const low = String(ext).toLowerCase()
+                                if (low === 'pdf') return <PdfIcon sx={{ color: 'error.main' }} />
+                                if (low === 'doc' || low === 'docx') return <DescriptionIcon sx={{ color: 'info.main' }} />
+                                if (low === 'ppt' || low === 'pptx') return <PptIcon sx={{ color: 'warning.main' }} />
+                                if (low === 'xls' || low === 'xlsx') return <XlsIcon sx={{ color: 'success.main' }} />
+                                if (low === 'zip') return <ZipIcon sx={{ color: 'text.secondary' }} />
+                                if (low === 'link') return <LinkIcon sx={{ color: 'primary.main' }} />
+                                return <FileIcon sx={{ color: 'text.disabled' }} />
+                              })()
+                              return <Box display="flex" alignItems="center" gap={1}>{icon}{up}</Box>
+                            } catch { 
+                              return '—' 
+                            } 
+                          })()}
+                        </TableCell>
+                        <TableCell>{m.file_size ? (() => { const n = Number(m.file_size); if (!n || n <= 0) return '—'; const units=['B','KB','MB','GB','TB']; const i=Math.floor(Math.log(n)/Math.log(1024)); const v=n/Math.pow(1024,i); return `${v.toFixed(v>=100?0:v>=10?1:2)} ${units[i]}` })() : '—'}</TableCell>
                         <TableCell align="right">
                           {m.file_url ? (
                             <Button size="small" variant="outlined" href={m.file_url} target="_blank" rel="noopener">Tải xuống</Button>

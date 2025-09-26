@@ -59,6 +59,8 @@ import {
   Email as EmailIcon
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
+import { CloudUpload as CloudUploadIcon } from '@mui/icons-material'
+import { PictureAsPdf as PdfIcon, Description as DocIcon, Slideshow as PptIcon, TableChart as XlsIcon, Archive as ZipIcon, Link as LinkIcon, InsertDriveFile as FileIcon } from '@mui/icons-material'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import classService from '../../services/classService'
@@ -76,7 +78,7 @@ const ClassDetailPage = () => {
   const { classId } = useParams()
   const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
-  
+  const isTeacher = (user?.role === 'teacher')
   // State
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -94,6 +96,10 @@ const ClassDetailPage = () => {
   const [manualAttendanceOpen, setManualAttendanceOpen] = useState(false)
   const [createSessionOpen, setCreateSessionOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState(null)
+  // Local grade edit state
+  const [regularScore, setRegularScore] = useState('')
+  const [midtermScore, setMidtermScore] = useState('')
+  const [finalScore, setFinalScore] = useState('')
   // Student info edit dialog
   const [studentFormOpen, setStudentFormOpen] = useState(false)
   const [editingStudentDetail, setEditingStudentDetail] = useState(null)
@@ -101,6 +107,15 @@ const ClassDetailPage = () => {
   const [materials, setMaterials] = useState([])
   const [materialsLoading, setMaterialsLoading] = useState(true)
   const [materialsError, setMaterialsError] = useState('')
+  // Upload dialog state
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const [uploadTitle, setUploadTitle] = useState('')
+  const [uploadDescription, setUploadDescription] = useState('')
+  const [uploadFile, setUploadFile] = useState(null)
+  const [uploadLink, setUploadLink] = useState('')
+  const [uploadError, setUploadError] = useState('')
+  const [uploadSaving, setUploadSaving] = useState(false)
+  const [deletingMaterialId, setDeletingMaterialId] = useState(null)
 
   // Mock data for demo
   const mockAttendanceSessions = [
@@ -319,8 +334,101 @@ const ClassDetailPage = () => {
     setAnchorEl(null)
   }
 
-  const handleEditGrade = (student) => {
+  const getMaterialExt = (m) => {
+    try {
+      const src = m?.file || m?.file_url || m?.link || m?.title || ''
+      const clean = String(src).split('?')[0].split('#')[0]
+      const base = clean.split('/').pop()
+      const parts = base.split('.')
+      if (parts.length > 1) return parts.pop().toUpperCase()
+      return m?.link ? 'LINK' : '—'
+    } catch {
+      return '—'
+    }
+  }
+
+  const getMaterialIcon = (m) => {
+    const ext = String(getMaterialExt(m)).toLowerCase()
+    if (ext === 'pdf') return <PdfIcon sx={{ color: 'error.main' }} />
+    if (ext === 'doc' || ext === 'docx') return <DocIcon sx={{ color: 'info.main' }} />
+    if (ext === 'ppt' || ext === 'pptx') return <PptIcon sx={{ color: 'warning.main' }} />
+    if (ext === 'xls' || ext === 'xlsx') return <XlsIcon sx={{ color: 'success.main' }} />
+    if (ext === 'zip') return <ZipIcon sx={{ color: 'text.secondary' }} />
+    if (ext === 'link') return <LinkIcon sx={{ color: 'primary.main' }} />
+    return <FileIcon sx={{ color: 'text.disabled' }} />
+  }
+
+  const formatBytes = (bytes) => {
+    const n = Number(bytes)
+    if (!n || n <= 0) return '—'
+    const units = ['B','KB','MB','GB','TB']
+    const i = Math.floor(Math.log(n) / Math.log(1024))
+    const v = n / Math.pow(1024, i)
+    return `${v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2)} ${units[i]}`
+  }
+
+  const handleUploadMaterial = async () => {
+    try {
+      setUploadError('')
+      if (!uploadFile && !uploadLink) {
+        setUploadError('Vui lòng chọn file hoặc nhập link')
+        return
+      }
+      setUploadSaving(true)
+      const fd = new FormData()
+      fd.append('class_obj', String(classId))
+      fd.append('title', uploadTitle || (uploadFile?.name || 'Tài liệu'))
+      if (uploadDescription) fd.append('description', uploadDescription)
+      if (uploadFile) fd.append('file', uploadFile)
+      if (uploadLink) fd.append('link', uploadLink)
+
+      const res = await materialService.createMaterial(fd)
+      const created = res?.data
+      if (created?.id) {
+        setMaterials(prev => [created, ...prev])
+      } else {
+        try {
+          const resMat = await materialService.getMaterials({ class_id: classId, page_size: 200 })
+          const list = resMat?.data?.results || resMat?.data || []
+          setMaterials(list)
+        } catch {}
+      }
+      setUploadOpen(false)
+      setUploadTitle('')
+      setUploadDescription('')
+      setUploadFile(null)
+      setUploadLink('')
+    } catch (e) {
+      const detail = e?.response?.data || e?.message || 'Tải tài liệu thất bại'
+      setUploadError(typeof detail === 'string' ? detail : JSON.stringify(detail))
+    } finally {
+      setUploadSaving(false)
+    }
+  }
+
+  const handleDeleteMaterial = async (m) => {
+    if (!m?.id) return
+    if (!window.confirm(`Xóa tài liệu "${m.title}"?`)) return
+    try {
+      setDeletingMaterialId(m.id)
+      await materialService.deleteMaterial(m.id)
+      setMaterials(prev => prev.filter(x => x.id !== m.id))
+      alert('Đã xóa tài liệu')
+    } catch (e) {
+      console.error('Delete material failed', e)
+      const detail = e?.response?.data?.error || e?.message || 'Xóa tài liệu thất bại'
+      alert(typeof detail === 'string' ? detail : JSON.stringify(detail))
+    } finally {
+      setDeletingMaterialId(null)
+    }
+  }
+
+const handleEditGrade = (student) => {
     setSelectedStudent(student)
+    // Prime dialog state with current values
+    setRegularScore(student?.grades?.regular ?? '')
+    setMidtermScore(student?.grades?.midterm ?? '')
+    setFinalScore(student?.grades?.final ?? '')
     setGradeDialogOpen(true)
   }
 
@@ -860,14 +968,16 @@ const ClassDetailPage = () => {
               </Typography>
               <TableContainer>
                 <Table>
-                  <TableHead>
+<TableHead>
                     <TableRow>
                       <TableCell>STT</TableCell>
                       <TableCell>Mã SV</TableCell>
                       <TableCell>Họ tên</TableCell>
                       <TableCell align="center">Điểm thường xuyên (10%)</TableCell>
                       <TableCell align="center">Điểm giữa kỳ (30%)</TableCell>
-                      <TableCell align="center">Điểm cuối kỳ (60%)</TableCell>
+                      {!isTeacher && (
+                        <TableCell align="center">Điểm cuối kỳ (60%)</TableCell>
+                      )}
                       <TableCell align="center">Điểm tổng kết</TableCell>
                       <TableCell align="center">Xếp loại</TableCell>
                       <TableCell align="center">Thao tác</TableCell>
@@ -897,11 +1007,13 @@ const ClassDetailPage = () => {
                               {student.grades.midterm}
                             </Typography>
                           </TableCell>
+{!isTeacher && (
                           <TableCell align="center">
                             <Typography variant="body2" fontWeight={600}>
                               {student.grades.final}
                             </Typography>
                           </TableCell>
+                        )}
                           <TableCell align="center">
                             <Typography
                               variant="body2"
@@ -956,8 +1068,8 @@ const ClassDetailPage = () => {
                   Tài liệu lớp học
                 </Typography>
                 {user?.role !== 'student' && (
-                  <Button variant="contained" disabled>
-                    Tải tài liệu (sẽ thêm sau)
+                  <Button variant="contained" startIcon={<CloudUploadIcon />} onClick={() => setUploadOpen(true)}>
+                    Tải tài liệu
                   </Button>
                 )}
               </Box>
@@ -979,7 +1091,12 @@ const ClassDetailPage = () => {
                         <TableCell>Mô tả</TableCell>
                         <TableCell>Người đăng</TableCell>
                         <TableCell>Ngày</TableCell>
+                        <TableCell>Định dạng</TableCell>
+                        <TableCell>Kích thước</TableCell>
                         <TableCell align="right">Tải về</TableCell>
+                        {user?.role !== 'student' && (
+                          <TableCell align="right">Thao tác</TableCell>
+                        )}
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -989,6 +1106,13 @@ const ClassDetailPage = () => {
                           <TableCell>{m.description || '-'}</TableCell>
                           <TableCell>{m.uploader?.full_name || m.uploader?.email || '—'}</TableCell>
                           <TableCell>{new Date(m.created_at).toLocaleString()}</TableCell>
+                          <TableCell>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              {getMaterialIcon(m)}
+                              {getMaterialExt(m)}
+                            </Box>
+                          </TableCell>
+                          <TableCell>{m.file_size ? formatBytes(m.file_size) : '—'}</TableCell>
                           <TableCell align="right">
                             {m.file_url ? (
                               <Button size="small" variant="outlined" href={m.file_url} target="_blank" rel="noopener">
@@ -1002,6 +1126,13 @@ const ClassDetailPage = () => {
                               <Typography variant="body2" color="text.secondary">—</Typography>
                             )}
                           </TableCell>
+                          {user?.role !== 'student' && (
+                            <TableCell align="right">
+                              <IconButton size="small" color="error" onClick={() => handleDeleteMaterial(m)} disabled={deletingMaterialId === m.id}>
+                                <DeleteIcon />
+                              </IconButton>
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1063,7 +1194,7 @@ const ClassDetailPage = () => {
         }}
       />
 
-      {/* Grade Edit Dialog */}
+{/* Grade Edit Dialog */}
       <Dialog open={gradeDialogOpen} onClose={() => setGradeDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Chỉnh sửa điểm - {selectedStudent?.name}</DialogTitle>
         <DialogContent>
@@ -1072,30 +1203,68 @@ const ClassDetailPage = () => {
               label="Điểm thường xuyên (10%)"
               type="number"
               fullWidth
-              defaultValue={selectedStudent?.grades.regular}
+              value={regularScore}
+              onChange={(e) => setRegularScore(e.target.value)}
               inputProps={{ min: 0, max: 10, step: 0.1 }}
             />
             <TextField
               label="Điểm giữa kỳ (30%)"
               type="number"
               fullWidth
-              defaultValue={selectedStudent?.grades.midterm}
+              value={midtermScore}
+              onChange={(e) => setMidtermScore(e.target.value)}
               inputProps={{ min: 0, max: 10, step: 0.1 }}
             />
-            <TextField
-              label="Điểm cuối kỳ (60%)"
-              type="number"
-              fullWidth
-              defaultValue={selectedStudent?.grades.final}
-              inputProps={{ min: 0, max: 10, step: 0.1 }}
-            />
+            {!isTeacher && (
+              <TextField
+                label="Điểm cuối kỳ (60%)"
+                type="number"
+                fullWidth
+                value={finalScore}
+                onChange={(e) => setFinalScore(e.target.value)}
+                inputProps={{ min: 0, max: 10, step: 0.1 }}
+              />
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setGradeDialogOpen(false)}>Hủy</Button>
-          <Button variant="contained" onClick={() => {
-            setGradeDialogOpen(false)
-            alert('Điểm đã được cập nhật!')
+          <Button variant="contained" onClick={async () => {
+            try {
+              const studentId = selectedStudent?.student_id
+              if (!studentId) {
+                alert('Thiếu mã sinh viên (student_id)');
+                return
+              }
+              // Upsert regular and midterm for teacher; admin can also update final
+              if (regularScore !== '' && regularScore !== null) {
+                await gradeService.upsertGrade({ student_id: studentId, class_id: Number(classId), grade_type: 'regular', score: Number(regularScore) })
+              }
+              if (midtermScore !== '' && midtermScore !== null) {
+                await gradeService.upsertGrade({ student_id: studentId, class_id: Number(classId), grade_type: 'midterm', score: Number(midtermScore) })
+              }
+              if (!isTeacher && finalScore !== '' && finalScore !== null) {
+                await gradeService.upsertGrade({ student_id: studentId, class_id: Number(classId), grade_type: 'final', score: Number(finalScore) })
+              }
+
+              // Update UI state quickly
+              setStudents(prev => prev.map(s => s.id === selectedStudent.id ? {
+                ...s,
+                grades: {
+                  ...s.grades,
+                  regular: regularScore === '' ? s.grades.regular : Number(regularScore),
+                  midterm: midtermScore === '' ? s.grades.midterm : Number(midtermScore),
+                  final: isTeacher ? s.grades.final : (finalScore === '' ? s.grades.final : Number(finalScore)),
+                }
+              } : s))
+
+              alert('Điểm đã được cập nhật!')
+              setGradeDialogOpen(false)
+            } catch (e) {
+              console.error('Failed to update grades', e)
+              const msg = e?.response?.data?.error || e?.message || 'Cập nhật điểm thất bại'
+              alert(msg)
+            }
           }}>
             Cập nhật
           </Button>
@@ -1132,6 +1301,59 @@ const ClassDetailPage = () => {
         }}
         student={editingStudentDetail}
       />
+
+      {/* Upload Material Dialog */}
+      <Dialog open={uploadOpen} onClose={() => setUploadOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Tải tài liệu lớp</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Tiêu đề"
+              fullWidth
+              value={uploadTitle}
+              onChange={(e) => setUploadTitle(e.target.value)}
+              placeholder={uploadFile?.name || 'Ví dụ: Bài giảng buổi 1'}
+            />
+            <TextField
+              label="Mô tả"
+              fullWidth
+              multiline
+              minRows={3}
+              value={uploadDescription}
+              onChange={(e) => setUploadDescription(e.target.value)}
+            />
+            <Box>
+              <Button variant="outlined" component="label" startIcon={<CloudUploadIcon />}> 
+                Chọn file (pdf, doc, docx, ppt, pptx, xls, xlsx, zip)
+                <input
+                  type="file"
+                  hidden
+                  accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.zip"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                />
+              </Button>
+              {uploadFile && (
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Đã chọn: {uploadFile.name} ({uploadFile.size ? (Math.round(uploadFile.size/1024/1024*10)/10) : 0} MB)
+                </Typography>
+              )}
+            </Box>
+            <TextField
+              label="Hoặc nhập link"
+              fullWidth
+              value={uploadLink}
+              onChange={(e) => setUploadLink(e.target.value)}
+              placeholder="https://..."
+            />
+            {uploadError && <Alert severity="error">{uploadError}</Alert>}
+            {uploadSaving && <LinearProgress />}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUploadOpen(false)}>Hủy</Button>
+          <Button variant="contained" onClick={handleUploadMaterial} disabled={uploadSaving}>Tải lên</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Floating Action Button */}
       <SpeedDial
