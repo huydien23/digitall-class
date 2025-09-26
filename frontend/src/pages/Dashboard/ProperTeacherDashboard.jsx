@@ -46,6 +46,7 @@ import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import SessionManagement from '../../components/SessionManagement/SessionManagement'
 import ExcelDragDrop from '../../components/ExcelDragDrop/ExcelDragDrop'
+import ClassJoinTokenDialog from '../../components/Class/ClassJoinTokenDialog'
 import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
@@ -57,7 +58,8 @@ const ProperTeacherDashboard = () => {
   const [error, setError] = useState(null)
   const [excelUploadOpen, setExcelUploadOpen] = useState(false)
   const [uploadType, setUploadType] = useState('students') // 'students', 'grades', 'attendance'
-  const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
+const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
+  const [joinTokenDialogOpen, setJoinTokenDialogOpen] = useState(false)
   const [teacherData, setTeacherData] = useState({
     statistics: {
       totalClasses: 0,
@@ -469,8 +471,20 @@ const ProperTeacherDashboard = () => {
                   startIcon={<QrCodeIcon />}
                   onClick={handleQuickGenerateQR}
                   sx={{ py: 1.5 }}
+>
+                  Tạo QR điểm danh
+                </Button>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  startIcon={<QrCodeIcon />}
+                  onClick={() => setJoinTokenDialogOpen(true)}
+                  sx={{ py: 1.5 }}
+                  color="secondary"
                 >
-                  Tạo QR
+                  Mã tham gia lớp
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -571,6 +585,13 @@ const ProperTeacherDashboard = () => {
           onClose={() => setExcelUploadOpen(false)}
           onImportSuccess={handleUploadSuccess}
           maxFileSize={5 * 1024 * 1024} // 5MB
+        />
+
+        <ClassJoinTokenDialog
+          open={joinTokenDialogOpen}
+          onClose={() => setJoinTokenDialogOpen(false)}
+          classOptions={teacherData.assignedClasses || []}
+          defaultClassId={teacherData.assignedClasses?.[0]?.id}
         />
       </Container>
     </>

@@ -30,6 +30,7 @@ import {
   Close as CloseIcon,
   CameraAlt as CameraIcon
 } from '@mui/icons-material'
+import classService from '../../services/classService'
 
 const ClassJoinDialog = ({ open, onClose, onJoin }) => {
   const [activeTab, setActiveTab] = useState(0)
@@ -48,13 +49,7 @@ const ClassJoinDialog = ({ open, onClose, onJoin }) => {
 
   const handleJoinByCode = async () => {
     if (!classCode.trim()) {
-      setError('Vui lòng nhập mã lớp học')
-      return
-    }
-
-    // Validate 12-digit binary code
-    if (!/^[01]{12}$/.test(classCode)) {
-      setError('Mã lớp học phải là 12 số nhị phân (chỉ chứa 0 và 1)')
+      setError('Vui lòng nhập mã tham gia')
       return
     }
 
@@ -62,25 +57,17 @@ const ClassJoinDialog = ({ open, onClose, onJoin }) => {
     setError('')
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Mock validation
-      const mockClassData = {
-        name: 'Lập trình Web',
-        code: classCode,
-        teacher: 'ThS. Nguyễn Văn Minh',
-        description: 'Học về HTML, CSS, JavaScript và React'
-      }
-      
+      const raw = classCode.trim()
+      const isClassId = /^\d{12}$/.test(raw)
+      const res = isClassId
+        ? await classService.joinClassByCode(raw)
+        : await classService.joinClassByToken(raw)
       setSuccess('Tham gia lớp học thành công!')
-      setTimeout(() => {
-        onJoin(mockClassData)
-        handleClose()
-      }, 1000)
-      
+      onJoin?.({ code: raw, name: 'Lớp học', teacher: '' })
+      setTimeout(() => handleClose(), 800)
     } catch (err) {
-      setError('Không thể tham gia lớp học. Vui lòng thử lại.')
+      const msg = err.response?.data?.error || err.message || 'Không thể tham gia lớp học. Vui lòng thử lại.'
+      setError(msg)
     } finally {
       setIsLoading(false)
     }
@@ -88,14 +75,23 @@ const ClassJoinDialog = ({ open, onClose, onJoin }) => {
 
   const handleJoinByLink = async () => {
     if (!classLink.trim()) {
-      setError('Vui lòng nhập link lớp học')
+      setError('Vui lòng nhập link lớp học hoặc mã lớp')
       return
     }
 
-    // Validate URL
+    // Try parse token from link (?token=...)
+    let tokenFromLink = ''
+    let classIdFromLink = ''
     try {
-      new URL(classLink)
+      const url = new URL(classLink)
+      tokenFromLink = url.searchParams.get('token') || ''
+      classIdFromLink = url.searchParams.get('class_id') || ''
     } catch {
+      // not a URL, will handle as raw input below
+    }
+
+    const raw = tokenFromLink || classIdFromLink || classLink.trim()
+    if (!raw) {
       setError('Link không hợp lệ')
       return
     }
@@ -104,25 +100,18 @@ const ClassJoinDialog = ({ open, onClose, onJoin }) => {
     setError('')
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      // Mock validation
-      const mockClassData = {
-        name: 'Cơ sở dữ liệu',
-        code: '101010101010',
-        teacher: 'TS. Lê Thị Hoa',
-        description: 'Học về SQL, MySQL, MongoDB'
+      const isClassId = /^\d{12}$/.test(raw)
+      if (isClassId) {
+        await classService.joinClassByCode(raw)
+      } else {
+        await classService.joinClassByToken(raw)
       }
-      
       setSuccess('Tham gia lớp học thành công!')
-      setTimeout(() => {
-        onJoin(mockClassData)
-        handleClose()
-      }, 1000)
-      
+      onJoin?.({ code: raw, name: 'Lớp học', teacher: '' })
+      setTimeout(() => handleClose(), 800)
     } catch (err) {
-      setError('Không thể tham gia lớp học. Vui lòng thử lại.')
+      const msg = err.response?.data?.error || err.message || 'Không thể tham gia lớp học. Vui lòng thử lại.'
+      setError(msg)
     } finally {
       setIsLoading(false)
     }
@@ -247,16 +236,16 @@ const ClassJoinDialog = ({ open, onClose, onJoin }) => {
         <TabPanel value={activeTab} index={1}>
           <Box>
             <Typography variant="h6" gutterBottom>
-              Nhập mã lớp học
+              Nhập mã tham gia
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Nhập mã 12 số nhị phân của lớp học (chỉ chứa 0 và 1)
+              Mã tham gia do giảng viên cung cấp (token)
             </Typography>
             
             <TextField
               fullWidth
-              label="Mã lớp học"
-              placeholder="Ví dụ: 110101101010"
+              label="Mã tham gia"
+              placeholder="Ví dụ: pQ9X3..."
               value={classCode}
               onChange={(e) => setClassCode(e.target.value)}
               InputProps={{
@@ -268,7 +257,7 @@ const ClassJoinDialog = ({ open, onClose, onJoin }) => {
                   </InputAdornment>
                 ),
               }}
-              helperText="Mã lớp học phải là 12 số nhị phân (0 và 1)"
+              helperText="Bạn có thể nhập Mã lớp (12 chữ số) hoặc Token tham gia do giảng viên cung cấp"
               sx={{ mb: 3 }}
             />
 

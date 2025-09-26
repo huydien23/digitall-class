@@ -10,4 +10,9 @@ urlpatterns = [
     path('<int:class_id>/available-students/', views.available_students, name='available_students'),
     path('<int:class_id>/detail/', views.class_detail_with_students, name='class_detail_with_students'),
     path('statistics/', views.class_statistics, name='class_statistics'),
+
+    # Join tokens & Join class
+    path('my-classes/', views.my_classes, name='my_classes'),
+    path('<int:class_id>/join-tokens/', views.create_join_token, name='create_join_token'),
+    path('join/', views.join_class, name='join_class'),
 ]

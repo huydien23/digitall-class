@@ -19,6 +19,13 @@ const classService = {
   
   // Class detail with students, attendance, and grades
   getClassDetail: (classId) => apiService.axiosInstance.get(`/classes/${classId}/detail/`),
+
+  // Join tokens & join class
+  getMyClasses: () => apiService.axiosInstance.get('/classes/my-classes/'),
+  createJoinToken: (classId, { expires_in_minutes = 60, max_uses = 0 } = {}) =>
+    apiService.axiosInstance.post(`/classes/${classId}/join-tokens/`, { expires_in_minutes, max_uses }),
+  joinClassByToken: (token) => apiService.axiosInstance.post('/classes/join/', { token }),
+  joinClassByCode: (class_id) => apiService.axiosInstance.post('/classes/join/', { class_id }),
 }
 
 export default classService

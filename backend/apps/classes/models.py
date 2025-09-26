@@ -22,6 +22,10 @@ class Class(models.Model):
         verbose_name='Học phần'
     )
     is_active = models.BooleanField(default=True)
+    # New flags for class enrollment/attendance flows
+    restrict_to_roster_emails = models.BooleanField(default=False, help_text='Chỉ cho phép email có trong roster tham gia lớp')
+    allow_auto_enroll_on_attendance_qr = models.BooleanField(default=True, help_text='Tự động ghi danh khi SV quét QR điểm danh nếu email hợp lệ')
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
@@ -52,10 +56,26 @@ class Class(models.Model):
 
 class ClassStudent(models.Model):
     """Many-to-many relationship between Class and Student"""
+    class Status(models.TextChoices):
+        INVITED = 'invited', 'Được mời'
+        ACTIVE = 'active', 'Đang tham gia'
+        REMOVED = 'removed', 'Đã rời lớp'
+
+    class Source(models.TextChoices):
+        IMPORT = 'import', 'Import'
+        JOIN_CODE = 'join_code', 'Mã tham gia'
+        QR = 'qr', 'Quét QR'
+        ADMIN = 'admin', 'Quản trị'
+        MANUAL = 'manual', 'Thủ công'
+
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='class_students')
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='class_students')
     enrolled_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+    # New fields for richer roster status
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.ACTIVE)
+    joined_at = models.DateTimeField(blank=True, null=True)
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.MANUAL)
     
     class Meta:
         db_table = 'class_students'
@@ -71,3 +91,36 @@ class ClassStudent(models.Model):
     
     def __str__(self):
         return f"{self.class_obj.class_id} - {self.student.student_id}"
+
+
+class ClassJoinToken(models.Model):
+    """Join token for students to join a class via link/QR"""
+    class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='join_tokens')
+    token = models.CharField(max_length=64, unique=True)
+    expires_at = models.DateTimeField(blank=True, null=True)
+    max_uses = models.PositiveIntegerField(default=0, help_text='0 = unlimited')
+    use_count = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_join_tokens')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'class_join_tokens'
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['class_obj']),
+            models.Index(fields=['is_active'])
+        ]
+
+    def __str__(self):
+        return f"JoinToken({self.class_obj.class_id})"
+
+    def can_use(self):
+        from django.utils import timezone
+        if not self.is_active:
+            return False
+        if self.expires_at and timezone.now() > self.expires_at:
+            return False
+        if self.max_uses and self.use_count >= self.max_uses:
+            return False
+        return True

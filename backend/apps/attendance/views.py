@@ -184,10 +184,23 @@ def check_in_with_qr(request):
             student=student,
             is_active=True
         ).exists():
-            return Response(
-                {'error': 'Sinh viên không thuộc lớp này'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            # Auto-enroll if class allows it
+            if getattr(session.class_obj, 'allow_auto_enroll_on_attendance_qr', False):
+                ClassStudent.objects.get_or_create(
+                    class_obj=session.class_obj,
+                    student=student,
+                    defaults={
+                        'status': 'active',
+                        'is_active': True,
+                        'joined_at': timezone.now(),
+                        'source': 'qr'
+                    }
+                )
+            else:
+                return Response(
+                    {'error': 'Sinh viên không thuộc lớp này'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
         
         # Check if already attended
         attendance, created = Attendance.objects.get_or_create(

@@ -77,59 +77,19 @@ class StudentDetailView(generics.RetrieveUpdateDestroyAPIView):
         return StudentSerializer
     
     def retrieve(self, request, *args, **kwargs):
-        try:
-            return super().retrieve(request, *args, **kwargs)
-        except Student.DoesNotExist:
-            return Response(
-                {'error': 'Student not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f'Error retrieving student: {str(e)}')
-            return Response(
-                {'error': 'An unexpected error occurred'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # Let DRF handle Http404 correctly instead of converting to 500
+        return super().retrieve(request, *args, **kwargs)
     
     def update(self, request, *args, **kwargs):
-        try:
-            return super().update(request, *args, **kwargs)
-        except Student.DoesNotExist:
-            return Response(
-                {'error': 'Student not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except ValidationError as e:
-            logger.warning(f'Validation error updating student: {str(e)}')
-            return Response(
-                {'error': 'Validation failed', 'details': str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        except Exception as e:
-            logger.error(f'Error updating student: {str(e)}')
-            return Response(
-                {'error': 'An unexpected error occurred'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        # Delegate to DRF generic implementation; validation errors will surface appropriately
+        return super().update(request, *args, **kwargs)
     
     def destroy(self, request, *args, **kwargs):
-        try:
-            instance = self.get_object()
-            # Soft delete instead of hard delete
-            instance.is_active = False
-            instance.save()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        except Student.DoesNotExist:
-            return Response(
-                {'error': 'Student not found'},
-                status=status.HTTP_404_NOT_FOUND
-            )
-        except Exception as e:
-            logger.error(f'Error deleting student: {str(e)}')
-            return Response(
-                {'error': 'An unexpected error occurred'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+        instance = self.get_object()
+        # Soft delete instead of hard delete
+        instance.is_active = False
+        instance.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['POST'])

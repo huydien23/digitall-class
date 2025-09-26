@@ -181,8 +181,6 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import QRCodeScanner from '../../components/QRCode/QRCodeScanner'
-import { MockDataProvider, useMockData } from '../../components/Dashboard/MockDataProvider'
-import MockDataNotice from '../../components/Dashboard/MockDataNotice'
 import StudentClassList from '../../components/Class/StudentClassList'
 import StudentGradesView from '../../components/Grades/StudentGradesView'
 import StudentScheduleView from '../../components/Schedule/StudentScheduleView'
@@ -344,8 +342,6 @@ const ProductionStudentDashboard = () => {
   const { error, handleError, clearError } = useErrorHandler()
   const { setLoading, isLoading } = useLoadingStates()
   const { notification, showNotification, hideNotification } = useNotification()
-  const { mockData, isLoading: mockLoading } = useMockData()
-  
   // State management
   const [activeTab, setActiveTab] = useState(0)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -356,8 +352,6 @@ const ProductionStudentDashboard = () => {
   const [filterStatus, setFilterStatus] = useState('all')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
-  const [showMockNotice, setShowMockNotice] = useState(true)
-  
   // Data state - use mock data as fallback
   const [studentData, setStudentData] = useState({
     profile: null,
@@ -377,22 +371,6 @@ const ProductionStudentDashboard = () => {
     }
   })
 
-  // Use mock data when real data is not available
-  const displayData = {
-    statistics: {
-      attendanceRate: studentData.statistics.attendanceRate > 0 ? studentData.statistics.attendanceRate : (mockData.statistics?.attendanceRate || 0),
-      totalClasses: studentData.statistics.totalClasses > 0 ? studentData.statistics.totalClasses : (mockData.statistics?.totalClasses || 0),
-      averageGrade: studentData.statistics.averageGrade > 0 ? studentData.statistics.averageGrade : (mockData.statistics?.averageGrade || 0),
-      thisWeekAttendance: studentData.statistics.thisWeekAttendance > 0 ? studentData.statistics.thisWeekAttendance : (mockData.statistics?.thisWeekAttendance || 0),
-      gpa: studentData.statistics.gpa > 0 ? studentData.statistics.gpa : (mockData.statistics?.gpa || 0),
-      creditsEarned: studentData.statistics.creditsEarned > 0 ? studentData.statistics.creditsEarned : (mockData.statistics?.creditsEarned || 0),
-      creditsRemaining: studentData.statistics.creditsRemaining > 0 ? studentData.statistics.creditsRemaining : (mockData.statistics?.creditsRemaining || 0)
-    },
-    attendanceRecords: studentData.attendanceRecords.length > 0 ? studentData.attendanceRecords : (mockData.attendanceRecords || []),
-    recentGrades: studentData.recentGrades.length > 0 ? studentData.recentGrades : (mockData.recentGrades || []),
-    classSchedule: studentData.classSchedule.length > 0 ? studentData.classSchedule : (mockData.classSchedule || []),
-    assignments: studentData.assignments.length > 0 ? studentData.assignments : (mockData.assignments || [])
-  }
   
   // Data loading functions
   const loadStudentProfile = useCallback(async () => {
@@ -644,46 +622,46 @@ const ProductionStudentDashboard = () => {
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
           title="Tỷ lệ điểm danh"
-          value={`${displayData.statistics.attendanceRate}%`}
+          value={`${studentData.statistics.attendanceRate}%`}
           icon={<ScheduleIcon />}
           color="success"
           subtitle="Tổng tỷ lệ điểm danh"
-          trend={displayData.statistics.attendanceRate >= 80 ? '+5%' : displayData.statistics.attendanceRate > 0 ? '-2%' : ''}
-          loading={isLoading('statistics') || mockLoading}
+          trend={studentData.statistics.attendanceRate >= 80 ? '+5%' : studentData.statistics.attendanceRate > 0 ? '-2%' : ''}
+          loading={isLoading('statistics')}
         />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
           title="Tuần này"
-          value={displayData.statistics.thisWeekAttendance}
+          value={studentData.statistics.thisWeekAttendance}
           icon={<TrendingUpIcon />}
           color="info"
           subtitle="Lớp đã tham dự"
-          loading={isLoading('statistics') || mockLoading}
+          loading={isLoading('statistics')}
         />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
           title="Điểm TB"
-          value={Number(displayData.statistics.gpa).toFixed(2)}
+          value={Number(studentData.statistics.gpa).toFixed(2)}
           icon={<GradeIcon />}
           color="primary"
           subtitle="Điểm trung bình hiện tại"
-          loading={isLoading('statistics') || mockLoading}
+          loading={isLoading('statistics')}
         />
       </Grid>
       <Grid item xs={12} sm={6} md={3}>
         <StatCard
           title="Tổng lớp học"
-          value={displayData.statistics.totalClasses}
+          value={studentData.statistics.totalClasses}
           icon={<AssignmentIcon />}
           color="warning"
           subtitle="Tất cả thời gian"
-          loading={isLoading('statistics') || mockLoading}
+          loading={isLoading('statistics')}
         />
       </Grid>
     </Grid>
-  ), [displayData.statistics, isLoading, mockLoading])
+  ), [studentData.statistics, isLoading])
   
   const AttendanceTable = useMemo(() => (
     <Card>
@@ -723,9 +701,9 @@ const ProductionStudentDashboard = () => {
         </Box>
         <Divider sx={{ mb: 2 }} />
         
-        {isLoading('attendance') || mockLoading ? (
+        {isLoading('attendance') ? (
           <LoadingSkeleton height={400} />
-        ) : displayData.attendanceRecords.length === 0 ? (
+        ) : studentData.attendanceRecords.length === 0 ? (
           <EmptyState
             icon={<ScheduleIcon />}
             title="Chưa có lịch sử điểm danh"
@@ -751,7 +729,7 @@ const ProductionStudentDashboard = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {displayData.attendanceRecords.map((record) => (
+                  {studentData.attendanceRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell>
                         <Box>
@@ -801,7 +779,7 @@ const ProductionStudentDashboard = () => {
             <TablePagination
               rowsPerPageOptions={[5, 10, 25]}
               component="div"
-              count={displayData.attendanceRecords.length}
+              count={studentData.attendanceRecords.length}
               rowsPerPage={rowsPerPage}
               page={page}
               onPageChange={handlePageChange}
@@ -811,7 +789,7 @@ const ProductionStudentDashboard = () => {
         )}
       </CardContent>
     </Card>
-  ), [displayData.attendanceRecords, isLoading, mockLoading, searchTerm, filterStatus, page, rowsPerPage])
+  ), [studentData.attendanceRecords, isLoading, searchTerm, filterStatus, page, rowsPerPage])
   
   const GradesList = useMemo(() => (
     <Card>
@@ -821,9 +799,9 @@ const ProductionStudentDashboard = () => {
         </Typography>
         <Divider sx={{ mb: 2 }} />
         
-        {isLoading('grades') || mockLoading ? (
+        {isLoading('grades') ? (
           <LoadingSkeleton height={300} />
-        ) : displayData.recentGrades.length === 0 ? (
+        ) : studentData.recentGrades.length === 0 ? (
           <EmptyState
             icon={<GradeIcon />}
             title="Chưa có điểm số"
@@ -831,7 +809,7 @@ const ProductionStudentDashboard = () => {
           />
         ) : (
           <List>
-            {displayData.recentGrades.map((grade) => (
+            {studentData.recentGrades.map((grade) => (
               <ListItem key={grade.id} divider>
                 <ListItemIcon>
                   <Avatar sx={{ bgcolor: 'primary.main' }}>
@@ -855,7 +833,7 @@ const ProductionStudentDashboard = () => {
         )}
       </CardContent>
     </Card>
-  ), [displayData.recentGrades, isLoading, mockLoading])
+  ), [studentData.recentGrades, isLoading])
   
   if (isLoading('profile')) {
     return (
@@ -916,27 +894,26 @@ const ProductionStudentDashboard = () => {
           )}
         </Box>
         
-        {/* Mock Data Notice */}
-        {showMockNotice && studentData.statistics.attendanceRate === 0 && (
-          <MockDataNotice
-            onRefresh={handleRefresh}
-            onDismiss={() => setShowMockNotice(false)}
-          />
-        )}
-        
         {/* Statistics Cards */}
         {StatisticsCards}
         
         {/* Tabs */}
         <Card>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={activeTab} onChange={handleTabChange} aria-label="dashboard tabs">
-              <Tab label="Tổng quan" icon={<DashboardIcon />} />
-              <Tab label="Điểm danh" icon={<ScheduleIcon />} />
-              <Tab label="Lớp học" icon={<SchoolIcon />} />
-              <Tab label="Điểm số" icon={<GradeIcon />} />
-              <Tab label="Thời khóa biểu" icon={<CalendarIcon />} />
-              <Tab label="Bài tập" icon={<AssignmentIcon />} />
+          <Box sx={{ borderBottom: 1, borderColor: 'divider', position: 'sticky', top: 0, zIndex: 10, bgcolor: 'background.paper' }}>
+            <Tabs
+              value={activeTab}
+              onChange={handleTabChange}
+              aria-label="dashboard tabs"
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
+            >
+              <Tab label="Tổng quan" icon={<DashboardIcon />} value={0} iconPosition="start" />
+              <Tab label="Điểm danh" icon={<ScheduleIcon />} value={1} iconPosition="start" />
+              <Tab label="Lớp học" icon={<SchoolIcon />} value={2} iconPosition="start" />
+              <Tab label="Điểm số" icon={<GradeIcon />} value={3} iconPosition="start" />
+              <Tab label="Thời khóa biểu" icon={<CalendarIcon />} value={4} iconPosition="start" />
+              <Tab label="Bài tập" icon={<AssignmentIcon />} value={5} iconPosition="start" />
             </Tabs>
           </Box>
           
@@ -976,9 +953,9 @@ const ProductionStudentDashboard = () => {
                   </Typography>
                   <Divider sx={{ mb: 2 }} />
                   
-                  {isLoading('assignments') || mockLoading ? (
+                  {isLoading('assignments') ? (
                     <LoadingSkeleton height={300} />
-                  ) : displayData.assignments.length === 0 ? (
+                  ) : studentData.assignments.length === 0 ? (
                     <EmptyState
                       icon={<AssignmentIcon />}
                       title="Chưa có bài tập"
@@ -986,7 +963,7 @@ const ProductionStudentDashboard = () => {
                     />
                   ) : (
                     <List>
-                      {displayData.assignments.map((assignment) => (
+                      {studentData.assignments.map((assignment) => (
                         <ListItem key={assignment.id} divider>
                           <ListItemIcon>
                             <Avatar sx={{ 
@@ -1057,14 +1034,4 @@ const TabPanel = ({ children, value, index, ...other }) => (
   </div>
 )
 
-const ProductionStudentDashboardWithProvider = () => {
-  const { user } = useSelector((state) => state.auth)
-  
-  return (
-    <MockDataProvider user={user}>
-      <ProductionStudentDashboard />
-    </MockDataProvider>
-  )
-}
-
-export default ProductionStudentDashboardWithProvider
+export default ProductionStudentDashboard

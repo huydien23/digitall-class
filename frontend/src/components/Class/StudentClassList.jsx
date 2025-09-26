@@ -56,79 +56,26 @@ const StudentClassList = ({ user }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
 
-  // Mock data for student classes
+  // Load real classes from API
   useEffect(() => {
     const loadStudentClasses = async () => {
       setIsLoading(true)
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000))
-        
-        // Mock data based on real schedule
-        const mockClasses = [
-          {
-            id: 1,
-            name: 'Lập trình Python',
-            code: '110101101010', // 12-digit binary
-            teacher: 'GV: Đặng Mạnh Huy',
-            schedule: 'Thứ 2 - 07:00-11:00 (Tiết 7-11)',
-            location: 'Phòng I4-02 (Phòng máy 8)',
-            status: 'active',
-            joinedAt: '2025-09-01',
-            totalStudents: 42,
-            description: 'Học lập trình Python cơ bản và nâng cao, thực hành trên máy tính'
-          },
-          {
-            id: 2,
-            name: 'Phát triển phần mềm mã nguồn mở',
-            code: '101010101010', // 12-digit binary
-            teacher: 'GV: Võ Thanh Vinh',
-            schedule: 'Thứ 4 - 07:00-11:00 (Tiết 7-11)',
-            location: 'Phòng I5-03 (Phòng máy 15)',
-            status: 'active',
-            joinedAt: '2025-09-01',
-            totalStudents: 38,
-            description: 'Thực hành phát triển phần mềm với các công cụ mã nguồn mở'
-          },
-          {
-            id: 3,
-            name: 'Lịch sử Đảng cộng sản Việt Nam',
-            code: '111100001111', // 12-digit binary
-            teacher: 'GV: Đinh Cao Tín',
-            schedule: 'Thứ 5 - 06:45-08:15 (Tiết 4-6)',
-            location: 'Phòng D4-04 (Hội trường Khu D)',
-            status: 'active',
-            joinedAt: '2025-09-01',
-            totalStudents: 120,
-            description: 'Học về lịch sử hình thành và phát triển của Đảng Cộng sản Việt Nam'
-          },
-          {
-            id: 4,
-            name: 'Lập trình thiết bị di động',
-            code: '100110011001', // 12-digit binary
-            teacher: 'GV: Đoàn Chí Trung',
-            schedule: 'Thứ 6 - 07:00-11:00 (Tiết 7-11)',
-            location: 'Phòng I4-02 (Phòng máy 8)',
-            status: 'active',
-            joinedAt: '2025-09-01',
-            totalStudents: 35,
-            description: 'Phát triển ứng dụng di động trên Android và iOS'
-          },
-          {
-            id: 5,
-            name: 'Pháp luật về công nghệ thông tin',
-            code: '010101010101', // 12-digit binary
-            teacher: 'GV: Trần Minh Tâm',
-            schedule: 'Thứ 7 - 06:45-08:15 (Tiết 1-3)',
-            location: 'Phòng T4-05 (Học đường)',
-            status: 'active',
-            joinedAt: '2025-09-01',
-            totalStudents: 85,
-            description: 'Tìm hiểu các quy định pháp lý trong lĩnh vực công nghệ thông tin'
-          }
-        ]
-        
-        setClasses(mockClasses)
+        const res = await (await import('../../services/classService')).default.getMyClasses()
+        const apiData = res.data?.results || res.data || []
+        const mapped = apiData.map((c) => ({
+          id: c.id,
+          name: c.class_name || 'Lớp học',
+          code: c.class_id || '',
+          teacher: c.teacher?.full_name || `${c.teacher?.first_name || ''} ${c.teacher?.last_name || ''}`.trim() || 'Giảng viên',
+          schedule: 'Chưa cập nhật',
+          location: 'Chưa cập nhật',
+          status: c.is_active ? 'active' : 'inactive',
+          joinedAt: null,
+          totalStudents: c.current_students_count || 0,
+          description: c.description || ''
+        }))
+        setClasses(mapped)
       } catch (err) {
         setError('Không thể tải danh sách lớp học')
       } finally {
@@ -356,21 +303,25 @@ const StudentClassList = ({ user }) => {
       <ClassJoinDialog
         open={joinDialogOpen}
         onClose={() => setJoinDialogOpen(false)}
-        onJoin={(classData) => {
-          // Add new class to list
-          const newClass = {
-            id: Date.now(),
-            name: classData.name || 'Lớp học mới',
-            code: classData.code || '000000000000',
-            teacher: classData.teacher || 'Giảng viên',
-            schedule: 'Chưa cập nhật',
-            location: 'Chưa cập nhật',
-            status: 'pending',
-            joinedAt: new Date().toISOString().split('T')[0],
-            totalStudents: 0,
-            description: 'Lớp học mới tham gia'
-          }
-          setClasses(prev => [...prev, newClass])
+        onJoin={async () => {
+          // Reload real classes after join
+          try {
+            const res = await (await import('../../services/classService')).default.getMyClasses()
+            const apiData = res.data?.results || res.data || []
+            const mapped = apiData.map((c) => ({
+              id: c.id,
+              name: c.class_name || 'Lớp học',
+              code: c.class_id || '',
+              teacher: c.teacher?.full_name || `${c.teacher?.first_name || ''} ${c.teacher?.last_name || ''}`.trim() || 'Giảng viên',
+              schedule: 'Chưa cập nhật',
+              location: 'Chưa cập nhật',
+              status: c.is_active ? 'active' : 'inactive',
+              joinedAt: null,
+              totalStudents: c.current_students_count || 0,
+              description: c.description || ''
+            }))
+            setClasses(mapped)
+          } catch {}
           setJoinDialogOpen(false)
         }}
       />

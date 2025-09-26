@@ -2,15 +2,16 @@ from rest_framework import generics, status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Q, Count
-from django.http import JsonResponse
-from rest_framework.response import Response
-from rest_framework import status
+from django.utils import timezone
+from django.utils.crypto import get_random_string
+
 from apps.accounts.models import User
 from apps.students.models import Student
 from apps.students.serializers import StudentSerializer
 from apps.attendance.models import AttendanceSession, Attendance
 from apps.grades.models import Grade, GradeSummary
-from .models import Class, ClassStudent
+
+from .models import Class, ClassStudent, ClassJoinToken
 from .serializers import (
     ClassSerializer, ClassCreateSerializer, ClassDetailSerializer, ClassStudentSerializer
 )
@@ -50,6 +51,161 @@ class ClassListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         serializer.save(teacher=self.request.user)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def my_classes(request):
+    """Return classes that current student is enrolled in.
+    Be tolerant to missing Student profile by trying both user link and email.
+    If not found, auto-create a minimal Student profile to avoid empty results after join.
+    """
+    try:
+        user = request.user
+        # Prefer explicit user link
+        student = Student.objects.filter(user=user).first()
+        # Fallback by email (case-insensitive)
+        if not student:
+            student = Student.objects.filter(email__iexact=user.email).first()
+        # As a last resort, attempt to create a Student profile
+        if not student:
+            from datetime import date
+            student = Student.objects.create(
+                user=user,
+                student_id=user.student_id or f"U{user.id}",
+                first_name=user.first_name or user.email.split('@')[0],
+                last_name=user.last_name or '',
+                email=user.email.lower(),
+                gender='other',
+                date_of_birth=date(2000, 1, 1)
+            )
+        classes = Class.objects.filter(
+            class_students__student=student,
+            class_students__is_active=True
+        ).distinct().order_by('class_id')
+        data = ClassSerializer(classes, many=True).data
+        return Response(data, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def create_join_token(request, class_id):
+    """Teacher/Admin create a join token for a class"""
+    try:
+        class_obj = Class.objects.get(id=class_id)
+        # Permission: teacher owns the class or admin
+        if request.user.role != 'admin' and class_obj.teacher != request.user:
+            return Response({'error': 'Bạn không có quyền tạo token cho lớp này'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Params
+        expires_in_minutes = int(request.data.get('expires_in_minutes', 60))
+        max_uses = int(request.data.get('max_uses', 0))
+        token = get_random_string(24)
+        expires_at = timezone.now() + timezone.timedelta(minutes=expires_in_minutes) if expires_in_minutes > 0 else None
+        
+        join_token = ClassJoinToken.objects.create(
+            class_obj=class_obj,
+            token=token,
+            expires_at=expires_at,
+            max_uses=max_uses,
+            created_by=request.user
+        )
+        
+        return Response({
+            'token': join_token.token,
+            'expires_at': join_token.expires_at,
+            'max_uses': join_token.max_uses,
+            'join_link': f"/api/classes/join/?token={join_token.token}"
+        })
+    except Class.DoesNotExist:
+        return Response({'error': 'Không tìm thấy lớp học'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def join_class(request):
+    """Student joins class using a join token OR a class_id (mã lớp)."""
+    try:
+        token = request.data.get('token') or request.query_params.get('token')
+        class_id = request.data.get('class_id') or request.query_params.get('class_id')
+
+        class_obj = None
+        join_token = None
+
+        if token:
+            try:
+                join_token = ClassJoinToken.objects.get(token=token, is_active=True)
+            except ClassJoinToken.DoesNotExist:
+                return Response({'error': 'Token không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+            if not join_token.can_use():
+                return Response({'error': 'Token đã hết hạn hoặc hết lượt sử dụng'}, status=status.HTTP_400_BAD_REQUEST)
+            class_obj = join_token.class_obj
+        elif class_id:
+            # Allow join by mã lớp (12 số). Không cần token.
+            try:
+                class_obj = Class.objects.get(class_id=str(class_id))
+            except Class.DoesNotExist:
+                return Response({'error': 'Mã lớp không hợp lệ'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'error': 'Thiếu token hoặc mã lớp'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        
+        # Optional roster restriction by email
+        if class_obj.restrict_to_roster_emails:
+            if not Student.objects.filter(email__iexact=user.email).exists():
+                return Response({'error': 'Email của bạn chưa có trong danh sách lớp. Liên hệ giảng viên.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        # Ensure Student profile exists
+        student = Student.objects.filter(email__iexact=user.email).first()
+        if not student:
+            from datetime import date
+            student = Student.objects.create(
+                user=user,
+                student_id=user.student_id or f"U{user.id}",
+                first_name=user.first_name or user.email.split('@')[0],
+                last_name=user.last_name or '',
+                email=user.email.lower(),
+                gender='other',
+                date_of_birth=date(2000, 1, 1)
+            )
+        else:
+            # Ensure the student is linked to this user for future queries
+            if not student.user:
+                student.user = user
+                student.save(update_fields=['user'])
+        
+        # Enroll if not exists
+        rel, created = ClassStudent.objects.get_or_create(
+            class_obj=class_obj,
+            student=student,
+            defaults={
+                'status': ClassStudent.Status.ACTIVE,
+                'is_active': True,
+                'joined_at': timezone.now(),
+                'source': ClassStudent.Source.JOIN_CODE
+            }
+        )
+        # Re-activate if previously removed or inactive
+        if not created and (rel.status != ClassStudent.Status.ACTIVE or not rel.is_active):
+            rel.status = ClassStudent.Status.ACTIVE
+            rel.is_active = True
+            rel.joined_at = rel.joined_at or timezone.now()
+            rel.source = rel.source or ClassStudent.Source.JOIN_CODE
+            rel.save(update_fields=['status', 'is_active', 'joined_at', 'source'])
+        
+        # consume token if used
+        if join_token:
+            join_token.use_count += 1
+            join_token.save(update_fields=['use_count'])
+        
+        return Response({'message': 'Tham gia lớp thành công', 'class_id': class_obj.id})
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -138,7 +294,13 @@ def remove_student_from_class(request, class_id, student_id):
             is_active=True
         )
         class_student.is_active = False
-        class_student.save()
+        try:
+            # Update status for clarity
+            from .models import ClassStudent as CS
+            class_student.status = CS.Status.REMOVED
+        except Exception:
+            pass
+        class_student.save(update_fields=['is_active', 'status'])
         
         return Response({'message': 'Đã xóa sinh viên khỏi lớp thành công'})
         

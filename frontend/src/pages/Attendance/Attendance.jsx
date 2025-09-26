@@ -43,18 +43,38 @@ import {
   CalendarToday as CalendarIcon
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
-import { MockDataProvider, useMockData } from '../../components/Dashboard/MockDataProvider'
+import attendanceService from '../../services/attendanceService'
 
 const StudentAttendanceView = () => {
   const { user } = useSelector((state) => state.auth)
-  const { mockData, isLoading } = useMockData()
+  const [loading, setLoading] = useState(true)
+  const [records, setRecords] = useState([])
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSubject, setFilterSubject] = useState('all')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
 
-  const attendanceRecords = mockData.attendanceRecords || []
+  useEffect(() => {
+    const load = async () => {
+      setLoading(true)
+      try {
+        const res = await attendanceService.getAttendances({
+          student_id: user?.student_id || user?.id,
+          page_size: 500
+        })
+        const list = res.data?.results || res.data || []
+        setRecords(list)
+      } catch (e) {
+        setRecords([])
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [user?.id, user?.student_id])
+
+  const attendanceRecords = records
   
   // Get unique subjects for filter
   const subjects = [...new Set(attendanceRecords.map(record => record.session?.subject).filter(Boolean))]
@@ -88,7 +108,7 @@ const StudentAttendanceView = () => {
     setPage(0)
   }
 
-  if (isLoading) {
+  if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -360,17 +380,13 @@ const Attendance = () => {
   // For students, show detailed attendance view
   if (userRole === 'student') {
     return (
-      <MockDataProvider user={user}>
-        <StudentAttendanceView />
-      </MockDataProvider>
+      <StudentAttendanceView />
     )
   }
 
-  // For admin/teacher, could show different attendance management interface
+  // For admin/teacher, keep same view for now
   return (
-    <MockDataProvider user={user}>
-      <StudentAttendanceView />
-    </MockDataProvider>
+    <StudentAttendanceView />
   )
 }
 

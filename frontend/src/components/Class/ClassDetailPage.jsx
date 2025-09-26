@@ -49,6 +49,7 @@ import {
   LocationOn as LocationIcon,
   CalendarToday as CalendarIcon,
   Edit as EditIcon,
+  Delete as DeleteIcon,
   Add as AddIcon,
   FileDownload as FileDownloadIcon,
   QrCode as QrCodeIcon,
@@ -63,10 +64,12 @@ import { useSelector } from 'react-redux'
 import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
+import studentService from '../../services/studentService'
 import * as XLSX from 'xlsx'
 import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
 import ManualAttendance from '../Attendance/ManualAttendance'
 import CreateSession from '../Session/CreateSession'
+import StudentForm from '../Form/StudentForm'
 
 const ClassDetailPage = () => {
   const { classId } = useParams()
@@ -90,6 +93,9 @@ const ClassDetailPage = () => {
   const [manualAttendanceOpen, setManualAttendanceOpen] = useState(false)
   const [createSessionOpen, setCreateSessionOpen] = useState(false)
   const [selectedStudent, setSelectedStudent] = useState(null)
+  // Student info edit dialog
+  const [studentFormOpen, setStudentFormOpen] = useState(false)
+  const [editingStudentDetail, setEditingStudentDetail] = useState(null)
 
   // Mock data for demo
   const mockAttendanceSessions = [
@@ -299,6 +305,41 @@ const ClassDetailPage = () => {
   const handleEditGrade = (student) => {
     setSelectedStudent(student)
     setGradeDialogOpen(true)
+  }
+
+  // Open student edit dialog (fetch full detail first)
+  const handleEditStudentInfo = async (student) => {
+    try {
+      const res = await studentService.getStudent(student.student_id)
+      // Map id to student_id so StudentForm (which uses updateStudent(id)) works with backend lookup by student_id
+      const detail = res.data
+      setEditingStudentDetail({ ...detail, id: detail.student_id })
+      setStudentFormOpen(true)
+    } catch (e) {
+      console.error('Failed to load student detail:', e)
+      alert('Không thể tải thông tin sinh viên để chỉnh sửa')
+    }
+  }
+
+  // Remove student from class
+  const handleRemoveStudentFromClass = async (student) => {
+    const code = student.student_id
+    if (!code) {
+      alert('Thiếu mã sinh viên (student_id)')
+      return
+    }
+    if (!window.confirm(`Xóa ${student.name || student.full_name || student.email} khỏi lớp?`)) return
+    try {
+      await classService.removeStudentFromClass(classId, code)
+      setStudents(prev => prev.filter(s => (s.student_id) !== code))
+      // optionally update class count
+      setClassData(prev => prev ? { ...prev, current_students: Math.max(0, (prev.current_students || 0) - 1) } : prev)
+      alert('Đã xóa sinh viên khỏi lớp')
+    } catch (e) {
+      console.error('Failed to remove student from class:', e)
+      const detail = e?.response?.data || e?.message
+      alert(`Không thể xóa: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`)
+    }
   }
 
   const handleSaveManualAttendance = async (attendanceData) => {
@@ -686,12 +727,18 @@ const ClassDetailPage = () => {
                             />
                           </TableCell>
                           <TableCell align="center">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleEditGrade(student)}
-                            >
-                              <EditIcon />
-                            </IconButton>
+                            <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
+                              <Tooltip title="Chỉnh sửa sinh viên">
+                                <IconButton size="small" onClick={() => handleEditStudentInfo(student)}>
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Xóa khỏi lớp">
+                                <IconButton size="small" color="error" onClick={() => handleRemoveStudentFromClass(student)}>
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
                           </TableCell>
                         </TableRow>
                       )
@@ -981,6 +1028,17 @@ const ClassDetailPage = () => {
         onClose={() => setCreateSessionOpen(false)}
         classData={classData}
         onCreateSession={handleCreateSession}
+      />
+
+      {/* Student Form Dialog */}
+      <StudentForm
+        open={studentFormOpen}
+        onClose={() => setStudentFormOpen(false)}
+        onSuccess={async () => {
+          setStudentFormOpen(false)
+          await loadClassData()
+        }}
+        student={editingStudentDetail}
       />
 
       {/* Floating Action Button */}

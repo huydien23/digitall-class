@@ -47,195 +47,62 @@ const StudentGradesView = ({ user }) => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState('')
 
-  // Mock data for student grades
+  // Load real grades from API
   useEffect(() => {
     const loadGrades = async () => {
       setIsLoading(true)
       try {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        const { default: gradeService } = await import('../../services/gradeService')
+        const res = await gradeService.getGrades({
+          student_id: user?.student_id || user?.id,
+          page_size: 500,
+          ordering: '-created_at'
+        })
+        const list = res.data?.results || res.data || []
         
-        // Mock data with 10%-30%-60% system (hệ điểm 10)
-        const mockGrades = [
-          {
-            id: 1,
-            subject: 'Lập trình Python',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Đặng Mạnh Huy',
-            semester: 'HK1 2024-2025',
-            components: {
-              regular: {
-                weight: 10,
-                maxScore: 10,
-                currentScore: 8.5,
-                items: [
-                  { name: 'Bài tập Python cơ bản', score: 9.0, maxScore: 10, date: '2024-09-15' },
-                  { name: 'Bài tập OOP', score: 8.0, maxScore: 10, date: '2024-09-22' },
-                  { name: 'Project Flask', score: 8.5, maxScore: 10, date: '2024-09-29' }
-                ]
+        // Group by subject to fit the component structure
+        const bySubject = {}
+        list.forEach(g => {
+          const key = g.subject || g.class_name || g.class?.class_name || 'Môn học'
+          if (!bySubject[key]) {
+            bySubject[key] = {
+              id: `${key}`,
+              subject: key,
+              subjectCode: g.class_id || g.class?.class_id || '',
+              teacher: g.teacher || (g.class?.teacher_name || ''),
+              semester: g.semester || '',
+              components: {
+                regular: { weight: 10, maxScore: 10, currentScore: 0, items: [] },
+                midterm: { weight: 30, maxScore: 10, currentScore: 0, items: [] },
+                final: { weight: 60, maxScore: 10, currentScore: 0, items: [] },
               },
-              midterm: {
-                weight: 30,
-                maxScore: 10,
-                currentScore: 7.8,
-                items: [
-                  { name: 'Giữa kỳ', score: 7.8, maxScore: 10, date: '2024-02-15' }
-                ]
-              },
-              final: {
-                weight: 60,
-                maxScore: 10,
-                currentScore: 9.2,
-                items: [
-                  { name: 'Cuối kỳ', score: 9.2, maxScore: 10, date: '2024-03-20' }
-                ]
-              }
-            },
-            finalGrade: 8.7,
-            status: 'completed'
-          },
-          {
-            id: 2,
-            subject: 'Phát triển phần mềm mã nguồn mở',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Võ Thanh Vinh',
-            semester: 'HK1 2024-2025',
-            components: {
-              regular: {
-                weight: 10,
-                maxScore: 10,
-                currentScore: 8.8,
-                items: [
-                  { name: 'Bài tập Git/GitHub', score: 8.5, maxScore: 10, date: '2024-09-16' },
-                  { name: 'Bài tập Docker', score: 9.0, maxScore: 10, date: '2024-09-23' },
-                  { name: 'Thực hành Linux', score: 8.9, maxScore: 10, date: '2024-09-30' }
-                ]
-              },
-              midterm: {
-                weight: 30,
-                maxScore: 10,
-                currentScore: 8.2,
-                items: [
-                  { name: 'Giữa kỳ', score: 8.2, maxScore: 10, date: '2024-10-22' }
-                ]
-              },
-              final: {
-                weight: 60,
-                maxScore: 10,
-                currentScore: 9.0,
-                items: [
-                  { name: 'Cuối kỳ', score: 9.0, maxScore: 10, date: '2024-11-28' }
-                ]
-              }
-            },
-            finalGrade: 8.9,
-            status: 'completed'
-          },
-          {
-            id: 3,
-            subject: 'Lịch sử Đảng cộng sản Việt Nam',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Đinh Cao Tín',
-            semester: 'HK1 2024-2025',
-            components: {
-              regular: {
-                weight: 10,
-                maxScore: 10,
-                currentScore: 7.5,
-                items: [
-                  { name: 'Bài tập 1', score: 7.0, maxScore: 10, date: '2024-01-17' },
-                  { name: 'Bài tập 2', score: 8.0, maxScore: 10, date: '2024-01-24' }
-                ]
-              },
-              midterm: {
-                weight: 30,
-                maxScore: 10,
-                currentScore: 0,
-                items: []
-              },
-              final: {
-                weight: 60,
-                maxScore: 10,
-                currentScore: 0,
-                items: []
-              }
-            },
-            finalGrade: 0,
-            status: 'in_progress'
-          },
-          {
-            id: 4,
-            subject: 'Lập trình thiết bị di động',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Đoàn Chí Trung',
-            semester: 'HK1 2024-2025',
-            components: {
-              regular: {
-                weight: 10,
-                maxScore: 10,
-                currentScore: 8.2,
-                items: [
-                  { name: 'Bài tập Android', score: 8.0, maxScore: 10, date: '2024-09-20' },
-                  { name: 'Bài tập iOS', score: 8.5, maxScore: 10, date: '2024-09-27' }
-                ]
-              },
-              midterm: {
-                weight: 30,
-                maxScore: 10,
-                currentScore: 7.8,
-                items: [
-                  { name: 'Giữa kỳ', score: 7.8, maxScore: 10, date: '2024-10-25' }
-                ]
-              },
-              final: {
-                weight: 60,
-                maxScore: 10,
-                currentScore: 0,
-                items: []
-              }
-            },
-            finalGrade: 0,
-            status: 'in_progress'
-          },
-          {
-            id: 5,
-            subject: 'Pháp luật về công nghệ thông tin',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Trần Minh Tâm',
-            semester: 'HK1 2024-2025',
-            components: {
-              regular: {
-                weight: 10,
-                maxScore: 10,
-                currentScore: 8.5,
-                items: [
-                  { name: 'Bài tập luật CNTT', score: 8.5, maxScore: 10, date: '2024-09-25' },
-                  { name: 'Thuyết trình', score: 8.5, maxScore: 10, date: '2024-10-02' }
-                ]
-              },
-              midterm: {
-                weight: 30,
-                maxScore: 10,
-                currentScore: 8.3,
-                items: [
-                  { name: 'Giữa kỳ', score: 8.3, maxScore: 10, date: '2024-11-01' }
-                ]
-              },
-              final: {
-                weight: 60,
-                maxScore: 10,
-                currentScore: 8.7,
-                items: [
-                  { name: 'Cuối kỳ', score: 8.7, maxScore: 10, date: '2024-12-05' }
-                ]
-              }
-            },
-            finalGrade: 8.6,
-            status: 'completed'
+              finalGrade: 0,
+              status: 'in_progress'
+            }
           }
-        ]
+          const entry = bySubject[key]
+          const item = { name: g.grade_type, score: Number(g.score || 0), maxScore: 10, date: g.created_at ? new Date(g.created_at).toISOString().slice(0,10) : '' }
+          if (g.grade_type === 'regular') {
+            entry.components.regular.currentScore = item.score
+            entry.components.regular.items.push(item)
+          } else if (g.grade_type === 'midterm') {
+            entry.components.midterm.currentScore = item.score
+            entry.components.midterm.items.push(item)
+          } else if (g.grade_type === 'final') {
+            entry.components.final.currentScore = item.score
+            entry.components.final.items.push(item)
+          }
+        })
         
-        setGrades(mockGrades)
+        const computed = Object.values(bySubject).map(s => {
+          const regular = (s.components.regular.currentScore * s.components.regular.weight) / 100
+          const midterm = (s.components.midterm.currentScore * s.components.midterm.weight) / 100
+          const final = (s.components.final.currentScore * s.components.final.weight) / 100
+          const total = regular + midterm + final
+          return { ...s, finalGrade: Number.isFinite(total) ? total : 0, status: total > 0 ? 'completed' : 'in_progress' }
+        })
+        
+        setGrades(computed)
       } catch (err) {
         setError('Không thể tải điểm số')
       } finally {
@@ -244,7 +111,7 @@ const StudentGradesView = ({ user }) => {
     }
 
     loadGrades()
-  }, [])
+  }, [user?.id, user?.student_id])
 
   const calculateFinalGrade = (components) => {
     const regular = (components.regular.currentScore * components.regular.weight) / 100

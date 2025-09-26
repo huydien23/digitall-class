@@ -143,17 +143,17 @@ const App = () => {
           } />
 
           <Route path="/grades" element={
-            <ProtectedRoute requiredRole={['admin']}>
+            <ProtectedRoute>
               <Layout>
-                <GradeManagement />
+                <Grades />
               </Layout>
             </ProtectedRoute>
           } />
 
           <Route path="/attendance" element={
-            <ProtectedRoute requiredRole={['admin']}>
+            <ProtectedRoute>
               <Layout>
-                <AttendanceManagement />
+                <Attendance />
               </Layout>
             </ProtectedRoute>
           } />
