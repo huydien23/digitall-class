@@ -30,7 +30,7 @@ const HeroSection = () => {
       sx={{
         position: 'relative',
         minHeight: { xs: '80vh', md: '70vh' },
-        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 25%, #4338ca 50%, #3730a3 75%, #312e81 100%)',
         display: 'flex',
         alignItems: 'center',
         overflow: 'hidden',
@@ -123,14 +123,15 @@ const HeroSection = () => {
                     py: 3,
                     fontSize: '1.3rem',
                     fontWeight: 700,
-                    borderRadius: 4,
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.2)',
+                    borderRadius: 3,
+                    boxShadow: '0 10px 30px rgba(99, 102, 241, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
                     '&:hover': {
                       background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
-                      transform: 'translateY(-3px)',
-                      boxShadow: '0 16px 50px rgba(0,0,0,0.3)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 20px 40px rgba(99, 102, 241, 0.3)',
                     },
-                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     minWidth: 250,
                   }}
                 >
@@ -145,20 +146,23 @@ const HeroSection = () => {
                   startIcon={<Login />}
                   aria-label="Đăng nhập vào hệ thống EduAttend"
                   sx={{
-                    borderColor: 'white',
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
                     color: 'white',
                     px: 6,
                     py: 3,
                     fontSize: '1.3rem',
                     fontWeight: 700,
-                    borderRadius: 4,
-                    borderWidth: 3,
+                    borderRadius: 3,
+                    borderWidth: 2,
+                    backdropFilter: 'blur(10px)',
+                    background: 'rgba(255, 255, 255, 0.1)',
                     '&:hover': {
                       borderColor: 'white',
-                      bgcolor: 'rgba(255,255,255,0.15)',
-                      transform: 'translateY(-3px)',
+                      background: 'rgba(255, 255, 255, 0.2)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 10px 30px rgba(255, 255, 255, 0.1)',
                     },
-                    transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     minWidth: 250,
                   }}
                 >
@@ -170,19 +174,19 @@ const HeroSection = () => {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Star sx={{ color: '#fbbf24' }} />
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 500 }}>
                     4.9/5 từ 500+ giảng viên
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Security sx={{ color: '#10b981' }} />
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  <Security sx={{ color: '#22c55e' }} />
+                  <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 500 }}>
                     Bảo mật cao, tuân thủ GDPR
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Timer sx={{ color: '#f59e0b' }} />
-                  <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                  <Timer sx={{ color: '#0ea5e9' }} />
+                  <Typography variant="body2" sx={{ opacity: 0.95, fontWeight: 500 }}>
                     Setup chỉ trong 5 phút
                   </Typography>
                 </Box>

@@ -5,11 +5,22 @@ from apps.students.models import Student
 
 class Class(models.Model):
     """Class model"""
+    class ClassMode(models.TextChoices):
+        LECTURE_ONLY = 'lecture_only', 'Lý thuyết'
+        PRACTICE_ONLY = 'practice_only', 'Thực hành'
+        LECTURE_PRACTICE = 'lecture_practice', 'Lý thuyết + Thực hành'
+
     class_id = models.CharField(max_length=20, unique=True)
     class_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='classes')
     max_students = models.PositiveIntegerField(default=50)
+    class_mode = models.CharField(
+        max_length=32,
+        choices=ClassMode.choices,
+        default=ClassMode.LECTURE_ONLY,
+        verbose_name='Học phần'
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -24,6 +35,7 @@ class Class(models.Model):
             models.Index(fields=['teacher']),
             models.Index(fields=['is_active']),
             models.Index(fields=['created_at']),
+            models.Index(fields=['class_mode']),
         ]
     
     def __str__(self):

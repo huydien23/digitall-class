@@ -26,7 +26,7 @@ const TestimonialsSection = () => {
             py: 1, 
             fontSize: '1rem', 
             fontWeight: 600,
-            background: 'linear-gradient(135deg, #8b5cf6 0%, #ec4899 50%, #06b6d4 100%)',
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #0ea5e9 100%)',
             color: 'white',
           }}
         />

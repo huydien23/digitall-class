@@ -42,7 +42,7 @@ class GradeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = [
-            'id', 'student', 'class_obj', 'subject', 'grade_type',
+            'id', 'student', 'class_obj', 'subject', 'grade_type', 'component',
             'score', 'max_score', 'percentage', 'letter_grade',
             'comment', 'created_by', 'created_at', 'updated_at'
         ]
@@ -58,7 +58,7 @@ class GradeCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Grade
         fields = [
-            'student_id', 'class_id', 'subject_id', 'grade_type',
+            'student_id', 'class_id', 'subject_id', 'grade_type', 'component',
             'score', 'max_score', 'comment'
         ]
     

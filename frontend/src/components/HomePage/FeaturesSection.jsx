@@ -42,7 +42,7 @@ const FeaturesSection = () => {
               py: 1, 
               fontSize: '1rem', 
               fontWeight: 600,
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+            background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)',
               color: 'white',
             }}
           />

@@ -7,6 +7,12 @@ from apps.classes.models import Class
 
 class AttendanceSession(models.Model):
     """Attendance session model"""
+    class SessionType(models.TextChoices):
+        LECTURE = 'lecture', 'Lý thuyết'
+        PRACTICE = 'practice', 'Thực hành'
+        SEMINAR = 'seminar', 'Seminar'
+        EXAM = 'exam', 'Kiểm tra'
+
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='attendance_sessions')
     session_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
@@ -14,6 +20,8 @@ class AttendanceSession(models.Model):
     start_time = models.TimeField()
     end_time = models.TimeField()
     location = models.CharField(max_length=200, blank=True, null=True)
+    session_type = models.CharField(max_length=20, choices=SessionType.choices, default=SessionType.LECTURE)
+    group_name = models.CharField(max_length=50, blank=True, null=True)
     qr_code = models.CharField(max_length=100, unique=True, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_sessions', null=True, blank=True)

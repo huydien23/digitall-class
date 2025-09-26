@@ -110,6 +110,7 @@ const getNavigationItems = (userRole) => {
   }
 
   if (userRole === 'teacher') {
+    // Teacher-first mode: tập trung vào quản lý lớp; ẩn các trang quản trị tổng hợp
     return [
       ...baseItems,
       { 
@@ -117,16 +118,7 @@ const getNavigationItems = (userRole) => {
         icon: <School />, 
         path: '/classes'
       },
-      { 
-        text: 'Quản lý điểm số', 
-        icon: <Assessment />, 
-        path: '/grades'
-      },
-      { 
-        text: 'Quản lý điểm danh', 
-        icon: <Assignment />, 
-        path: '/attendance'
-      },
+      // Điểm và điểm danh sẽ thao tác trong trang lớp/phiên học
     ]
   }
 

@@ -85,18 +85,16 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
   const handleFileSelect = (selectedFile) => {
     if (!selectedFile) return
 
-    // Kiểm tra định dạng file
-    const validTypes = [
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel',
-      '.xlsx',
-      '.xls'
-    ]
-    
-    const fileType = selectedFile.type || selectedFile.name.toLowerCase()
-    const isValidType = validTypes.some(type => fileType.includes(type.replace('.', '')))
-    
-    if (!isValidType) {
+    // Chấp nhận theo cả MIME type và đuôi file để tránh trường hợp browser trả về application/octet-stream
+    const mime = (selectedFile.type || '').toLowerCase()
+    const name = (selectedFile.name || '').toLowerCase()
+    const isMimeOk =
+      mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mime === 'application/vnd.ms-excel' ||
+      mime === 'application/octet-stream' // một số môi trường
+    const isExtOk = name.endsWith('.xlsx') || name.endsWith('.xls')
+
+    if (!isMimeOk && !isExtOk) {
       alert('Vui lòng chọn file Excel (.xlsx hoặc .xls)')
       return
     }
@@ -184,15 +182,15 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
   }
 
   const validateStudentData = (student) => {
-    return !!(student.student_id && student.email && (student.first_name || student.full_name))
+    // Email không bắt buộc ở FE (BE sẽ tự sinh từ MSSV nếu thiếu)
+    return !!(student.student_id && (student.first_name || student.full_name || student.last_name))
   }
 
   const getValidationErrors = (student) => {
     const errors = []
     
     if (!student.student_id) errors.push('Thiếu MSSV')
-    if (!student.email) errors.push('Thiếu email')
-    if (!student.first_name && !student.full_name) errors.push('Thiếu họ tên')
+    if (!student.first_name && !student.full_name && !student.last_name) errors.push('Thiếu họ tên')
     
     // Validate email format
     if (student.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(student.email)) {

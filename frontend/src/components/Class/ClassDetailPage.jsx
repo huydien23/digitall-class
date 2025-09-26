@@ -82,6 +82,7 @@ const ClassDetailPage = () => {
   const [attendanceSessions, setAttendanceSessions] = useState([])
   const [attendanceRecords, setAttendanceRecords] = useState([])
   const [grades, setGrades] = useState([])
+  const [componentFilter, setComponentFilter] = useState('all') // all | lecture | practice
   const [gradeTypes, setGradeTypes] = useState(['Điểm thường xuyên (10%)', 'Điểm giữa kỳ (30%)', 'Điểm cuối kỳ (60%)'])
   const [anchorEl, setAnchorEl] = useState(null)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
@@ -434,7 +435,21 @@ const ClassDetailPage = () => {
               Mã lớp: {classData.class_id} • {classData.schedule} • {classData.location}
             </Typography>
           </Box>
-          <Box display="flex" gap={1}>
+          <Box display="flex" gap={1} alignItems="center">
+            <Box>
+              <TextField
+                select
+                size="small"
+                label="Học phần"
+                value={componentFilter}
+                onChange={(e) => setComponentFilter(e.target.value)}
+                sx={{ minWidth: 200, mr: 1 }}
+              >
+                <MenuItem value="all">Tất cả học phần</MenuItem>
+                <MenuItem value="lecture">Lý thuyết</MenuItem>
+                <MenuItem value="practice">Thực hành</MenuItem>
+              </TextField>
+            </Box>
             <Button
               variant="contained"
               startIcon={<AddIcon />}
@@ -497,7 +512,7 @@ const ClassDetailPage = () => {
               <CardContent sx={{ textAlign: 'center', py: 2 }}>
                 <CalendarIcon color="info" sx={{ fontSize: 32, mb: 1 }} />
                 <Typography variant="h6" fontWeight={600}>
-                  {mockAttendanceSessions.length}
+                  {attendanceSessions.length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Buổi học
@@ -510,7 +525,7 @@ const ClassDetailPage = () => {
               <CardContent sx={{ textAlign: 'center', py: 2 }}>
                 <CheckCircleIcon color="success" sx={{ fontSize: 32, mb: 1 }} />
                 <Typography variant="h6" fontWeight={600}>
-                  {Math.round(students.reduce((sum, student) => sum + calculateAttendanceRate(student), 0) / students.length)}%
+                  {students.length > 0 ? Math.round(students.reduce((sum, s) => sum + calculateAttendanceRate(s), 0) / students.length) : 0}%
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Điểm danh TB
@@ -532,6 +547,52 @@ const ClassDetailPage = () => {
             </Card>
           </Grid>
         </Grid>
+
+        <Box mt={3}>
+          <Typography variant="h6" fontWeight={600} gutterBottom>
+            Danh sách buổi học
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          {(() => {
+            const filtered = attendanceSessions.filter(s => componentFilter === 'all' || s.session_type === componentFilter)
+            if (filtered.length === 0) {
+              return (
+                <Alert severity="info">Chưa có buổi học nào cho học phần đã chọn.</Alert>
+              )
+            }
+            const fmt = (t) => t ? String(t).slice(0,5) : '-'
+            return (
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>#</TableCell>
+                      <TableCell>Buổi</TableCell>
+                      <TableCell>Ngày</TableCell>
+                      <TableCell>Giờ</TableCell>
+                      <TableCell>Phòng</TableCell>
+                      <TableCell>Học phần</TableCell>
+                      <TableCell>Nhóm</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filtered.map((s, idx) => (
+                      <TableRow key={s.id || idx}>
+                        <TableCell>{idx + 1}</TableCell>
+                        <TableCell>{s.session_name}</TableCell>
+                        <TableCell>{s.session_date}</TableCell>
+                        <TableCell>{fmt(s.start_time)} - {fmt(s.end_time)}</TableCell>
+                        <TableCell>{s.location || '-'}</TableCell>
+                        <TableCell>{s.session_type === 'practice' ? 'Thực hành' : 'Lý thuyết'}</TableCell>
+                        <TableCell>{s.group_name || '-'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
+          })()}
+        </Box>
       </Box>
 
       {/* Tabs */}

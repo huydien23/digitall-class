@@ -65,6 +65,7 @@ import { useNavigate } from 'react-router-dom'
 import ClassJoinQRCode from './ClassJoinQRCode'
 import StudentImportDialog from './StudentImportDialog'
 import classService from '../../services/classService'
+import attendanceService from '../../services/attendanceService'
 
 const ImprovedClassManagement = () => {
   const navigate = useNavigate()
@@ -85,6 +86,7 @@ const ImprovedClassManagement = () => {
     class_name: '',
     description: '',
     max_students: 50,
+    class_mode: 'lecture_only',
     schedule: '',
     room: ''
   })
@@ -111,7 +113,30 @@ const ImprovedClassManagement = () => {
         attendance_rate: 0,
         created_at: c.created_at
       }))
-      setClasses(mapped)
+      // Load upcoming session info (time/location) for each class
+      const enriched = await Promise.all(mapped.map(async c => {
+        try {
+          const sr = await attendanceService.getSessions({ class_id: c.id })
+          const sessions = sr.data?.results || sr.data || []
+          // pick the closest upcoming or latest past session
+          const now = new Date()
+          let chosen = null
+          let minDiff = Number.POSITIVE_INFINITY
+          sessions.forEach(s => {
+            try {
+              const d = new Date(s.session_date + 'T' + (s.start_time || '00:00'))
+              const diff = Math.abs(d.getTime() - now.getTime())
+              if (diff < minDiff) { minDiff = diff; chosen = s }
+            } catch (_) {}
+          })
+          if (chosen) {
+            const schedule = `${chosen.session_date} | ${(chosen.start_time || '').slice(0,5)}-${(chosen.end_time || '').slice(0,5)}`
+            return { ...c, schedule, room: chosen.location || '-' }
+          }
+        } catch (_) {}
+        return c
+      }))
+      setClasses(enriched)
     } catch (e) {
       console.error('Failed to load classes', e)
       setClasses([])
@@ -122,10 +147,10 @@ const ImprovedClassManagement = () => {
 
   const handleCreateClass = async () => {
     // Validate form
-    if (!newClass.class_id || !newClass.class_name) {
+    if (!newClass.class_name) {
       setSnackbar({
         open: true,
-        message: 'Vui lòng điền đầy đủ thông tin bắt buộc',
+        message: 'Vui lòng nhập Tên lớp',
         severity: 'error'
       })
       return
@@ -137,7 +162,8 @@ const ImprovedClassManagement = () => {
         class_id: newClass.class_id,
         class_name: newClass.class_name,
         description: newClass.description,
-        max_students: Number(newClass.max_students) || 50
+        max_students: Number(newClass.max_students) || 50,
+        class_mode: newClass.class_mode
       }
       await classService.createClass(payload)
       setCreateDialogOpen(false)
@@ -526,10 +552,11 @@ const ImprovedClassManagement = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Mã lớp *"
+                  label="Mã lớp (tùy chọn)"
                   value={newClass.class_id}
                   onChange={(e) => setNewClass({ ...newClass, class_id: e.target.value })}
-                  placeholder="VD: CS101"
+placeholder="Để trống để hệ thống tự tạo mã 12 chữ số (bắt đầu 0101000)"
+                  helperText="Nếu để trống, hệ thống sinh mã theo định dạng 0101000 + 5 số"
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
@@ -540,6 +567,20 @@ const ImprovedClassManagement = () => {
                   value={newClass.max_students}
                   onChange={(e) => setNewClass({ ...newClass, max_students: e.target.value })}
                 />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Học phần</InputLabel>
+                  <Select
+                    label="Học phần"
+                    value={newClass.class_mode}
+                    onChange={(e) => setNewClass({ ...newClass, class_mode: e.target.value })}
+                  >
+                    <MenuItem value="lecture_only">Lý thuyết</MenuItem>
+                    <MenuItem value="practice_only">Thực hành</MenuItem>
+                    <MenuItem value="lecture_practice">Lý thuyết + Thực hành</MenuItem>
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <TextField

@@ -50,21 +50,21 @@ const HomePage = () => {
         </section>
 
         {/* Features Section */}
-        <section aria-labelledby="features-heading">
+        <section id="features-section" aria-labelledby="features-heading">
           <Suspense fallback={<div role="status" aria-label="Loading features">Loading...</div>}>
             <LazyFeaturesSection />
           </Suspense>
         </section>
 
-        {/* Testimonials Section */}
-        <section aria-labelledby="testimonials-heading">
+        {/* About Section - Testimonials */}
+        <section id="about-section" aria-labelledby="testimonials-heading">
           <Suspense fallback={<div role="status" aria-label="Loading testimonials">Loading...</div>}>
             <LazyTestimonialsSection />
           </Suspense>
         </section>
 
         {/* CTA Section */}
-        <section aria-labelledby="cta-heading">
+        <section id="cta-section" aria-labelledby="cta-heading">
           <CTASection />
         </section>
 

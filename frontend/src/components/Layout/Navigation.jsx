@@ -199,18 +199,20 @@ const Navigation = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
             {/* Logo */}
             <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 0 }}>
               <Avatar sx={{ 
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)', 
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)', 
                 mr: 1.5, 
-                width: 40, 
-                height: 40 
+                width: 42, 
+                height: 42,
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
               }}>
                 <School />
               </Avatar>
               <Typography variant="h5" fontWeight="bold" sx={{ 
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+                background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)',
                 backgroundClip: 'text',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
+                letterSpacing: '-0.01em'
               }}>
                 EduAttend
               </Typography>
@@ -219,28 +221,44 @@ const Navigation = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
             {/* Desktop Navigation */}
             {!isMobile && (
               <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1, justifyContent: 'center' }}>
-                {NAV_ITEMS.map((item) => (
-                  <Button
-                    key={item.text}
-                    component={Link}
-                    to={item.path}
-                    aria-label={`Navigate to ${item.text}`}
-                    sx={{
-                      mx: 1,
-                      color: 'text.primary',
-                      fontWeight: 500,
-                      px: 2,
-                      py: 1,
-                      borderRadius: 2,
-                      '&:hover': {
-                        bgcolor: alpha('#6366f1', 0.1),
-                        color: '#6366f1',
-                      },
-                    }}
-                  >
-                    {item.text}
-                  </Button>
-                ))}
+                {NAV_ITEMS.map((item) => {
+                  const handleClick = () => {
+                    if (item.path === '#features') {
+                      const element = document.getElementById('features-section')
+                      if (element) element.scrollIntoView({ behavior: 'smooth' })
+                    } else if (item.path === '#about') {
+                      const element = document.getElementById('about-section')
+                      if (element) element.scrollIntoView({ behavior: 'smooth' })
+                    } else if (item.path === '#contact') {
+                      const element = document.getElementById('contact-section')
+                      if (element) element.scrollIntoView({ behavior: 'smooth' })
+                    }
+                  }
+                  
+                  return (
+                    <Button
+                      key={item.text}
+                      component={item.path.startsWith('#') ? 'button' : Link}
+                      to={item.path.startsWith('#') ? undefined : item.path}
+                      onClick={item.path.startsWith('#') ? handleClick : undefined}
+                      aria-label={`Navigate to ${item.text}`}
+                      sx={{
+                        mx: 1,
+                        color: 'text.primary',
+                        fontWeight: 500,
+                        px: 2,
+                        py: 1,
+                        borderRadius: 2,
+                        '&:hover': {
+                          bgcolor: alpha('#6366f1', 0.1),
+                          color: '#6366f1',
+                        },
+                      }}
+                    >
+                      {item.text}
+                    </Button>
+                  )
+                })}
               </Box>
             )}
 
@@ -268,16 +286,18 @@ const Navigation = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
                       variant="contained"
                       startIcon={<Dashboard />}
                       sx={{
-                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)',
                         fontWeight: 600,
                         px: 3,
-                        py: 1,
-                        borderRadius: 2,
-                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                        py: 1.2,
+                        borderRadius: 3,
+                        boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)',
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #db2777 100%)',
-                          boxShadow: '0 6px 16px rgba(99, 102, 241, 0.4)',
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 50%, #3730a3 100%)',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)',
                         },
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                       }}
                     >
                       Vào Dashboard
@@ -336,16 +356,18 @@ const Navigation = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
                       startIcon={<PersonAdd />}
                       aria-label="Đăng ký tài khoản miễn phí"
                       sx={{
-                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)',
                         fontWeight: 600,
                         px: 3,
-                        py: 1,
-                        borderRadius: 2,
-                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                        py: 1.2,
+                        borderRadius: 3,
+                        boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)',
                         '&:hover': {
-                          background: 'linear-gradient(135deg, #5b21b6 0%, #7c3aed 50%, #db2777 100%)',
-                          boxShadow: '0 6px 16px rgba(99, 102, 241, 0.4)',
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 50%, #3730a3 100%)',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)',
                         },
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                       }}
                     >
                       Đăng ký

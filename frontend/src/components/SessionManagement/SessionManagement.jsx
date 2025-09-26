@@ -80,10 +80,12 @@ const SessionManagement = ({
   const loadClasses = async () => {
     try {
       const response = await classService.getClasses()
-      // Filter classes for current teacher
-      const teacherClasses = response.data?.results?.filter(
-        classItem => classItem.teacher === user.id
-      ) || []
+      // Backend đã lọc theo giảng viên (nếu không phải admin). Tránh lọc sai ở FE.
+      const allClasses = response.data?.results || response.data || []
+      // Nếu là admin, giữ nguyên; nếu là teacher, fallback lọc theo teacher.id khi BE chưa lọc.
+      const teacherClasses = (user?.role === 'admin')
+        ? allClasses
+        : allClasses.filter(ci => (ci?.teacher?.id ?? ci?.teacher) === user?.id || !ci?.teacher)
       setClasses(teacherClasses)
     } catch (err) {
       console.error('Failed to load classes:', err)
@@ -227,8 +229,22 @@ const SessionManagement = ({
     onClose()
   }
 
-  const formatDateTime = (dateTime) => {
-    return new Date(dateTime).toLocaleString('vi-VN')
+  const formatTime = (t) => {
+    if (!t) return ''
+    if (typeof t === 'string') {
+      // Expect HH:MM[:SS]
+      const parts = t.split(':')
+      if (parts.length >= 2) return `${parts[0].padStart(2,'0')}:${parts[1].padStart(2,'0')}`
+      return t
+    }
+    const d = new Date(t)
+    return isNaN(d) ? String(t) : d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  }
+
+  const formatDateDisplay = (d) => {
+    if (!d) return ''
+    const dateObj = new Date(d)
+    return isNaN(dateObj) ? String(d) : dateObj.toLocaleDateString('vi-VN')
   }
 
   return (
@@ -403,7 +419,7 @@ const SessionManagement = ({
                           secondary={
                             <Box>
                               <Typography variant="body2" color="text.secondary">
-                                {formatDateTime(session.start_time)} - {formatDateTime(session.end_time)}
+                                {formatDateDisplay(session.session_date)} {formatTime(session.start_time)} - {formatTime(session.end_time)}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
                                 {session.location}

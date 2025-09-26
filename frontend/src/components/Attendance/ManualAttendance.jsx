@@ -125,20 +125,8 @@ const ManualAttendance = ({
   }
 
   // Mock students data nếu không có
-  const mockStudents = [
-    { id: 1, student_id: '221222', name: 'Lê Văn Nhựt Anh', email: 'anh.le@student.edu.vn' },
-    { id: 2, student_id: '222803', name: 'Trần Nguyễn Phương Anh', email: 'phuonganh.tran@student.edu.vn' },
-    { id: 3, student_id: '226969', name: 'Nguyễn Xuân Bách', email: 'bach.nguyen@student.edu.vn' },
-    { id: 4, student_id: '221605', name: 'Huỳnh Thương Bảo', email: 'bao.huynh@student.edu.vn' },
-    { id: 5, student_id: '221330', name: 'Thạch Văn Bảo', email: 'baothach@student.edu.vn' },
-    { id: 6, student_id: '222560', name: 'Nguyễn Tiến Chức', email: 'chuc.nguyen@student.edu.vn' },
-    { id: 7, student_id: '223463', name: 'Đặng Thiên Chương', email: 'chuong.dang@student.edu.vn' },
-    { id: 8, student_id: '220237', name: 'Nguyễn Đặng Hải Đăng', email: 'dang.nguyen@student.edu.vn' },
-    { id: 9, student_id: '221761', name: 'Trần Tấn Đạt', email: 'dat.tran@student.edu.vn' },
-    { id: 10, student_id: '223319', name: 'Nguyễn Thị Ngọc Diễm', email: 'diem.nguyen@student.edu.vn' },
-  ]
-
-  const studentList = students.length > 0 ? students : mockStudents
+  // Không còn dùng dữ liệu mẫu fallback để tránh hiển thị dữ liệu cũ
+  const studentList = Array.isArray(students) ? students : []
 
   useEffect(() => {
     // Khởi tạo attendance state từ existingAttendance
@@ -620,8 +608,22 @@ const ManualAttendance = ({
         </Toolbar>
 
         {/* Student List */}
-        <TableContainer sx={{ maxHeight: '50vh' }}>
-          <Table stickyHeader>
+        {studentList.length === 0 ? (
+          <Box sx={{ p: 4, textAlign: 'center' }}>
+            <Alert severity="info" sx={{ display: 'inline-flex', textAlign: 'left' }}>
+              <Box>
+                <Typography variant="h6" gutterBottom>
+                  Chưa có sinh viên trong lớp
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Vui lòng thêm danh sách sinh viên vào lớp trước, sau đó mở lại Điểm danh thủ công.
+                </Typography>
+              </Box>
+            </Alert>
+          </Box>
+        ) : (
+          <TableContainer sx={{ maxHeight: '50vh' }}>
+            <Table stickyHeader>
             <TableHead>
               <TableRow>
                 {bulkMode && (
@@ -753,8 +755,9 @@ const ManualAttendance = ({
                 })}
               </AnimatePresence>
             </TableBody>
-          </Table>
-        </TableContainer>
+            </Table>
+          </TableContainer>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ p: 2, gap: 1 }}>

@@ -43,6 +43,7 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
+import { useNavigate } from 'react-router-dom'
 import SessionManagement from '../../components/SessionManagement/SessionManagement'
 import ExcelDragDrop from '../../components/ExcelDragDrop/ExcelDragDrop'
 import classService from '../../services/classService'
@@ -51,6 +52,7 @@ import gradeService from '../../services/gradeService'
 
 const ProperTeacherDashboard = () => {
   const { user } = useSelector((state) => state.auth)
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [excelUploadOpen, setExcelUploadOpen] = useState(false)
@@ -155,12 +157,30 @@ const ProperTeacherDashboard = () => {
     }
   }
 
+  // Quick action: generate QR for the first available session today, otherwise open session management
+  const handleQuickGenerateQR = () => {
+    if (teacherData.todaySessions && teacherData.todaySessions.length > 0) {
+      handleGenerateQR(teacherData.todaySessions[0].id)
+    } else {
+      setSessionManagementOpen(true)
+    }
+  }
+
   const handleStartSession = async (sessionId) => {
     try {
       await attendanceService.updateSession(sessionId, { is_active: true })
       loadTeacherData()
     } catch (err) {
       console.error('Error starting session:', err)
+    }
+  }
+
+  const handleStopSession = async (sessionId) => {
+    try {
+      await attendanceService.updateSession(sessionId, { is_active: false })
+      loadTeacherData()
+    } catch (err) {
+      console.error('Error stopping session:', err)
     }
   }
 
@@ -370,9 +390,10 @@ const ProperTeacherDashboard = () => {
                             >
                               QR điểm danh
                             </Button>
-                            <Button
+                          <Button
                               size="small"
                               startIcon={<VisibilityIcon />}
+                              onClick={() => setSessionManagementOpen(true)}
                             >
                               Xem
                             </Button>
@@ -409,7 +430,7 @@ const ProperTeacherDashboard = () => {
                           secondary={`${classItem.current_students_count || 0} sinh viên`}
                         />
                         <ListItemSecondaryAction>
-                          <Button size="small" startIcon={<EditIcon />}>
+                          <Button size="small" startIcon={<EditIcon />} onClick={() => navigate(`/classes/${classItem.id}`)}>
                             Manage
                           </Button>
                         </ListItemSecondaryAction>
@@ -446,6 +467,7 @@ const ProperTeacherDashboard = () => {
                   variant="contained"
                   fullWidth
                   startIcon={<QrCodeIcon />}
+                  onClick={handleQuickGenerateQR}
                   sx={{ py: 1.5 }}
                 >
                   Tạo QR
@@ -456,6 +478,7 @@ const ProperTeacherDashboard = () => {
                   variant="contained"
                   fullWidth
                   startIcon={<AssignmentIcon />}
+                  onClick={() => { setUploadType('grades'); setExcelUploadOpen(true) }}
                   sx={{ py: 1.5 }}
                 >
                   Nhập điểm
@@ -466,6 +489,7 @@ const ProperTeacherDashboard = () => {
                   variant="contained"
                   fullWidth
                   startIcon={<VisibilityIcon />}
+                  onClick={() => window.alert('Tính năng báo cáo đang phát triển')}
                   sx={{ py: 1.5 }}
                 >
                   Xem báo cáo

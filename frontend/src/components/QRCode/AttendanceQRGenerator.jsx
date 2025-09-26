@@ -60,8 +60,8 @@ const AttendanceQRGenerator = ({
   const [attendanceUrl, setAttendanceUrl] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [sessionStats, setSessionStats] = useState({
-    totalStudents: 56,
-    presentCount: 12,
+    totalStudents: 0,
+    presentCount: 0,
     attendanceRecords: []
   })
   const [timeRemaining, setTimeRemaining] = useState(null)
@@ -85,7 +85,8 @@ const AttendanceQRGenerator = ({
     if (open && selectedSession) {
       generateQRCode()
       startTimer()
-      simulateAttendanceData()
+      // Không mô phỏng dữ liệu điểm danh để tránh hiển thị dữ liệu cũ
+      setSessionStats(prev => ({ ...prev, attendanceRecords: [], presentCount: 0 }))
     }
     return () => {
       stopTimer()

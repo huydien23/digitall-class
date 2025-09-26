@@ -130,21 +130,39 @@ const Login = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 25%, #4338ca 50%, #3730a3 75%, #312e81 100%)',
         p: 2,
+        position: 'relative',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `
+            radial-gradient(circle at 20% 80%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255,255,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(255,255,255,0.05) 0%, transparent 50%)
+          `,
+          opacity: 0.8,
+        }
       }}
-    >      <Container maxWidth="sm">
+    >
+      <Container maxWidth="sm">
         <Slide direction="up" in={true} timeout={800}>
           <Paper
-            elevation={24}
+            elevation={0}
             sx={{
-              p: 4,
-              borderRadius: 3,
-              background: 'rgba(255, 255, 255, 0.95)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
+              p: 5,
+              borderRadius: 4,
+              background: 'rgba(255, 255, 255, 0.98)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.3)',
               position: 'relative',
               overflow: 'hidden',
+              zIndex: 2,
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
               '&::before': {
                 content: '""',
                 position: 'absolute',
@@ -152,20 +170,22 @@ const Login = () => {
                 left: 0,
                 right: 0,
                 height: '4px',
-                background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899)',
+                background: 'linear-gradient(90deg, #6366f1, #4f46e5, #4338ca)',
               },
             }}
-          >            <Box sx={{ textAlign: 'center', mb: 4 }}>
+          >
+            <Box sx={{ textAlign: 'center', mb: 4 }}>
               <Box
                 sx={{
                   display: 'inline-flex',
-                  p: 2,
+                  p: 2.5,
                   borderRadius: '50%',
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                  mb: 2,
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                  mb: 3,
+                  boxShadow: '0 8px 25px rgba(99, 102, 241, 0.3)',
                 }}
               >
-                <School sx={{ fontSize: 32, color: 'white' }} />
+                <School sx={{ fontSize: 36, color: 'white' }} />
               </Box>
               
               <Typography
@@ -173,12 +193,13 @@ const Login = () => {
                 component="h1"
                 gutterBottom
                 sx={{
-                  fontWeight: 700,
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
                   mb: 1,
+                  letterSpacing: '-0.02em'
                 }}
               >
                 EduAttend
@@ -193,12 +214,13 @@ const Login = () => {
                 component="h2"
                 gutterBottom
                 sx={{
-                  fontWeight: 600,
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
                   backgroundClip: 'text',
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  mb: 1,
+                  mb: 2,
+                  letterSpacing: '-0.01em'
                 }}
               >
                 Đăng nhập
@@ -217,7 +239,9 @@ const Login = () => {
                   Đăng ký tại đây
                 </Link>
               </Typography>
-            </Box>            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+            </Box>
+            
+            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <TextField
@@ -236,11 +260,13 @@ const Login = () => {
                     placeholder="example@email.com"
                     sx={{
                       '& .MuiOutlinedInput-root': {
+                        borderRadius: 3,
                         '&:hover fieldset': {
                           borderColor: '#6366f1',
                         },
                         '&.Mui-focused fieldset': {
                           borderColor: '#6366f1',
+                          borderWidth: '2px'
                         },
                       },
                     }}
@@ -278,11 +304,13 @@ const Login = () => {
                     }}
                     sx={{
                       '& .MuiOutlinedInput-root': {
+                        borderRadius: 3,
                         '&:hover fieldset': {
                           borderColor: '#6366f1',
                         },
                         '&.Mui-focused fieldset': {
                           borderColor: '#6366f1',
+                          borderWidth: '2px'
                         },
                       },
                     }}
@@ -305,19 +333,23 @@ const Login = () => {
                     variant="contained"
                     disabled={loading}
                     sx={{
-                      mt: 2,
-                      py: 1.5,
-                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      mt: 3,
+                      py: 2,
+                      background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
                       '&:hover': {
-                        background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                        background: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+                        transform: 'translateY(-1px)',
+                        boxShadow: '0 10px 25px rgba(99, 102, 241, 0.4)',
                       },
                       '&:disabled': {
                         background: 'rgba(0, 0, 0, 0.12)',
                       },
-                      borderRadius: 2,
+                      borderRadius: 3,
                       textTransform: 'none',
-                      fontSize: '1rem',
-                      fontWeight: 600,
+                      fontSize: '1.1rem',
+                      fontWeight: 700,
+                      boxShadow: '0 4px 15px rgba(99, 102, 241, 0.3)',
+                      transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                     }}
                     startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />}
                   >
@@ -341,7 +373,8 @@ const Login = () => {
                   </Box>
                 </Grid>
               </Grid>
-            </Box>          </Paper>
+            </Box>
+          </Paper>
         </Slide>
       </Container>
     </Box>

@@ -51,9 +51,15 @@ class AttendanceSessionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = AttendanceSession.objects.all()
         class_id = self.request.query_params.get('class_id', None)
+        session_type = self.request.query_params.get('session_type', None)
+        group_name = self.request.query_params.get('group_name', None)
         
         if class_id is not None:
             queryset = queryset.filter(class_obj_id=class_id)
+        if session_type is not None:
+            queryset = queryset.filter(session_type=session_type)
+        if group_name is not None:
+            queryset = queryset.filter(group_name=group_name)
         
         return queryset.order_by('-session_date', '-start_time')
 

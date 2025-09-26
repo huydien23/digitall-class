@@ -20,6 +20,7 @@ import {
 const Footer = () => {
   return (
     <Box
+      id="contact-section"
       sx={{
         bgcolor: 'grey.900',
         color: 'white',
@@ -32,7 +33,7 @@ const Footer = () => {
             <Box sx={{ mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
                 <Avatar sx={{ 
-                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)', 
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)', 
                   mr: 1.5 
                 }}>
                   <School />

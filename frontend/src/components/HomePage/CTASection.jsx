@@ -22,7 +22,7 @@ const CTASection = () => {
     <Container maxWidth="lg" sx={{ py: 12 }}>
       <Card
         sx={{
-          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #ec4899 100%)',
+          background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #4338ca 100%)',
           color: 'white',
           borderRadius: 4,
           p: 6,

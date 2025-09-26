@@ -3,11 +3,13 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Q, Count
 from django.http import JsonResponse
+from rest_framework.response import Response
+from rest_framework import status
 from apps.accounts.models import User
 from apps.students.models import Student
 from apps.students.serializers import StudentSerializer
 from apps.attendance.models import AttendanceSession, Attendance
-from apps.grades.models import Grade
+from apps.grades.models import Grade, GradeSummary
 from .models import Class, ClassStudent
 from .serializers import (
     ClassSerializer, ClassCreateSerializer, ClassDetailSerializer, ClassStudentSerializer
@@ -67,6 +69,27 @@ class ClassDetailView(generics.RetrieveUpdateDestroyAPIView):
             queryset = queryset.filter(teacher=self.request.user)
         
         return queryset
+
+    def destroy(self, request, *args, **kwargs):
+        """Override destroy to safely delete related records to avoid DB constraint errors."""
+        instance = self.get_object()
+        # Permission check: teacher can only delete own class
+        if request.user.role != 'admin' and instance.teacher != request.user:
+            return Response({'error': 'Bạn không có quyền xóa lớp này'}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            # Delete related attendance first
+            Attendance.objects.filter(session__class_obj=instance).delete()
+            AttendanceSession.objects.filter(class_obj=instance).delete()
+            # Delete related grades
+            Grade.objects.filter(class_obj=instance).delete()
+            GradeSummary.objects.filter(class_obj=instance).delete()
+            # Delete class-student relations
+            ClassStudent.objects.filter(class_obj=instance).delete()
+            # Finally delete the class
+            instance.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class ClassStudentListCreateView(generics.ListCreateAPIView):

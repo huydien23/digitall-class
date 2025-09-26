@@ -15,6 +15,7 @@ class AttendanceSessionSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'class_obj', 'session_name', 'description',
             'session_date', 'start_time', 'end_time', 'location',
+            'session_type', 'group_name',
             'qr_code', 'is_active', 'created_by', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -28,7 +29,8 @@ class AttendanceSessionCreateSerializer(serializers.ModelSerializer):
         model = AttendanceSession
         fields = [
             'class_id', 'session_name', 'description',
-            'session_date', 'start_time', 'end_time', 'location'
+            'session_date', 'start_time', 'end_time', 'location',
+            'session_type', 'group_name'
         ]
     
     def create(self, validated_data):

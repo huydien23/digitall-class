@@ -35,11 +35,16 @@ class Grade(models.Model):
         ('quiz', 'Kiểm tra'),
         ('other', 'Khác'),
     ]
+    COMPONENT_CHOICES = [
+        ('lecture', 'Lý thuyết'),
+        ('practice', 'Thực hành'),
+    ]
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='grades')
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='grades')
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='grades')
     grade_type = models.CharField(max_length=20, choices=GRADE_TYPE_CHOICES)
+    component = models.CharField(max_length=20, choices=COMPONENT_CHOICES, blank=True, null=True)
     score = models.DecimalField(
         max_digits=5, 
         decimal_places=2,

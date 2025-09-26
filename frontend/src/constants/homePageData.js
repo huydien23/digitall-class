@@ -27,7 +27,7 @@ export const TESTIMONIALS = [
     content: 'Giao diện đơn giản, dễ sử dụng. Tôi có thể xem lịch học và điểm danh ngay trên điện thoại.',
     rating: 5,
     avatar: 'L',
-    avatarBg: '#8b5cf6',
+    avatarBg: '#4f46e5',
     schoolLogo: '🎓',
     metrics: 'Sử dụng 5 lần/tuần'
   },
@@ -39,7 +39,7 @@ export const TESTIMONIALS = [
     content: 'Hệ thống báo cáo chi tiết giúp chúng tôi quản lý sinh viên hiệu quả hơn rất nhiều.',
     rating: 5,
     avatar: 'N',
-    avatarBg: '#ec4899',
+    avatarBg: '#0ea5e9',
     schoolLogo: '📚',
     metrics: 'Quản lý 200+ sinh viên'
   }
@@ -62,7 +62,7 @@ export const FEATURES = [
     title: 'Quản lý lớp học thông minh',
     description: 'Tạo lớp học, phân công giảng viên, theo dõi danh sách sinh viên một cách dễ dàng.',
     highlight: 'Tự động đồng bộ',
-    color: '#8b5cf6',
+    color: '#4f46e5',
     mockup: '👥',
     demo: 'Tạo lớp → Thêm sinh viên → Quản lý'
   },
@@ -72,7 +72,7 @@ export const FEATURES = [
     title: 'Báo cáo chi tiết tự động',
     description: 'Thống kê điểm danh, xuất báo cáo Excel/PDF. Theo dõi tiến độ học tập của sinh viên.',
     highlight: 'Real-time analytics',
-    color: '#ec4899',
+    color: '#22c55e',
     mockup: '📊',
     demo: 'Thống kê → Xuất báo cáo → Phân tích'
   },
@@ -105,7 +105,7 @@ export const STATS = [
     label: 'Sinh viên', 
     description: 'Đang sử dụng hàng ngày',
     icon: 'PersonOutlined',
-    color: '#8b5cf6',
+    color: '#4f46e5',
     animation: 'bounce',
     context: 'Tăng trưởng 200% trong 6 tháng'
   },
@@ -115,7 +115,7 @@ export const STATS = [
     label: 'Lớp học', 
     description: 'Được quản lý hiệu quả',
     icon: 'Groups',
-    color: '#ec4899',
+    color: '#22c55e',
     animation: 'wiggle',
     context: 'Trung bình 25 sinh viên/lớp'
   },
