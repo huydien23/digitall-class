@@ -44,11 +44,13 @@ import {
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import attendanceService from '../../services/attendanceService'
+import StudentCheckInDialog from '../../components/Attendance/StudentCheckInDialog'
 
 const StudentAttendanceView = () => {
   const { user } = useSelector((state) => state.auth)
   const [loading, setLoading] = useState(true)
   const [records, setRecords] = useState([])
+  const [checkInOpen, setCheckInOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterSubject, setFilterSubject] = useState('all')
@@ -140,6 +142,7 @@ const StudentAttendanceView = () => {
             variant="contained"
             startIcon={<QrCodeIcon />}
             size="large"
+            onClick={() => setCheckInOpen(true)}
           >
             Điểm danh QR
           </Button>
@@ -369,6 +372,14 @@ const StudentAttendanceView = () => {
           />
         </CardContent>
       </Card>
+
+      {/* Check-in Dialog */}
+      <StudentCheckInDialog
+        open={checkInOpen}
+        onClose={() => setCheckInOpen(false)}
+        studentCode={user?.student_id || user?.id}
+        onSuccess={() => setCheckInOpen(false)}
+      />
     </Container>
   )
 }

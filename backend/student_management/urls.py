@@ -15,6 +15,7 @@ urlpatterns = [
     path('api/attendance/', include('apps.attendance.urls')),
     path('api/rooms/', include('apps.rooms.urls')),
     path('api/teachers/', include('apps.accounts.teacher_urls')),
+    path('api/materials/', include('apps.materials.urls')),
 ]
 
 if settings.DEBUG:

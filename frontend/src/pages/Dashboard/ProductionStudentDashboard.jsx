@@ -181,6 +181,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import QRCodeScanner from '../../components/QRCode/QRCodeScanner'
+import StudentCheckInDialog from '../../components/Attendance/StudentCheckInDialog'
 import StudentClassList from '../../components/Class/StudentClassList'
 import StudentGradesView from '../../components/Grades/StudentGradesView'
 import StudentScheduleView from '../../components/Schedule/StudentScheduleView'
@@ -996,13 +997,15 @@ const ProductionStudentDashboard = () => {
           </CardContent>
         </Card>
         
-        {/* QR Code Check-in Dialog */}
-        <QRCodeScanner
+        {/* Check-in Dialog (QR / Nhập mã) */}
+        <StudentCheckInDialog
           open={qrDialogOpen}
           onClose={() => setQrDialogOpen(false)}
-          onScanSuccess={handleQRCodeSubmit}
-          onScanError={(error) => {
-            showNotification('Lỗi quét QR code: ' + error, 'error')
+          studentCode={user.student_id || user.id}
+          onSuccess={() => {
+            setQrDialogOpen(false)
+            showNotification('Điểm danh thành công!', 'success')
+            loadAllData()
           }}
         />
         

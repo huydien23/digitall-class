@@ -46,6 +46,7 @@ import {
 import QRCode from 'qrcode'
 import { motion, AnimatePresence } from 'framer-motion'
 import SessionSelector from '../Session/SessionSelector'
+import attendanceService from '../../services/attendanceService'
 
 const AttendanceQRGenerator = ({
   open,
@@ -95,32 +96,28 @@ const AttendanceQRGenerator = ({
 
   const generateQRCode = async () => {
     if (!selectedSession) return
-    
+
     setIsGenerating(true)
     try {
-      // Tạo URL điểm danh
+      // Gọi API backend để sinh mã QR hợp lệ và lưu vào DB
+      const res = await attendanceService.generateQRCode(selectedSession.id)
+      const data = res?.data || res
+      const qrCode = data.qr_code // chuỗi để check-in
+      const qrImage = data.qr_image // base64 PNG
+
+      // Link điểm danh để chia sẻ/nhập mã (sinh viên có thể dán link hoặc mã thuần)
       const baseUrl = window.location.origin
-      const attendanceLink = `${baseUrl}/attendance/checkin/${selectedSession.id || 'demo'}?token=${generateAttendanceToken()}`
-      setAttendanceUrl(attendanceLink)
-      
-      // Tạo QR Code
-      const qrDataUrl = await QRCode.toDataURL(attendanceLink, {
-        width: 300,
-        height: 300,
-        color: {
-          dark: '#1976D2',
-          light: '#FFFFFF'
-        },
-        errorCorrectionLevel: 'M'
-      })
-      
-      setQrCodeUrl(qrDataUrl)
-      
-      // Update session với QR code mới
+      const link = `${baseUrl}/checkin?qr_code=${encodeURIComponent(qrCode)}`
+      setAttendanceUrl(link)
+
+      // Hiển thị ảnh QR do backend trả về (đảm bảo khớp với mã qr_code ở DB)
+      setQrCodeUrl(qrImage)
+
+      // Callback cập nhật session nếu cần
       if (onSessionUpdate) {
         onSessionUpdate({
           ...selectedSession,
-          qr_code_data: attendanceLink,
+          qr_code: qrCode,
           last_qr_update: new Date().toISOString()
         })
       }
@@ -131,17 +128,21 @@ const AttendanceQRGenerator = ({
     }
   }
 
-  const generateAttendanceToken = () => {
-    return btoa(`${selectedSession?.id || 'demo'}_${Date.now()}`).replace(/[+=]/g, '').substring(0, 16)
-  }
+  // No local token generation; rely on backend generate-qr API
+  const generateAttendanceToken = () => ''
 
   const startTimer = () => {
     if (!selectedSession) return
     
     const updateTimer = () => {
-      // Giả lập thời gian kết thúc sau 2 giờ
       const now = new Date()
-      const endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000) // 2 giờ từ bây giờ
+      let endTime
+      if (selectedSession?.session_date && selectedSession?.end_time) {
+        endTime = new Date(`${selectedSession.session_date}T${selectedSession.end_time}`)
+      } else {
+        // fallback 2 giờ nếu thiếu dữ liệu
+        endTime = new Date(now.getTime() + 2 * 60 * 60 * 1000)
+      }
       const diff = endTime - now
       
       if (diff > 0) {
@@ -465,7 +466,7 @@ const AttendanceQRGenerator = ({
             {/* URL Copy */}
             <Paper sx={{ p: 2, mt: 2 }}>
               <Typography variant="subtitle2" gutterBottom>
-                Link điểm danh:
+                Link điểm danh (dán vào dialog sinh viên hoặc gửi cho lớp):
               </Typography>
               <Box display="flex" gap={1}>
                 <Typography 

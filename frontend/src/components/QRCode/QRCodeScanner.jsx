@@ -11,7 +11,9 @@ import {
   CircularProgress,
   IconButton,
   Paper,
-  Divider
+  Divider,
+  Stack,
+  TextField
 } from '@mui/material'
 import {
   QrCode as QrCodeIcon,
@@ -22,13 +24,14 @@ import {
 } from '@mui/icons-material'
 import QrScanner from 'qr-scanner'
 
-const QRCodeScanner = ({ open, onClose, onScanSuccess, onScanError }) => {
+const QRCodeScanner = ({ open, onClose, onScanSuccess, onScanError, allowManual = true }) => {
   const videoRef = useRef(null)
   const qrScannerRef = useRef(null)
   const [isScanning, setIsScanning] = useState(false)
   const [error, setError] = useState(null)
   const [success, setSuccess] = useState(false)
   const [scannedData, setScannedData] = useState(null)
+  const [manualCode, setManualCode] = useState('')
 
   useEffect(() => {
     if (open && videoRef.current) {
@@ -113,10 +116,18 @@ const QRCodeScanner = ({ open, onClose, onScanSuccess, onScanError }) => {
     startScanner()
   }
 
+  const parseQrFromText = (text) => {
+    try {
+      const url = new URL(text)
+      return url.searchParams.get('qr_code') || url.searchParams.get('qr') || url.searchParams.get('token') || text
+    } catch {
+      return text
+    }
+  }
+
   const handleManualInput = () => {
-    const manualCode = prompt('Nhập mã QR thủ công:')
     if (manualCode && manualCode.trim()) {
-      handleScanSuccess(manualCode.trim())
+      handleScanSuccess(parseQrFromText(manualCode.trim()))
     }
   }
 
@@ -223,14 +234,20 @@ const QRCodeScanner = ({ open, onClose, onScanSuccess, onScanError }) => {
 
               <Divider sx={{ my: 2 }} />
               
-              <Button
-                variant="outlined"
-                onClick={handleManualInput}
-                startIcon={<QrCodeIcon />}
-                sx={{ mt: 1 }}
-              >
-                Nhập mã thủ công
-              </Button>
+              {allowManual && (
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mt: 2 }}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Dán mã hoặc liên kết có qr_code"
+                    value={manualCode}
+                    onChange={(e) => setManualCode(e.target.value)}
+                  />
+                  <Button variant="contained" onClick={handleManualInput} disabled={!manualCode.trim()}>
+                    Điểm danh
+                  </Button>
+                </Stack>
+              )}
             </Box>
           )}
         </Box>

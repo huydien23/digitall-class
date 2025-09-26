@@ -65,6 +65,7 @@ import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
 import studentService from '../../services/studentService'
+import materialService from '../../services/materialService'
 import * as XLSX from 'xlsx'
 import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
 import ManualAttendance from '../Attendance/ManualAttendance'
@@ -96,6 +97,10 @@ const ClassDetailPage = () => {
   // Student info edit dialog
   const [studentFormOpen, setStudentFormOpen] = useState(false)
   const [editingStudentDetail, setEditingStudentDetail] = useState(null)
+  // Materials
+  const [materials, setMaterials] = useState([])
+  const [materialsLoading, setMaterialsLoading] = useState(true)
+  const [materialsError, setMaterialsError] = useState('')
 
   // Mock data for demo
   const mockAttendanceSessions = [
@@ -195,6 +200,7 @@ const ClassDetailPage = () => {
     try {
       setLoading(true)
       setError(null)
+      setMaterialsError('')
 
       // Try to load real data from API first
       try {
@@ -226,6 +232,17 @@ const ClassDetailPage = () => {
         } catch (e2) {
           setAttendanceSessions(mockAttendanceSessions)
         }
+      }
+
+      // Load materials (view-only for students)
+      try {
+        const resMat = await materialService.getMaterials({ class_id: classId, page_size: 200 })
+        const list = resMat?.data?.results || resMat?.data || []
+        setMaterials(list)
+      } catch (eMat) {
+        setMaterialsError('Không thể tải tài liệu lớp')
+      } finally {
+        setMaterialsLoading(false)
       }
       
     } catch (err) {
@@ -491,45 +508,49 @@ const ClassDetailPage = () => {
                 <MenuItem value="practice">Thực hành</MenuItem>
               </TextField>
             </Box>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={() => setCreateSessionOpen(true)}
-              color="success"
-              sx={{
-                background: 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)',
-                boxShadow: '0 3px 5px 2px rgba(76, 175, 80, .3)'
-              }}
-            >
-              Tạo buổi học
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<QrCodeIcon />}
-              onClick={() => setQrDialogOpen(true)}
-              color="primary"
-            >
-              QR Điểm danh
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<PeopleIcon />}
-              onClick={() => setManualAttendanceOpen(true)}
-              color="secondary"
-            >
-              Điểm danh thủ công
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<FileDownloadIcon />}
-              onClick={handleExportExcel}
-              color="info"
-            >
-              Xuất Excel
-            </Button>
-            <IconButton onClick={handleMenuClick}>
-              <MoreVertIcon />
-            </IconButton>
+            {user?.role !== 'student' && (
+              <>
+                <Button
+                  variant="contained"
+                  startIcon={<AddIcon />}
+                  onClick={() => setCreateSessionOpen(true)}
+                  color="success"
+                  sx={{
+                    background: 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)',
+                    boxShadow: '0 3px 5px 2px rgba(76, 175, 80, .3)'
+                  }}
+                >
+                  Tạo buổi học
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<QrCodeIcon />}
+                  onClick={() => setQrDialogOpen(true)}
+                  color="primary"
+                >
+                  QR Điểm danh
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<PeopleIcon />}
+                  onClick={() => setManualAttendanceOpen(true)}
+                  color="secondary"
+                >
+                  Điểm danh thủ công
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<FileDownloadIcon />}
+                  onClick={handleExportExcel}
+                  color="info"
+                >
+                  Xuất Excel
+                </Button>
+                <IconButton onClick={handleMenuClick}>
+                  <MoreVertIcon />
+                </IconButton>
+              </>
+            )}
           </Box>
         </Box>
 
@@ -642,6 +663,7 @@ const ClassDetailPage = () => {
           <Tab label="Danh sách sinh viên" />
           <Tab label="Bảng điểm danh" />
           <Tab label="Bảng điểm số" />
+          <Tab label="Tài liệu" />
         </Tabs>
       </Paper>
 
@@ -916,6 +938,76 @@ const ClassDetailPage = () => {
                   </TableBody>
                 </Table>
               </TableContainer>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {tabValue === 3 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6" fontWeight={600}>
+                  Tài liệu lớp học
+                </Typography>
+                {user?.role !== 'student' && (
+                  <Button variant="contained" disabled>
+                    Tải tài liệu (sẽ thêm sau)
+                  </Button>
+                )}
+              </Box>
+
+              {materialsLoading ? (
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight={160}>
+                  <CircularProgress />
+                </Box>
+              ) : materialsError ? (
+                <Alert severity="error">{materialsError}</Alert>
+              ) : materials.length === 0 ? (
+                <Alert severity="info">Chưa có tài liệu nào.</Alert>
+              ) : (
+                <TableContainer component={Paper}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Tiêu đề</TableCell>
+                        <TableCell>Mô tả</TableCell>
+                        <TableCell>Người đăng</TableCell>
+                        <TableCell>Ngày</TableCell>
+                        <TableCell align="right">Tải về</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {materials.map((m) => (
+                        <TableRow key={m.id}>
+                          <TableCell>{m.title}</TableCell>
+                          <TableCell>{m.description || '-'}</TableCell>
+                          <TableCell>{m.uploader?.full_name || m.uploader?.email || '—'}</TableCell>
+                          <TableCell>{new Date(m.created_at).toLocaleString()}</TableCell>
+                          <TableCell align="right">
+                            {m.file_url ? (
+                              <Button size="small" variant="outlined" href={m.file_url} target="_blank" rel="noopener">
+                                Tải xuống
+                              </Button>
+                            ) : m.link ? (
+                              <Button size="small" variant="outlined" href={m.link} target="_blank" rel="noopener">
+                                Mở liên kết
+                              </Button>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">—</Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
             </CardContent>
           </Card>
         </motion.div>

@@ -45,6 +45,8 @@ import {
   FilterList as FilterIcon
 } from '@mui/icons-material'
 import ClassJoinDialog from './ClassJoinDialog'
+import attendanceService from '../../services/attendanceService'
+import { useNavigate } from 'react-router-dom'
 
 const StudentClassList = ({ user }) => {
   const [classes, setClasses] = useState([])
@@ -55,6 +57,18 @@ const StudentClassList = ({ user }) => {
   const [error, setError] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
+  const navigate = useNavigate()
+
+  // Helper to format schedule string
+  const formatSession = (s) => {
+    if (!s) return 'Chưa cập nhật'
+    const d = new Date(s.session_date)
+    const dd = String(d.getDate()).padStart(2, '0')
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const yyyy = d.getFullYear()
+    const fmt = (t) => (t ? String(t).slice(0,5) : '--:--')
+    return `${dd}/${mm}/${yyyy}, ${fmt(s.start_time)}-${fmt(s.end_time)}`
+  }
 
   // Load real classes from API
   useEffect(() => {
@@ -68,14 +82,37 @@ const StudentClassList = ({ user }) => {
           name: c.class_name || 'Lớp học',
           code: c.class_id || '',
           teacher: c.teacher?.full_name || `${c.teacher?.first_name || ''} ${c.teacher?.last_name || ''}`.trim() || 'Giảng viên',
-          schedule: 'Chưa cập nhật',
-          location: 'Chưa cập nhật',
+          schedule: 'Đang tải... ',
+          location: 'Đang tải... ',
           status: c.is_active ? 'active' : 'inactive',
           joinedAt: null,
           totalStudents: c.current_students_count || 0,
           description: c.description || ''
         }))
         setClasses(mapped)
+
+        // Fetch next session for each class to populate schedule and location
+        const todayStr = new Date().toISOString().slice(0,10)
+        await Promise.all(
+          mapped.map(async (cls) => {
+            try {
+              const resSes = await attendanceService.getSessions({ class_id: cls.id, page_size: 200 })
+              const list = resSes.data?.results || resSes.data || []
+              // Choose the next upcoming session >= today; if none, pick the most recent
+              let next = list
+                .filter((s) => String(s.session_date) >= todayStr)
+                .sort((a, b) => (a.session_date > b.session_date ? 1 : a.session_date < b.session_date ? -1 : String(a.start_time).localeCompare(String(b.start_time))))[0]
+              if (!next && list.length > 0) {
+                next = list
+                  .slice()
+                  .sort((a, b) => (a.session_date > b.session_date ? -1 : a.session_date < b.session_date ? 1 : String(b.start_time).localeCompare(String(a.start_time))))[0]
+              }
+              setClasses((prev) => prev.map((c) => (c.id === cls.id ? { ...c, schedule: formatSession(next), location: next?.location || 'Chưa cập nhật' } : c)))
+            } catch (e) {
+              // ignore per-class fetch error
+            }
+          })
+        )
       } catch (err) {
         setError('Không thể tải danh sách lớp học')
       } finally {
@@ -88,6 +125,10 @@ const StudentClassList = ({ user }) => {
 
   const handleJoinClass = () => {
     setJoinDialogOpen(true)
+  }
+
+  const handleViewDetail = (classItem) => {
+    if (classItem?.id) navigate(`/classes/${classItem.id}`)
   }
 
   const handleLeaveClass = (classItem) => {
@@ -278,6 +319,7 @@ const StudentClassList = ({ user }) => {
                       variant="outlined"
                       size="small"
                       startIcon={<InfoIcon />}
+                      onClick={() => handleViewDetail(classItem)}
                       sx={{ flexGrow: 1 }}
                     >
                       Chi tiết
@@ -313,14 +355,33 @@ const StudentClassList = ({ user }) => {
               name: c.class_name || 'Lớp học',
               code: c.class_id || '',
               teacher: c.teacher?.full_name || `${c.teacher?.first_name || ''} ${c.teacher?.last_name || ''}`.trim() || 'Giảng viên',
-              schedule: 'Chưa cập nhật',
-              location: 'Chưa cập nhật',
+              schedule: 'Đang tải... ',
+              location: 'Đang tải... ',
               status: c.is_active ? 'active' : 'inactive',
               joinedAt: null,
               totalStudents: c.current_students_count || 0,
               description: c.description || ''
             }))
             setClasses(mapped)
+            // Fetch sessions for schedule
+            const todayStr = new Date().toISOString().slice(0,10)
+            await Promise.all(
+              mapped.map(async (cls) => {
+                try {
+                  const resSes = await attendanceService.getSessions({ class_id: cls.id, page_size: 200 })
+                  const list = resSes.data?.results || resSes.data || []
+                  let next = list
+                    .filter((s) => String(s.session_date) >= todayStr)
+                    .sort((a, b) => (a.session_date > b.session_date ? 1 : a.session_date < b.session_date ? -1 : String(a.start_time).localeCompare(String(b.start_time))))[0]
+                  if (!next && list.length > 0) {
+                    next = list
+                      .slice()
+                      .sort((a, b) => (a.session_date > b.session_date ? -1 : a.session_date < b.session_date ? 1 : String(b.start_time).localeCompare(String(a.start_time))))[0]
+                  }
+                  setClasses((prev) => prev.map((c) => (c.id === cls.id ? { ...c, schedule: formatSession(next), location: next?.location || 'Chưa cập nhật' } : c)))
+                } catch {}
+              })
+            )
           } catch {}
           setJoinDialogOpen(false)
         }}

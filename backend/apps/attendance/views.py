@@ -21,13 +21,20 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         queryset = Attendance.objects.all()
-        session_id = self.request.query_params.get('session_id', None)
-        student_id = self.request.query_params.get('student_id', None)
+        session_id = self.request.query_params.get('session_id')
+        student_id = self.request.query_params.get('student_id')
         
-        if session_id is not None:
+        # Filter by session if provided
+        if session_id:
             queryset = queryset.filter(session_id=session_id)
-        if student_id is not None:
-            queryset = queryset.filter(student_id=student_id)
+        
+        # Filter by student if provided. Accept both Student.pk (numeric) and student.student_id (code)
+        if student_id:
+            sid = str(student_id).strip()
+            if sid.isdigit():
+                queryset = queryset.filter(student_id=int(sid))
+            else:
+                queryset = queryset.filter(student__student_id=sid)
             
         return queryset.order_by('-created_at')
 

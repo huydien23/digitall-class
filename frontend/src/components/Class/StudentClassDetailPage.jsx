@@ -1,0 +1,356 @@
+import React, { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { useSelector } from 'react-redux'
+import {
+  Box, Container, Typography, Card, CardContent, Grid, Chip,
+  Avatar, List, ListItem, ListItemIcon, ListItemText, Divider,
+  Alert, CircularProgress, Button, Table, TableHead, TableRow,
+  TableCell, TableBody, TableContainer, Paper, Tabs, Tab
+} from '@mui/material'
+import {
+  School as SchoolIcon,
+  CalendarToday as CalendarIcon,
+  AccessTime as TimeIcon,
+  LocationOn as LocationIcon,
+  CheckCircle as PresentIcon,
+  Cancel as AbsentIcon,
+  HourglassEmpty as PendingIcon,
+  Grade as GradeIcon,
+  Description as DescriptionIcon
+} from '@mui/icons-material'
+
+import classService from '../../services/classService'
+import attendanceService from '../../services/attendanceService'
+import gradeService from '../../services/gradeService'
+import materialService from '../../services/materialService'
+import StudentCheckInDialog from '../Attendance/StudentCheckInDialog'
+import { QrCode as QrIcon } from '@mui/icons-material'
+
+const StudentClassDetailPage = () => {
+  const { classId } = useParams()
+  const { user } = useSelector((state) => state.auth)
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [classInfo, setClassInfo] = useState(null)
+
+  const [sessions, setSessions] = useState([])
+  const [attendanceMap, setAttendanceMap] = useState({}) // key: session.id => 'present'|'absent'|'none'
+
+  const [myGrades, setMyGrades] = useState({ regular: null, midterm: null, final: null, total: null })
+
+  const [tab, setTab] = useState(0) // 0 Overview, 1 Materials
+  const [materials, setMaterials] = useState([])
+  const [materialsLoading, setMaterialsLoading] = useState(true)
+
+  // Check-in dialog
+  const [checkInOpen, setCheckInOpen] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
+
+  const studentCode = user?.student_id || ''
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        setError('')
+        // 1) Lấy thông tin lớp từ my-classes (sinh viên không gọi được /classes/:id)
+        const my = await classService.getMyClasses()
+        const list = my.data?.results || my.data || []
+        const found = list.find((c) => String(c.id) === String(classId))
+        if (!found) {
+          setError('Bạn không thuộc lớp này hoặc lớp không tồn tại')
+          setLoading(false)
+          return
+        }
+        setClassInfo(found)
+
+        // 2) Tải danh sách buổi học
+        const sesRes = await attendanceService.getSessions({ class_id: classId, page_size: 200 })
+        const ses = sesRes.data?.results || sesRes.data || []
+        setSessions(ses)
+
+        // 3) Tải điểm của chính mình trong lớp
+        try {
+          const gRes = await gradeService.getGrades({ student_id: studentCode, class_id: classId, page_size: 50 })
+          const gList = gRes.data?.results || gRes.data || []
+          const gradesInClass = gList.filter((g) => String(g.class_id || g.class?.id || g.class?.class_id) === String(classId) || String(g.class?.class_id) === String(found.class_id))
+          const g = { regular: null, midterm: null, final: null, total: null }
+          gradesInClass.forEach((it) => {
+            if (it.grade_type === 'regular') g.regular = Number(it.score)
+            if (it.grade_type === 'midterm') g.midterm = Number(it.score)
+            if (it.grade_type === 'final') g.final = Number(it.score)
+          })
+          const total = (Number(g.regular || 0) * 0.1) + (Number(g.midterm || 0) * 0.3) + (Number(g.final || 0) * 0.6)
+          g.total = Number.isFinite(total) ? Number(total.toFixed(1)) : null
+          setMyGrades(g)
+        } catch (e) {
+          // bỏ qua nếu API chưa hỗ trợ lọc class_id
+        }
+
+        // 4) Map điểm danh của riêng SV theo từng buổi: gọi /attendance/?session_id=..&student_id=..
+        const map = {}
+        await Promise.all(
+          ses.map(async (s) => {
+            try {
+              const params = { session_id: s.id }
+              if (studentCode) params.student_id = studentCode
+              const aRes = await attendanceService.getAttendances(params)
+              const arr = aRes.data?.results || aRes.data || []
+              if (arr.length > 0) {
+                map[s.id] = arr[0].status // 'present'|...
+              } else {
+                map[s.id] = 'none'
+              }
+            } catch {
+              map[s.id] = 'none'
+            }
+          })
+        )
+        setAttendanceMap(map)
+
+        // 5) Tài liệu lớp
+        try {
+          const mRes = await materialService.getMaterials({ class_id: classId, page_size: 200 })
+          setMaterials(mRes.data?.results || mRes.data || [])
+        } finally {
+          setMaterialsLoading(false)
+        }
+
+      } catch (err) {
+        setError(err?.response?.data?.error || err.message || 'Không thể tải dữ liệu lớp')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [classId, studentCode])
+
+  const attendanceRate = useMemo(() => {
+    if (sessions.length === 0) return 0
+    const presentCount = sessions.filter((s) => attendanceMap[s.id] === 'present' || attendanceMap[s.id] === 'excused').length
+    return Math.round((presentCount / sessions.length) * 100)
+  }, [sessions, attendanceMap])
+
+  const fmtDate = (d) => (d ? String(d).slice(0, 10) : '')
+  const fmtTime = (t) => (t ? String(t).slice(0, 5) : '--:--')
+
+  if (loading) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+          <CircularProgress />
+        </Box>
+      </Container>
+    )
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    )
+  }
+
+  return (
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Header */}
+      <Box mb={4}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Avatar sx={{ bgcolor: 'primary.main', width: 48, height: 48 }}>
+            <SchoolIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight={700}>{classInfo?.class_name}</Typography>
+            <Typography variant="body1" color="text.secondary">Mã lớp: {classInfo?.class_id} • Giảng viên: {classInfo?.teacher?.full_name || classInfo?.teacher || ''}</Typography>
+          </Box>
+        </Box>
+      </Box>
+
+      {/* Summary cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card><CardContent>
+            <Typography variant="body2" color="text.secondary">Tỷ lệ điểm danh</Typography>
+            <Typography variant="h4" fontWeight={700}>{attendanceRate}%</Typography>
+          </CardContent></Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card><CardContent>
+            <Typography variant="body2" color="text.secondary">Điểm tổng kết</Typography>
+            <Typography variant="h4" fontWeight={700}>{myGrades.total ?? '—'}</Typography>
+          </CardContent></Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">Điểm danh</Typography>
+                <Button variant="contained" startIcon={<QrIcon />} onClick={() => setCheckInOpen(true)}>Quét QR / Nhập mã</Button>
+              </Box>
+              {scanMessage && (
+                <Alert severity="info" sx={{ mt: 1 }}>{scanMessage}</Alert>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Tabs: Tổng quan | Tài liệu */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
+          <Tab label="Tổng quan" />
+          <Tab label="Tài liệu" />
+        </Tabs>
+      </Paper>
+
+      {/* Overview */}
+      {tab === 0 && (
+        <Grid container spacing={3}>
+          {/* Attendance list */}
+          <Grid item xs={12} md={7}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Điểm danh theo buổi</Typography>
+                {sessions.length === 0 ? (
+                  <Alert severity="info">Chưa có buổi học nào được tạo</Alert>
+                ) : (
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Buổi</TableCell>
+                          <TableCell>Ngày</TableCell>
+                          <TableCell>Giờ</TableCell>
+                          <TableCell>Phòng</TableCell>
+                          <TableCell align="center">Trạng thái</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {sessions.map((s) => (
+                          <TableRow key={s.id}>
+                            <TableCell>{s.session_name}</TableCell>
+                            <TableCell>{fmtDate(s.session_date)}</TableCell>
+                            <TableCell>{fmtTime(s.start_time)} - {fmtTime(s.end_time)}</TableCell>
+                            <TableCell>{s.location || '-'}</TableCell>
+                            <TableCell align="center">
+                              {attendanceMap[s.id] === 'present' ? (
+                                <Chip color="success" label="Có mặt" icon={<PresentIcon />} size="small" />
+                              ) : attendanceMap[s.id] === 'absent' ? (
+                                <Chip color="error" label="Vắng" icon={<AbsentIcon />} size="small" />
+                              ) : attendanceMap[s.id] === 'excused' ? (
+                                <Chip color="info" label="Có phép" size="small" />
+                              ) : (
+                                <Chip label="Chưa điểm danh" icon={<PendingIcon />} size="small" />
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* My Grades */}
+          <Grid item xs={12} md={5}>
+            <Card>
+              <CardContent>
+                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                  <GradeIcon />
+                  <Typography variant="h6">Điểm của tôi</Typography>
+                </Box>
+                <List dense>
+                  <ListItem>
+                    <ListItemText primary="Thường xuyên (10%)" />
+                    <Typography fontWeight={600}>{myGrades.regular ?? '—'}</Typography>
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText primary="Giữa kỳ (30%)" />
+                    <Typography fontWeight={600}>{myGrades.midterm ?? '—'}</Typography>
+                  </ListItem>
+                  <ListItem>
+                    <ListItemText primary="Cuối kỳ (60%)" />
+                    <Typography fontWeight={600}>{myGrades.final ?? '—'}</Typography>
+                  </ListItem>
+                </List>
+                <Divider sx={{ my: 1 }} />
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="subtitle1" fontWeight={600}>Tổng kết</Typography>
+                  <Typography variant="h5" fontWeight={700} color="primary.main">{myGrades.total ?? '—'}</Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Materials */}
+      {tab === 1 && (
+        <Card>
+          <CardContent>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <DescriptionIcon />
+              <Typography variant="h6">Tài liệu lớp học</Typography>
+            </Box>
+            {materialsLoading ? (
+              <Box display="flex" justifyContent="center" alignItems="center" minHeight={160}><CircularProgress /></Box>
+            ) : materials.length === 0 ? (
+              <Alert severity="info">Chưa có tài liệu nào.</Alert>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Tiêu đề</TableCell>
+                      <TableCell>Mô tả</TableCell>
+                      <TableCell>Ngày</TableCell>
+                      <TableCell align="right">Tải về</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {materials.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell>{m.title}</TableCell>
+                        <TableCell>{m.description || '-'}</TableCell>
+                        <TableCell>{new Date(m.created_at).toLocaleString()}</TableCell>
+                        <TableCell align="right">
+                          {m.file_url ? (
+                            <Button size="small" variant="outlined" href={m.file_url} target="_blank" rel="noopener">Tải xuống</Button>
+                          ) : m.link ? (
+                            <Button size="small" variant="outlined" href={m.link} target="_blank" rel="noopener">Mở liên kết</Button>
+                          ) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Check-in Dialog */}
+      <StudentCheckInDialog
+        open={checkInOpen}
+        onClose={() => setCheckInOpen(false)}
+        studentCode={studentCode}
+        onSuccess={(data) => {
+          const att = data?.attendance || data
+          const sessId = att?.session?.id
+          if (sessId) {
+            setAttendanceMap((prev) => ({ ...prev, [sessId]: 'present' }))
+          }
+          setScanMessage('Điểm danh thành công!')
+          setTimeout(() => setScanMessage(''), 4000)
+        }}
+      />
+    </Container>
+  )
+}
+
+export default StudentClassDetailPage
