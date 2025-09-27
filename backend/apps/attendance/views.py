@@ -134,6 +134,31 @@ class AttendanceSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
         kwargs.setdefault('partial', True)
         return self.update(request, *args, **kwargs)
 
+    def destroy(self, request, *args, **kwargs):
+        """Delete an attendance session with permission check.
+        Only the class teacher or admin can delete it.
+        Returns info about deleted related attendances.
+        """
+        try:
+            session = self.get_object()
+            # Permission check
+            if request.user.role != 'admin' and session.class_obj.teacher != request.user:
+                return Response(
+                    {'error': 'Bạn không có quyền xóa buổi điểm danh này'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            # Count related attendances before deletion
+            deleted_attendances = session.attendances.count()
+            self.perform_destroy(session)
+            return Response({
+                'message': 'Đã xóa buổi học',
+                'deleted_attendances': deleted_attendances
+            }, status=status.HTTP_200_OK)
+        except AttendanceSession.DoesNotExist:
+            return Response({'error': 'Không tìm thấy buổi điểm danh'}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])

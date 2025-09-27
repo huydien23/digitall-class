@@ -1,5 +1,10 @@
 from django.urls import path
 from . import views
+try:
+    from .views_bulk import bulk_create_sessions, duplicate_session
+except ImportError:
+    bulk_create_sessions = None
+    duplicate_session = None
 
 urlpatterns = [
     # Attendance sessions
@@ -24,3 +29,10 @@ urlpatterns = [
     path('import-excel/', views.import_excel, name='import_excel'),
     # path('export/', views.export_attendance, name='export_attendance'),  # Commented out until function is implemented
 ]
+
+# Add bulk operations if available
+if bulk_create_sessions:
+    urlpatterns += [
+        path('sessions/bulk/', bulk_create_sessions, name='bulk_create_sessions'),
+        path('sessions/<int:session_id>/duplicate/', duplicate_session, name='duplicate_session'),
+    ]

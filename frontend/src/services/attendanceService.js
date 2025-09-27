@@ -39,6 +39,16 @@ const attendanceService = {
     params,
     responseType: 'blob' 
   }),
+  
+  // Bulk operations
+  bulkCreateSessions: (data) => apiService.axiosInstance.post('/attendance/sessions/bulk/', data),
+  duplicateSession: (sessionId, data) => apiService.axiosInstance.post(`/attendance/sessions/${sessionId}/duplicate/`, data),
+  
+  // Auto-generate sessions
+  autoGenerateSessions: (classId, config) => apiService.axiosInstance.post('/attendance/sessions/bulk/', {
+    class_id: classId,
+    auto_generate: config
+  }),
 }
 
 export default attendanceService

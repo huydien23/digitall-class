@@ -36,7 +36,8 @@ import {
   ListItemText,
   SpeedDial,
   SpeedDialAction,
-  SpeedDialIcon
+  SpeedDialIcon,
+  CircularProgress
 } from '@mui/material'
 import {
   ArrowBack as ArrowBackIcon,
@@ -73,6 +74,11 @@ import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
 import ManualAttendance from '../Attendance/ManualAttendance'
 import CreateSession from '../Session/CreateSession'
 import StudentForm from '../Form/StudentForm'
+// New optimized session creation components
+import QuickCreateSession from '../Session/QuickCreateSession'
+import BulkCreateSessions from '../Session/BulkCreateSessions'
+import SessionManagementDialog from '../Session/SessionManagementDialog'
+import EditSessionDialog from '../Session/EditSessionDialog'
 
 const ClassDetailPage = () => {
   const { classId } = useParams()
@@ -95,6 +101,11 @@ const ClassDetailPage = () => {
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false)
   const [manualAttendanceOpen, setManualAttendanceOpen] = useState(false)
   const [createSessionOpen, setCreateSessionOpen] = useState(false)
+  const [quickCreateSessionOpen, setQuickCreateSessionOpen] = useState(false)
+  const [bulkCreateSessionsOpen, setBulkCreateSessionsOpen] = useState(false)
+  const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
+  const [editSessionOpen, setEditSessionOpen] = useState(false)
+  const [sessionBeingEdited, setSessionBeingEdited] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
   // Local grade edit state
   const [regularScore, setRegularScore] = useState('')
@@ -467,6 +478,26 @@ const handleEditGrade = (student) => {
     }
   }
 
+  const handleDeleteSession = async (sessionId, sessionName) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa buổi học "${sessionName}"?\n\nLưu ý: Điều này sẽ xóa tất cả dữ liệu điểm danh của buổi học này!`)) {
+      return
+    }
+    
+    try {
+      await attendanceService.deleteSession(sessionId)
+      
+      // Update local state
+      setAttendanceSessions(prev => prev.filter(s => s.id !== sessionId))
+      
+      // Show success message
+      alert(`Đã xóa buổi học "${sessionName}" thành công!`)
+    } catch (error) {
+      console.error('Error deleting session:', error)
+      const message = error.response?.data?.error || error.message || 'Không thể xóa buổi học'
+      alert(`Lỗi: ${message}`)
+    }
+  }
+
   const handleSaveManualAttendance = async (attendanceData) => {
     try {
       const sessionId = attendanceData?.sessionId || attendanceData?.session_id
@@ -653,18 +684,21 @@ const handleEditGrade = (student) => {
             </Box>
             {user?.role !== 'student' && (
               <>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setCreateSessionOpen(true)}
-                  color="success"
-                  sx={{
-                    background: 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)',
-                    boxShadow: '0 3px 5px 2px rgba(76, 175, 80, .3)'
-                  }}
-                >
-                  Tạo buổi học
-                </Button>
+                <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={(e) => setAnchorEl(e.currentTarget)}
+                    endIcon={<MoreVertIcon />}
+                    color="success"
+                    sx={{
+                      background: 'linear-gradient(45deg, #4CAF50 30%, #81C784 90%)',
+                      boxShadow: '0 3px 5px 2px rgba(76, 175, 80, .3)'
+                    }}
+                  >
+                    Tạo buổi học
+                  </Button>
+                </Box>
                 <Button
                   variant="contained"
                   startIcon={<QrCodeIcon />}
@@ -754,9 +788,21 @@ const handleEditGrade = (student) => {
         </Grid>
 
         <Box mt={3}>
-          <Typography variant="h6" fontWeight={600} gutterBottom>
-            Danh sách buổi học
-          </Typography>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Danh sách buổi học
+            </Typography>
+            {user?.role !== 'student' && (
+              <Button
+                size="small"
+                startIcon={<EditIcon />}
+                onClick={() => setSessionManagementOpen(true)}
+                variant="outlined"
+              >
+                Quản lý buổi học
+              </Button>
+            )}
+          </Box>
           <Divider sx={{ mb: 2 }} />
           {(() => {
             const filtered = attendanceSessions.filter(s => componentFilter === 'all' || s.session_type === componentFilter)
@@ -778,18 +824,77 @@ const handleEditGrade = (student) => {
                       <TableCell>Phòng</TableCell>
                       <TableCell>Học phần</TableCell>
                       <TableCell>Nhóm</TableCell>
+                      {user?.role !== 'student' && (
+                        <TableCell align="center">Thao tác</TableCell>
+                      )}
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {filtered.map((s, idx) => (
-                      <TableRow key={s.id || idx}>
+                      <TableRow key={s.id || idx} hover>
                         <TableCell>{idx + 1}</TableCell>
-                        <TableCell>{s.session_name}</TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              {s.session_name}
+                            </Typography>
+                            {s.description && (
+                              <Typography variant="caption" color="text.secondary">
+                                {s.description}
+                              </Typography>
+                            )}
+                          </Box>
+                        </TableCell>
                         <TableCell>{s.session_date}</TableCell>
                         <TableCell>{fmt(s.start_time)} - {fmt(s.end_time)}</TableCell>
                         <TableCell>{s.location || '-'}</TableCell>
-                        <TableCell>{s.session_type === 'practice' ? 'Thực hành' : 'Lý thuyết'}</TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={s.session_type === 'practice' ? 'Thực hành' : s.session_type === 'exam' ? 'Kiểm tra' : 'Lý thuyết'}
+                            size="small"
+                            color={s.session_type === 'practice' ? 'info' : s.session_type === 'exam' ? 'warning' : 'default'}
+                          />
+                        </TableCell>
                         <TableCell>{s.group_name || '-'}</TableCell>
+                        {user?.role !== 'student' && (
+                          <TableCell align="center">
+                            <Box display="flex" gap={0.5} justifyContent="center">
+                              <Tooltip title="Tạo QR điểm danh">
+                                <IconButton 
+                                  size="small" 
+                                  color="primary"
+                                  onClick={() => {
+                                    // Set selected session and open QR dialog
+                                    setQrDialogOpen(true)
+                                  }}
+                                >
+                                  <QrCodeIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Chỉnh sửa buổi học">
+                                <IconButton 
+                                  size="small" 
+                                  color="default"
+                                  onClick={() => {
+                                    setSessionBeingEdited(s)
+                                    setEditSessionOpen(true)
+                                  }}
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Xóa buổi học">
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleDeleteSession(s.id, s.session_name)}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1185,12 +1290,32 @@ const handleEditGrade = (student) => {
         open={Boolean(anchorEl)}
         onClose={handleMenuClose}
       >
-        <MenuItem onClick={() => setCreateSessionOpen(true)}>
+        <MenuItem onClick={() => { handleMenuClose(); setQuickCreateSessionOpen(true); }}>
           <ListItemIcon>
             <AddIcon />
           </ListItemIcon>
-          <ListItemText>Tạo buổi học</ListItemText>
+          <ListItemText primary="Tạo nhanh buổi học" secondary="Sử dụng template & preset" />
         </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); setBulkCreateSessionsOpen(true); }}>
+          <ListItemIcon>
+            <AddIcon />
+          </ListItemIcon>
+          <ListItemText primary="Tạo nhiều buổi học" secondary="Tạo cả kỳ học" />
+        </MenuItem>
+        <MenuItem onClick={() => { handleMenuClose(); setCreateSessionOpen(true); }}>
+          <ListItemIcon>
+            <AddIcon />
+          </ListItemIcon>
+          <ListItemText primary="Tạo buổi học cơ bản" secondary="Form truyền thống" />
+        </MenuItem>
+        <Divider />
+        <MenuItem onClick={() => { handleMenuClose(); setSessionManagementOpen(true); }}>
+          <ListItemIcon>
+            <EditIcon />
+          </ListItemIcon>
+          <ListItemText primary="Quản lý buổi học" secondary="Xóa, sửa, nhân đôi" />
+        </MenuItem>
+        <Divider />
         <MenuItem onClick={() => setQrDialogOpen(true)}>
           <ListItemIcon>
             <QrCodeIcon />
@@ -1318,12 +1443,52 @@ const handleEditGrade = (student) => {
         />
       )}
 
-      {/* Create Session Dialog */}
+      {/* Create Session Dialog - Original */}
       <CreateSession
         open={createSessionOpen}
         onClose={() => setCreateSessionOpen(false)}
         classData={classData}
         onCreateSession={handleCreateSession}
+      />
+      
+      {/* Quick Create Session Dialog - NEW */}
+      <QuickCreateSession
+        open={quickCreateSessionOpen}
+        onClose={() => setQuickCreateSessionOpen(false)}
+        classId={classId}
+        lastSession={attendanceSessions[attendanceSessions.length - 1]}
+        onSuccess={() => {
+          loadClassData()
+          setQuickCreateSessionOpen(false)
+        }}
+      />
+      
+      {/* Bulk Create Sessions Dialog - NEW */}
+      <BulkCreateSessions
+        open={bulkCreateSessionsOpen}
+        onClose={() => setBulkCreateSessionsOpen(false)}
+        classId={classId}
+        onSuccess={() => {
+          loadClassData()
+          setBulkCreateSessionsOpen(false)
+        }}
+      />
+      
+      {/* Edit Session Dialog - NEW */}
+      <EditSessionDialog
+        open={editSessionOpen}
+        onClose={() => setEditSessionOpen(false)}
+        session={sessionBeingEdited}
+        onSaved={loadClassData}
+      />
+
+      {/* Session Management Dialog - NEW */}
+      <SessionManagementDialog
+        open={sessionManagementOpen}
+        onClose={() => setSessionManagementOpen(false)}
+        sessions={attendanceSessions}
+        onSessionsChange={loadClassData}
+        classId={classId}
       />
 
       {/* Student Form Dialog */}
@@ -1398,8 +1563,15 @@ const handleEditGrade = (student) => {
       >
         <SpeedDialAction
           icon={<AddIcon />}
-          tooltipTitle="Tạo buổi học"
-          onClick={() => setCreateSessionOpen(true)}
+          tooltipTitle="Tạo nhanh buổi học"
+          onClick={() => setQuickCreateSessionOpen(true)}
+          sx={{ bgcolor: 'success.main', color: 'white' }}
+        />
+        <SpeedDialAction
+          icon={<AddIcon />}
+          tooltipTitle="Tạo nhiều buổi học"
+          onClick={() => setBulkCreateSessionsOpen(true)}
+          sx={{ bgcolor: 'info.main', color: 'white' }}
         />
         <SpeedDialAction
           icon={<QrCodeIcon />}
