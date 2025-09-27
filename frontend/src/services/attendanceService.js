@@ -1,5 +1,18 @@
 import apiService from './apiService'
 
+// Helper to clean response data from any proxy objects
+const cleanResponse = (response) => {
+  try {
+    // Deep clone to remove any proxy objects
+    if (response?.data) {
+      response.data = JSON.parse(JSON.stringify(response.data))
+    }
+  } catch (e) {
+    console.warn('Failed to clean response:', e)
+  }
+  return response
+}
+
 const attendanceService = {
   // Attendance sessions
   getSessions: (params) => apiService.axiosInstance.get('/attendance/sessions/', { params }),
@@ -14,8 +27,8 @@ const attendanceService = {
   getAttendanceAnalytics: (sessionId) => apiService.axiosInstance.get(`/attendance/sessions/${sessionId}/analytics/`),
   
   // Attendance records
-  getAttendances: (params) => apiService.axiosInstance.get('/attendance/', { params }),
-  getAttendance: (id) => apiService.axiosInstance.get(`/attendance/${id}/`),
+  getAttendances: (params) => apiService.axiosInstance.get('/attendance/', { params }).then(cleanResponse),
+  getAttendance: (id) => apiService.axiosInstance.get(`/attendance/${id}/`).then(cleanResponse),
   createAttendance: (attendanceData) => apiService.axiosInstance.post('/attendance/', attendanceData),
   updateAttendance: (id, attendanceData) => apiService.axiosInstance.put(`/attendance/${id}/`, attendanceData),
   deleteAttendance: (id) => apiService.axiosInstance.delete(`/attendance/${id}/`),

@@ -469,23 +469,58 @@ const handleEditGrade = (student) => {
 
   const handleSaveManualAttendance = async (attendanceData) => {
     try {
-      // Mô phỏng API call để lưu điểm danh
-      console.log('Saving manual attendance:', attendanceData)
-      
-      // Có thể gọi API ở đây
-      // await attendanceService.saveManualAttendance(classId, attendanceData)
-      
-      // Đóng dialog
+      const sessionId = attendanceData?.sessionId || attendanceData?.session_id
+      if (!sessionId) {
+        alert('Vui lòng chọn buổi học trước khi lưu điểm danh')
+        return
+      }
+
+      // Map attendance state (keyed by frontend student.id) -> backend payloads
+      const payloads = []
+      const attMap = attendanceData?.attendance || {}
+      for (const s of students) {
+        const rec = attMap[s.id]
+        if (!rec) continue
+        payloads.push({
+          session_id: Number(sessionId),
+          student_id: String(s.student_id),
+          status: rec.status || 'absent',
+          notes: rec.note || ''
+        })
+      }
+
+      // Persist all records (idempotent on backend via unique_together)
+      const results = await Promise.allSettled(payloads.map(p => attendanceService.createAttendance(p)))
+      const failed = results.filter(r => r.status === 'rejected').length
+
+      // Update UI table locally so “Bảng điểm danh theo buổi học” phản ánh ngay
+      setStudents(prev => prev.map(s => {
+        const rec = attMap[s.id]
+        if (!rec) return s
+        const presentLike = ['present', 'late', 'excused']
+        const isPresent = presentLike.includes(rec.status || 'absent')
+        return {
+          ...s,
+          attendance: {
+            ...(s.attendance || {}),
+            [sessionId]: isPresent
+          }
+        }
+      }))
+
       setManualAttendanceOpen(false)
-      
-      // Hiển thị thông báo thành công
-      alert('Đã lưu điểm danh thủ công thành công!')
-      
-      // Reload dữ liệu attendance nếu cần
-      // await loadClassData()
-      
+      alert(failed === 0 ? 'Đã lưu điểm danh thủ công thành công!' : `Đã lưu, nhưng ${failed} bản ghi bị lỗi.`)
+
+      // Optionally reload from server to be sure
+      try {
+        const refreshed = await attendanceService.getSessions({ class_id: classId })
+        const sessions = refreshed?.data?.results || refreshed?.data || []
+        setAttendanceSessions(sessions)
+      } catch {}
     } catch (error) {
       console.error('Error saving manual attendance:', error)
+      const detail = error?.response?.data || error?.message
+      alert(`Lỗi lưu điểm danh: ${typeof detail === 'string' ? detail : JSON.stringify(detail)}`)
       throw error
     }
   }
@@ -707,8 +742,8 @@ const handleEditGrade = (student) => {
             <Card>
               <CardContent sx={{ textAlign: 'center', py: 2 }}>
                 <GradeIcon color="warning" sx={{ fontSize: 32, mb: 1 }} />
-                <Typography variant="h6" fontWeight={600}>
-                  {(students.reduce((sum, student) => sum + parseFloat(calculateFinalGrade(student)), 0) / students.length).toFixed(1)}
+                  <Typography variant="h6" fontWeight={600}>
+                  {(students.length ? (students.reduce((sum, student) => sum + parseFloat(calculateFinalGrade(student)), 0) / students.length) : 0).toFixed(1)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Điểm TB

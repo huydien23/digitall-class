@@ -114,13 +114,17 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
         sum + (classItem.current_students_count || 0), 0
       )
 
-      const attendanceRate = todaySessions.length > 0 
-        ? todaySessions.reduce((sum, session) => sum + (session.attendance_rate || 0), 0) / todaySessions.length
+      // Ensure numeric calculations (backend returns Decimal as string)
+      const attendanceRateNum = todaySessions.length > 0 
+        ? todaySessions.reduce((sum, session) => sum + (parseFloat(session.attendance_rate ?? 0) || 0), 0) / todaySessions.length
         : 0
 
-      const averageGrade = recentGrades.length > 0
-        ? recentGrades.reduce((sum, grade) => sum + (grade.score || 0), 0) / recentGrades.length
+      const averageGradeNum = recentGrades.length > 0
+        ? recentGrades.reduce((sum, grade) => sum + (parseFloat(grade.score ?? 0) || 0), 0) / recentGrades.length
         : 0
+
+      const safeAvg = Number.isFinite(averageGradeNum) ? Math.round(averageGradeNum * 100) / 100 : 0
+      const safeRate = Number.isFinite(attendanceRateNum) ? Math.round(attendanceRateNum) : 0
 
       setTeacherData({
         assignedClasses: teacherClasses,
@@ -129,8 +133,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
         statistics: {
           totalClasses: teacherClasses.length,
           activeStudents: totalStudents,
-          attendanceRate: Math.round(attendanceRate),
-          averageGrade: Math.round(averageGrade * 100) / 100
+          attendanceRate: safeRate,
+          averageGrade: safeAvg
         }
       })
     } catch (err) {
@@ -319,7 +323,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
               title="Tỷ lệ điểm danh"
-              value={`${teacherData.statistics.attendanceRate}%`}
+              value={`${Number.isFinite(teacherData.statistics.attendanceRate) ? teacherData.statistics.attendanceRate : 0}%`}
               icon={<ScheduleIcon />}
               color="info"
               subtitle="Trung bình hôm nay"
@@ -328,7 +332,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
               title="Điểm trung bình"
-              value={teacherData.statistics.averageGrade}
+              value={Number.isFinite(teacherData.statistics.averageGrade) ? teacherData.statistics.averageGrade : 0}
               icon={<AssignmentIcon />}
               color="warning"
               subtitle="Điểm gần đây"

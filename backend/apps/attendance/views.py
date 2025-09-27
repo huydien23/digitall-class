@@ -1,4 +1,5 @@
 from rest_framework import generics, status, permissions
+import logging
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Q, Count
@@ -10,14 +11,21 @@ import io
 import base64
 from datetime import datetime, timedelta
 from .models import Attendance, AttendanceSession
-from .serializers import AttendanceSerializer, AttendanceSessionSerializer, AttendanceSessionCreateSerializer
+from .serializers import AttendanceSerializer, AttendanceSessionSerializer, AttendanceSessionCreateSerializer, AttendanceCreateSerializer
 
+
+logger = logging.getLogger(__name__)
 
 class AttendanceListCreateView(generics.ListCreateAPIView):
     """List and create attendance records"""
     queryset = Attendance.objects.all()
     permission_classes = [permissions.IsAuthenticated]
-    serializer_class = AttendanceSerializer
+
+    def get_serializer_class(self):
+        # Use write serializer for POST to support manual attendance creation
+        if self.request.method == 'POST':
+            return AttendanceCreateSerializer
+        return AttendanceSerializer
     
     def get_queryset(self):
         queryset = Attendance.objects.all()
@@ -37,6 +45,46 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
                 queryset = queryset.filter(student__student_id=sid)
             
         return queryset.order_by('-created_at')
+
+    def post(self, request, *args, **kwargs):
+        """Robust POST handler that normalizes payload keys and always uses the write serializer.
+        This avoids 500 errors if a client accidentally posts without the exact field names.
+        """
+        try:
+            data = request.data.copy()
+            logger.debug("Manual attendance POST payload (raw=%s)", dict(request.data))
+            # Normalize common aliases
+            if 'sessionId' in data and 'session_id' not in data:
+                data['session_id'] = data.get('sessionId')
+            if 'studentId' in data and 'student_id' not in data:
+                data['student_id'] = data.get('studentId')
+            if 'student_code' in data and 'student_id' not in data:
+                data['student_id'] = data.get('student_code')
+            logger.debug("Normalized payload=%s", dict(data))
+
+            if not data.get('session_id'):
+                return Response({'error': 'Thiếu session_id trong payload'}, status=status.HTTP_400_BAD_REQUEST)
+            if not (data.get('student_id') or data.get('student') or data.get('student_pk')):
+                return Response({'error': 'Thiếu student_id hoặc student (pk)'}, status=status.HTTP_400_BAD_REQUEST)
+
+            serializer = AttendanceCreateSerializer(data=data)
+            if not serializer.is_valid():
+                logger.info("Manual attendance validation errors: %s", serializer.errors)
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            attendance = serializer.save()
+            return Response(AttendanceSerializer(attendance).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error("Error in attendance POST: %s", str(e), exc_info=True)
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def create(self, request, *args, **kwargs):
+        # Create attendance with write serializer but return full read serializer
+        write_serializer = self.get_serializer(data=request.data)
+        write_serializer.is_valid(raise_exception=True)
+        attendance = write_serializer.save()
+        read_serializer = AttendanceSerializer(attendance)
+        headers = self.get_success_headers(write_serializer.data)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
 
 class AttendanceDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -60,6 +108,7 @@ class AttendanceSessionListCreateView(generics.ListCreateAPIView):
         class_id = self.request.query_params.get('class_id', None)
         session_type = self.request.query_params.get('session_type', None)
         group_name = self.request.query_params.get('group_name', None)
+        session_date = self.request.query_params.get('session_date', None)
         
         if class_id is not None:
             queryset = queryset.filter(class_obj_id=class_id)
@@ -67,6 +116,8 @@ class AttendanceSessionListCreateView(generics.ListCreateAPIView):
             queryset = queryset.filter(session_type=session_type)
         if group_name is not None:
             queryset = queryset.filter(group_name=group_name)
+        if session_date is not None:
+            queryset = queryset.filter(session_date=session_date)
         
         return queryset.order_by('-session_date', '-start_time')
 
@@ -76,6 +127,38 @@ class AttendanceSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = AttendanceSession.objects.all()
     serializer_class = AttendanceSessionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    # FE hiện đang gọi PUT với payload tối giản (vd: {"is_active": false}).
+    # Cho phép PUT hoạt động như PATCH (partial update) để tránh 400.
+    def put(self, request, *args, **kwargs):
+        kwargs.setdefault('partial', True)
+        return self.update(request, *args, **kwargs)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def end_attendance_session(request, session_id):
+    """End an attendance session (set is_active=False and set end_time to now if missing)."""
+    try:
+        session = AttendanceSession.objects.get(id=session_id)
+        if request.user.role != 'admin' and session.class_obj.teacher != request.user:
+            return Response(
+                {'error': 'Bạn không có quyền kết thúc buổi điểm danh này'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        now = timezone.localtime()
+        if not session.end_time:
+            session.end_time = now.time()
+        session.is_active = False
+        session.save(update_fields=['is_active', 'end_time', 'updated_at'])
+        return Response({
+            'message': 'Đã kết thúc buổi điểm danh',
+            'session': AttendanceSessionSerializer(session).data
+        })
+    except AttendanceSession.DoesNotExist:
+        return Response({'error': 'Không tìm thấy buổi điểm danh'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -94,7 +177,7 @@ def attendance_statistics(request):
     })
 
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([permissions.IsAuthenticated])
 def generate_qr_code(request, session_id):
     """Generate QR code for attendance session"""
@@ -131,6 +214,7 @@ def generate_qr_code(request, session_id):
         img.save(buffer, format='PNG')
         img_str = base64.b64encode(buffer.getvalue()).decode()
         
+        expires_dt = timezone.make_aware(datetime.combine(session.session_date, session.end_time)) if session.end_time else None
         return Response({
             'qr_code': qr_code,
             'qr_image': f'data:image/png;base64,{img_str}',
@@ -142,7 +226,7 @@ def generate_qr_code(request, session_id):
                 'start_time': session.start_time,
                 'end_time': session.end_time
             },
-            'expires_at': session.end_time
+            'expires_at': expires_dt
         })
         
     except AttendanceSession.DoesNotExist:
@@ -172,9 +256,9 @@ def check_in_with_qr(request):
         now = timezone.now()
         session_datetime = timezone.make_aware(
             datetime.combine(session.session_date, session.end_time)
-        )
+        ) if session.end_time else None
         
-        if now > session_datetime:
+        if session_datetime and now > session_datetime:
             return Response(
                 {'error': 'Buổi điểm danh đã kết thúc'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -403,7 +487,7 @@ def import_excel(request):
                     continue
                 
                 # Create attendance record
-                serializer = AttendanceSerializer(data=row_data)
+                serializer = AttendanceCreateSerializer(data=row_data)
                 if serializer.is_valid():
                     attendance = serializer.save()
                     created_attendance.append(AttendanceSerializer(attendance).data)

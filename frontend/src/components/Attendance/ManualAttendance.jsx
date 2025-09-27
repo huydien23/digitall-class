@@ -236,6 +236,8 @@ const ManualAttendance = ({
     try {
       const attendanceData = {
         sessionInfo: sessionInfo,
+        sessionId: selectedSession?.id || null,
+        session_id: selectedSession?.id || null,
         attendance: attendance,
         summary: getAttendanceSummary()
       }

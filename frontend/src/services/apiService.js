@@ -48,7 +48,19 @@ class APIService {
 
     // Response interceptor for token refresh
     this.axiosInstance.interceptors.response.use(
-      (response) => response,
+      (response) => {
+        // Ensure we return clean data without proxy objects
+        if (response?.data) {
+          // Force serialize to clean JSON to remove any proxy objects
+          try {
+            const cleanData = JSON.parse(JSON.stringify(response.data))
+            response.data = cleanData
+          } catch (e) {
+            console.warn('Failed to clean response data:', e)
+          }
+        }
+        return response
+      },
       async (error) => {
         const originalRequest = error.config
 
