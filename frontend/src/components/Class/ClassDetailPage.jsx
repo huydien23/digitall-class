@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Container,
@@ -127,6 +127,25 @@ const ClassDetailPage = () => {
   const [uploadError, setUploadError] = useState('')
   const [uploadSaving, setUploadSaving] = useState(false)
   const [deletingMaterialId, setDeletingMaterialId] = useState(null)
+
+  // Sessions ascending for attendance table (Buổi 1 -> ...)
+  const sessionsAsc = useMemo(() => {
+    try {
+      const arr = Array.isArray(attendanceSessions) ? [...attendanceSessions] : []
+      arr.sort((a, b) => {
+        const d1 = new Date(a?.session_date)
+        const d2 = new Date(b?.session_date)
+        const diff = (d1 - d2)
+        if (diff !== 0) return diff
+        const t1 = (a?.start_time || '').toString().slice(0, 8)
+        const t2 = (b?.start_time || '').toString().slice(0, 8)
+        return t1.localeCompare(t2)
+      })
+      return arr
+    } catch {
+      return attendanceSessions || []
+    }
+  }, [attendanceSessions])
 
   // Mock data for demo
   const mockAttendanceSessions = [
@@ -805,7 +824,7 @@ const handleEditGrade = (student) => {
           </Box>
           <Divider sx={{ mb: 2 }} />
           {(() => {
-            const filtered = attendanceSessions.filter(s => componentFilter === 'all' || s.session_type === componentFilter)
+            const filtered = sessionsAsc.filter(s => componentFilter === 'all' || s.session_type === componentFilter)
             if (filtered.length === 0) {
               return (
                 <Alert severity="info">Chưa có buổi học nào cho học phần đã chọn.</Alert>
@@ -1039,7 +1058,7 @@ const handleEditGrade = (student) => {
                       <TableCell sx={{ minWidth: 60, position: 'sticky', left: 0, bgcolor: 'background.paper', zIndex: 1 }}>STT</TableCell>
                       <TableCell sx={{ minWidth: 100, position: 'sticky', left: 60, bgcolor: 'background.paper', zIndex: 1 }}>Mã SV</TableCell>
                       <TableCell sx={{ minWidth: 200, position: 'sticky', left: 160, bgcolor: 'background.paper', zIndex: 1 }}>Họ tên</TableCell>
-                      {attendanceSessions.map(session => (
+                      {sessionsAsc.map(session => (
                         <TableCell key={session.id} align="center" sx={{ minWidth: 120 }}>
                           <Box>
                             <Typography variant="body2" fontWeight={600}>
@@ -1064,7 +1083,7 @@ const handleEditGrade = (student) => {
                         <TableCell sx={{ position: 'sticky', left: 0, bgcolor: 'background.paper', zIndex: 1 }}>{index + 1}</TableCell>
                         <TableCell sx={{ position: 'sticky', left: 60, bgcolor: 'background.paper', zIndex: 1 }}>{student.student_id}</TableCell>
                         <TableCell sx={{ position: 'sticky', left: 160, bgcolor: 'background.paper', zIndex: 1 }}>{student.name}</TableCell>
-                        {attendanceSessions.map(session => (
+                        {sessionsAsc.map(session => (
                           <TableCell key={session.id} align="center">
                             {student.attendance[session.id] ? (
                               <CheckCircleIcon color="success" />
