@@ -98,6 +98,7 @@ const ClassDetailPage = () => {
   const [gradeTypes, setGradeTypes] = useState(['Điểm thường xuyên (10%)', 'Điểm giữa kỳ (30%)', 'Điểm cuối kỳ (60%)'])
   const [anchorEl, setAnchorEl] = useState(null)
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
+  const [qrInitialSessionId, setQrInitialSessionId] = useState(null)
   const [gradeDialogOpen, setGradeDialogOpen] = useState(false)
   const [manualAttendanceOpen, setManualAttendanceOpen] = useState(false)
   const [createSessionOpen, setCreateSessionOpen] = useState(false)
@@ -721,7 +722,7 @@ const handleEditGrade = (student) => {
                 <Button
                   variant="contained"
                   startIcon={<QrCodeIcon />}
-                  onClick={() => setQrDialogOpen(true)}
+                  onClick={() => { setQrInitialSessionId(null); setQrDialogOpen(true) }}
                   color="primary"
                 >
                   QR Điểm danh
@@ -883,7 +884,8 @@ const handleEditGrade = (student) => {
                                   size="small" 
                                   color="primary"
                                   onClick={() => {
-                                    // Set selected session and open QR dialog
+                                    // Mở QR cho đúng buổi được chọn
+                                    setQrInitialSessionId(s.id)
                                     setQrDialogOpen(true)
                                   }}
                                 >
@@ -1335,7 +1337,7 @@ const handleEditGrade = (student) => {
           <ListItemText primary="Quản lý buổi học" secondary="Xóa, sửa, nhân đôi" />
         </MenuItem>
         <Divider />
-        <MenuItem onClick={() => setQrDialogOpen(true)}>
+        <MenuItem onClick={() => { setQrInitialSessionId(null); setQrDialogOpen(true) }}>
           <ListItemIcon>
             <QrCodeIcon />
           </ListItemIcon>
@@ -1364,9 +1366,10 @@ const handleEditGrade = (student) => {
       {/* QR Dialog */}
       <AttendanceQRGenerator
         open={qrDialogOpen}
-        onClose={() => setQrDialogOpen(false)}
+        onClose={() => { setQrDialogOpen(false); setQrInitialSessionId(null) }}
         classData={classData}
         availableSessions={attendanceSessions}
+        initialSessionId={qrInitialSessionId}
         title="QR Code Điểm Danh"
         onSessionUpdate={(updatedSession) => {
           console.log('Session updated:', updatedSession)

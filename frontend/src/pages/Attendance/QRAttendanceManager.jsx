@@ -60,7 +60,7 @@ import { Helmet } from 'react-helmet-async'
 
 // Components
 import QRCodeScanner from '../../components/QRCode/QRCodeScanner'
-import QRCodeGenerator from '../../components/QRCode/QRCodeGenerator'
+import AttendanceQRGenerator from '../../components/QRCode/AttendanceQRGenerator'
 import { useNotification } from '../../components/Notification/NotificationProvider'
 import { useSelector } from 'react-redux'
 import attendanceService from '../../services/attendanceService'
@@ -475,11 +475,18 @@ const QRAttendanceManager = () => {
         onSuccess={handleScannerSuccess}
       />
 
-      {/* QR Code Generator Dialog */}
-      <QRCodeGenerator
+      {/* QR Code Generator Dialog (unified) */}
+      <AttendanceQRGenerator
         open={generatorOpen}
         onClose={() => setGeneratorOpen(false)}
-        sessionData={selectedSession}
+        classData={{
+          class_name: selectedSession?.class_name || (classes.find(c => c.id === selectedSession?.class_id)?.name),
+          class_id: selectedSession?.class_id,
+          subject: selectedSession?.subject
+        }}
+        availableSessions={sessions}
+        initialSessionId={selectedSession?.id}
+        title="QR Code Điểm Danh"
         onSessionUpdate={handleSessionUpdate}
       />
 

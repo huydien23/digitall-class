@@ -32,7 +32,7 @@ const parseCode = (raw) => {
   }
 }
 
-const StudentCheckInDialog = ({ open, onClose, studentCode, onSuccess }) => {
+const StudentCheckInDialog = ({ open, onClose, studentCode, onSuccess, initialCode = '', autoSubmit = false }) => {
   const [tab, setTab] = useState(0)
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
@@ -41,6 +41,7 @@ const StudentCheckInDialog = ({ open, onClose, studentCode, onSuccess }) => {
   const [isScanning, setIsScanning] = useState(false)
   const videoRef = useRef(null)
   const qrScannerRef = useRef(null)
+  const autoSubmittedRef = useRef(false)
 
   // Cleanup scanner when dialog closes or tab changes
   useEffect(() => {
@@ -58,6 +59,19 @@ const StudentCheckInDialog = ({ open, onClose, studentCode, onSuccess }) => {
       stopScanner()
     }
   }, [tab, open])
+
+  // Prefill code from props (e.g., /checkin?qr_code=...)
+  useEffect(() => {
+    if (!open) return
+    if (initialCode) {
+      setTab(1) // switch to "Nhập mã"
+      setCode(initialCode)
+      if (autoSubmit && !autoSubmittedRef.current) {
+        autoSubmittedRef.current = true
+        setTimeout(() => doCheckIn(parseCode(initialCode)), 150)
+      }
+    }
+  }, [open, initialCode, autoSubmit])
 
   const startScanner = async () => {
     if (!videoRef.current || isScanning) return

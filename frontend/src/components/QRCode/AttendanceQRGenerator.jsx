@@ -25,7 +25,8 @@ import {
   ListItemText,
   ListItemAvatar,
   Avatar,
-  CircularProgress
+  CircularProgress,
+  TextField
 } from '@mui/material'
 import {
   QrCode2,
@@ -54,11 +55,14 @@ const AttendanceQRGenerator = ({
   classData,
   availableSessions = [],
   onSessionUpdate,
-  title = "QR Code Điểm Danh"
+  title = "QR Code Điểm Danh",
+  initialSessionId = null,
+  refreshIntervalMs = 5 * 60 * 1000 // 5 phút
 }) => {
   const [selectedSession, setSelectedSession] = useState(null)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [attendanceUrl, setAttendanceUrl] = useState('')
+  const [attendanceCode, setAttendanceCode] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [sessionStats, setSessionStats] = useState({
     totalStudents: 0,
@@ -67,19 +71,30 @@ const AttendanceQRGenerator = ({
   })
   const [timeRemaining, setTimeRemaining] = useState(null)
   const [copySuccess, setCopySuccess] = useState(false)
+  const [copyCodeSuccess, setCopyCodeSuccess] = useState(false)
   
   const qrRef = useRef(null)
   const timerInterval = useRef(null)
 
-  // Auto select latest session when dialog opens
-  useEffect(() => {
-    if (open && availableSessions.length > 0 && !selectedSession) {
-      const latestSession = availableSessions.sort((a, b) => 
-        new Date(b.session_date) - new Date(a.session_date)
-      )[0]
-      setSelectedSession(latestSession)
+// Auto select session when dialog opens
+useEffect(() => {
+  if (!open || availableSessions.length === 0) return
+  // Ưu tiên chọn theo initialSessionId nếu có
+  if (initialSessionId) {
+    const found = availableSessions.find(s => String(s.id) === String(initialSessionId))
+    if (found && (!selectedSession || String(selectedSession.id) !== String(found.id))) {
+      setSelectedSession(found)
+      return
     }
-  }, [open, availableSessions])
+  }
+  // Nếu chưa có session được chọn, chọn phiên mới nhất
+  if (!selectedSession) {
+    const latestSession = [...availableSessions].sort((a, b) => 
+      new Date(b.session_date) - new Date(a.session_date)
+    )[0]
+    setSelectedSession(latestSession)
+  }
+}, [open, availableSessions, initialSessionId])
 
   // Generate QR code when session is selected
   useEffect(() => {
@@ -93,6 +108,15 @@ const AttendanceQRGenerator = ({
       stopTimer()
     }
   }, [open, selectedSession])
+
+  // Auto refresh QR code every refreshIntervalMs while dialog is open
+  useEffect(() => {
+    if (!(open && selectedSession && refreshIntervalMs > 0)) return
+    const id = setInterval(() => {
+      generateQRCode()
+    }, refreshIntervalMs)
+    return () => clearInterval(id)
+  }, [open, selectedSession, refreshIntervalMs])
 
   const generateQRCode = async () => {
     if (!selectedSession) return
@@ -109,6 +133,7 @@ const AttendanceQRGenerator = ({
       const baseUrl = window.location.origin
       const link = `${baseUrl}/checkin?qr_code=${encodeURIComponent(qrCode)}`
       setAttendanceUrl(link)
+      setAttendanceCode(qrCode)
 
       // Hiển thị ảnh QR do backend trả về (đảm bảo khớp với mã qr_code ở DB)
       setQrCodeUrl(qrImage)
@@ -211,11 +236,23 @@ const AttendanceQRGenerator = ({
     }
   }
 
+  const handleCopyCode = async () => {
+    try {
+      if (!attendanceCode) return
+      await navigator.clipboard.writeText(attendanceCode)
+      setCopyCodeSuccess(true)
+      setTimeout(() => setCopyCodeSuccess(false), 2000)
+    } catch (error) {
+      console.error('Copy code failed:', error)
+    }
+  }
+
   const handleDownloadQR = () => {
     if (!qrCodeUrl) return
     
     const link = document.createElement('a')
-    link.download = `qr-diem-danh-${sessionData?.subject || 'attendance'}-${Date.now()}.png`
+    const subject = classData?.subject || classData?.class_name || 'attendance'
+    link.download = `qr-diem-danh-${subject}-${Date.now()}.png`
     link.href = qrCodeUrl
     link.click()
   }
@@ -224,10 +261,14 @@ const AttendanceQRGenerator = ({
     if (!qrCodeUrl) return
     
     const printWindow = window.open('', '_blank')
+    const subject = classData?.subject || classData?.class_name || 'Lớp học'
+    const classId = classData?.class_id || selectedSession?.class_id || ''
+    const startT = selectedSession?.start_time || '07:00'
+    const endT = selectedSession?.end_time || '11:00'
     printWindow.document.write(`
       <html>
         <head>
-          <title>QR Code Điểm Danh - ${sessionData?.subject || 'Lớp học'}</title>
+          <title>QR Code Điểm Danh - ${subject}</title>
           <style>
             body { 
               font-family: Arial, sans-serif; 
@@ -269,10 +310,10 @@ const AttendanceQRGenerator = ({
           </div>
           
           <div class="info">
-            <h3>${sessionData?.subject || 'Lớp học Python'}</h3>
-            <p><strong>Lớp:</strong> ${sessionData?.class_id || 'DH22TIN06'}</p>
+            <h3>${subject}</h3>
+            <p><strong>Lớp:</strong> ${classId}</p>
             <p><strong>Ngày:</strong> ${new Date().toLocaleDateString('vi-VN')}</p>
-            <p><strong>Giờ học:</strong> ${sessionData?.start_time || '07:00'} - ${sessionData?.end_time || '11:00'}</p>
+            <p><strong>Giờ học:</strong> ${startT} - ${endT}</p>
           </div>
           
           <div class="qr-container">
@@ -300,7 +341,8 @@ const AttendanceQRGenerator = ({
   }
 
   const handleShareWhatsApp = () => {
-    const message = `📚 Điểm danh lớp học: ${sessionData?.subject || 'Lớp học Python'}\n\n🕐 Thời gian: ${new Date().toLocaleString('vi-VN')}\n\n📱 Quét QR Code hoặc truy cập link:\n${attendanceUrl}\n\n👨‍🏫 Hệ thống EduAttend`
+    const subject = classData?.class_name || classData?.subject || 'Lớp học'
+    const message = `📚 Điểm danh lớp học: ${subject}\n\n🕐 Thời gian: ${new Date().toLocaleString('vi-VN')}\n\n📱 Quét QR Code hoặc truy cập link:\n${attendanceUrl}\n\n👨‍🏫 Hệ thống EduAttend`
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
@@ -461,36 +503,42 @@ const AttendanceQRGenerator = ({
                   </IconButton>
                 </Tooltip>
               </Stack>
-            </Paper>
 
-            {/* URL Copy */}
-            <Paper sx={{ p: 2, mt: 2 }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Link điểm danh (dán vào dialog sinh viên hoặc gửi cho lớp):
-              </Typography>
-              <Box display="flex" gap={1}>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    flex: 1, 
-                    p: 1, 
-                    bgcolor: 'grey.100', 
-                    borderRadius: 1,
-                    fontSize: '0.75rem',
-                    wordBreak: 'break-all'
-                  }}
-                >
-                  {attendanceUrl}
+              {/* Inline code + link right below the QR for immediate visibility */}
+              <Box sx={{ mt: 2, textAlign: 'left' }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Mã điểm danh
                 </Typography>
-                <Tooltip title={copySuccess ? "Đã copy!" : "Copy link"}>
-                  <IconButton 
-                    onClick={handleCopyUrl}
-                    color={copySuccess ? "success" : "default"}
+                <Box display="flex" gap={1} alignItems="center" sx={{ mb: 1 }}>
+                  <TextField
+                    fullWidth
                     size="small"
-                  >
-                    <ContentCopy />
-                  </IconButton>
-                </Tooltip>
+                    value={attendanceCode}
+                    InputProps={{ readOnly: true }}
+                  />
+                  <Tooltip title={copyCodeSuccess ? "Đã copy!" : "Copy mã"}>
+                    <IconButton onClick={handleCopyCode} color={copyCodeSuccess ? 'success' : 'default'} size="small">
+                      <ContentCopy />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+
+                <Typography variant="subtitle2" gutterBottom>
+                  Link điểm danh
+                </Typography>
+                <Box display="flex" gap={1} alignItems="center">
+                  <TextField
+                    fullWidth
+                    size="small"
+                    value={attendanceUrl}
+                    InputProps={{ readOnly: true }}
+                  />
+                  <Tooltip title={copySuccess ? "Đã copy!" : "Copy link"}>
+                    <IconButton onClick={handleCopyUrl} color={copySuccess ? 'success' : 'default'} size="small">
+                      <ContentCopy />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
             </Paper>
           </Grid>

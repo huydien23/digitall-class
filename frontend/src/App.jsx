@@ -25,6 +25,7 @@ import ClassDetailPage from './components/Class/ClassDetailPage'
 import RoleAwareClassDetail from './components/Class/RoleAwareClassDetail'
 import Grades from './pages/Grades/Grades'
 import Attendance from './pages/Attendance/Attendance'
+import StudentCheckInPage from './pages/Attendance/StudentCheckInPage'
 import Schedule from './pages/Schedule/Schedule'
 import Teachers from './pages/Teachers/Teachers'
 import ScheduleManagement from './pages/ScheduleManagement/ScheduleManagement'
@@ -155,6 +156,14 @@ const App = () => {
             <ProtectedRoute>
               <Layout>
                 <Attendance />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/checkin" element={
+            <ProtectedRoute>
+              <Layout>
+                <StudentCheckInPage />
               </Layout>
             </ProtectedRoute>
           } />
