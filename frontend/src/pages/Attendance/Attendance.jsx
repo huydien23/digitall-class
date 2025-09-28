@@ -79,17 +79,18 @@ const StudentAttendanceView = () => {
   const attendanceRecords = records
   
   // Get unique subjects for filter
-  const subjects = [...new Set(attendanceRecords.map(record => record.session?.subject).filter(Boolean))]
+  const subjects = [...new Set(attendanceRecords.map(record => record.session?.class_obj?.class_name).filter(Boolean))]
   
   // Filter records
   const filteredRecords = attendanceRecords.filter(record => {
     const matchesSearch = 
-      record.session?.subject?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      record.session?.teacher?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.session?.class_obj?.class_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.session?.class_obj?.teacher?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      record.session?.class_obj?.teacher?.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       record.session?.session_name?.toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = filterStatus === 'all' || record.status === filterStatus
-    const matchesSubject = filterSubject === 'all' || record.session?.subject === filterSubject
+    const matchesSubject = filterSubject === 'all' || record.session?.class_obj?.class_name === filterSubject
     
     return matchesSearch && matchesStatus && matchesSubject
   })
@@ -318,10 +319,13 @@ const StudentAttendanceView = () => {
                     <TableCell>
                       <Box>
                         <Typography variant="body2" fontWeight={600}>
-                          {record.session?.subject || 'Unknown Subject'}
+                          {record.session?.class_obj?.class_name || 'Unknown Subject'}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {record.session?.teacher || 'Unknown Teacher'}
+                          {record.session?.class_obj?.teacher ? 
+                            `${record.session.class_obj.teacher.first_name} ${record.session.class_obj.teacher.last_name}`.trim() : 
+                            'Unknown Teacher'
+                          }
                         </Typography>
                       </Box>
                     </TableCell>
@@ -332,15 +336,22 @@ const StudentAttendanceView = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {new Date(record.check_in_time).toLocaleDateString('vi-VN')}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {record.session?.day || 'Unknown Day'}
+                        {record.session?.session_date ? 
+                          new Date(record.session.session_date).toLocaleDateString('vi-VN') :
+                          record.check_in_time ?
+                            new Date(record.check_in_time).toLocaleDateString('vi-VN') :
+                            'N/A'
+                        }
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {record.session?.time || new Date(record.check_in_time).toLocaleTimeString()}
+                        {record.session?.start_time && record.session?.end_time ? 
+                          `${record.session.start_time.slice(0,5)} - ${record.session.end_time.slice(0,5)}` :
+                          record.check_in_time ? 
+                            new Date(record.check_in_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) :
+                            'N/A'
+                        }
                       </Typography>
                     </TableCell>
                     <TableCell>
