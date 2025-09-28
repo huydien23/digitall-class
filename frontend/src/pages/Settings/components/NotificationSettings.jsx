@@ -48,11 +48,13 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { updateSetting } from '../../../store/slices/teacherSettingsSlice'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 const NotificationSettings = () => {
   const dispatch = useDispatch()
   const { settings } = useSelector(state => state.teacherSettings)
   const notificationSettings = settings?.notifications || {}
+  const { t } = useTranslation()
   
   // Local state for UI feedback
   const [showSuccess, setShowSuccess] = useState(false)
@@ -125,28 +127,28 @@ const NotificationSettings = () => {
   const notificationEvents = [
     {
       key: 'sessionStart',
-      label: 'Khi phiên học bắt đầu',
+      label: t('settings:notifications.events.sessionStart.label'),
       icon: <Schedule />,
-      description: 'Nhận thông báo khi phiên điểm danh mở'
+      description: t('settings:notifications.events.sessionStart.description')
     },
     {
       key: 'studentCheckIn',
-      label: 'Khi sinh viên điểm danh',
+      label: t('settings:notifications.events.studentCheckIn.label'),
       icon: <People />,
-      description: 'Thông báo realtime khi có sinh viên check-in',
-      warning: 'Có thể gây nhiễu với lớp đông'
+      description: t('settings:notifications.events.studentCheckIn.description'),
+      warning: t('settings:notifications.events.studentCheckIn.warning')
     },
     {
       key: 'lowAttendance',
-      label: 'Cảnh báo điểm danh thấp',
+      label: t('settings:notifications.events.lowAttendance.label'),
       icon: <Warning />,
-      description: 'Khi tỷ lệ điểm danh < 60%'
+      description: t('settings:notifications.events.lowAttendance.description')
     },
     {
       key: 'suspiciousActivity',
-      label: 'Hoạt động đáng ngờ',
+      label: t('settings:notifications.events.suspiciousActivity.label'),
       icon: <Warning />,
-      description: 'Phát hiện điểm danh bất thường',
+      description: t('settings:notifications.events.suspiciousActivity.description'),
       important: true
     }
   ]
@@ -154,24 +156,23 @@ const NotificationSettings = () => {
   const studentReminders = [
     {
       key: 'reminderBeforeClass',
-      label: 'Nhắc nhở trước giờ học',
+      label: t('settings:notifications.reminders.reminderBeforeClass.label'),
       type: 'slider',
       min: 0,
       max: 60,
-      step: 5,
-      unit: 'phút'
+      step: 5
     },
     {
       key: 'reminderDuringClass',
-      label: 'Nhắc nhở trong giờ học',
+      label: t('settings:notifications.reminders.reminderDuringClass.label'),
       type: 'switch',
-      description: 'Tự động nhắc sinh viên chưa điểm danh'
+      description: t('settings:notifications.reminders.reminderDuringClass.description')
     },
     {
       key: 'absenceNotification',
-      label: 'Thông báo vắng mặt',
+      label: t('settings:notifications.reminders.absenceNotification.label'),
       type: 'switch',
-      description: 'Gửi email cho sinh viên vắng'
+      description: t('settings:notifications.reminders.absenceNotification.description')
     }
   ]
 
@@ -187,7 +188,7 @@ const NotificationSettings = () => {
             style={{ marginBottom: 16 }}
           >
             <Alert severity="success" icon={<CheckCircle />}>
-              Cài đặt thông báo đã được cập nhật!
+              {t('settings:notifications.updated_success')}
             </Alert>
           </motion.div>
         )}
@@ -200,7 +201,7 @@ const NotificationSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <VolumeUp sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Kênh thông báo
+                {t('settings:notifications.channels_title')}
               </Typography>
               
               <List>
@@ -209,8 +210,8 @@ const NotificationSettings = () => {
                     <NotificationsActive color="primary" />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Thông báo trong ứng dụng"
-                    secondary="Hiển thị popup và badge"
+                    primary={t('settings:notifications.in_app.title')}
+                    secondary={t('settings:notifications.in_app.desc')}
                   />
                   <ListItemSecondaryAction>
                     <Switch
@@ -228,8 +229,8 @@ const NotificationSettings = () => {
                     <Email color="primary" />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Email"
-                    secondary={`Gửi đến: ${settings?.account?.email || 'email@example.com'}`}
+                    primary={t('settings:notifications.email.title')}
+                    secondary={t('settings:notifications.email.to', { email: settings?.account?.email || 'email@example.com' })}
                   />
                   <ListItemSecondaryAction>
                     <Switch
@@ -246,11 +247,11 @@ const NotificationSettings = () => {
                     <Sms color="primary" />
                   </ListItemIcon>
                   <ListItemText
-                    primary="SMS"
-                    secondary="Tin nhắn điện thoại (Premium)"
+                    primary={t('settings:notifications.sms.title')}
+                    secondary={t('settings:notifications.sms.desc')}
                   />
                   <ListItemSecondaryAction>
-                    <Tooltip title="Tính năng Premium">
+                    <Tooltip title={t('settings:notifications.sms.premium')}>
                       <Switch
                         checked={notificationSettings.channels?.sms || false}
                         onChange={(e) => handleChannelChange('sms', e.target.checked)}
@@ -269,7 +270,7 @@ const NotificationSettings = () => {
                   onClick={handleTestNotification}
                   disabled={testEmailSent}
                 >
-                  {testEmailSent ? 'Email test đã gửi!' : 'Gửi email test'}
+                  {testEmailSent ? t('settings:notifications.test_email_sent') : t('settings:notifications.test_email_send')}
                 </Button>
               </Box>
             </CardContent>
@@ -282,7 +283,7 @@ const NotificationSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Notifications sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Sự kiện thông báo
+                {t('settings:notifications.events_title')}
               </Typography>
               
               <FormGroup>
@@ -318,7 +319,7 @@ const NotificationSettings = () => {
                                 {event.label}
                               </Typography>
                               {event.important && (
-                                <Chip label="Quan trọng" size="small" color="warning" />
+                                <Chip label={t('settings:notifications.events.suspiciousActivity.important')} size="small" color="warning" />
                               )}
                             </Box>
                             <Typography variant="caption" color="text.secondary">
@@ -347,7 +348,7 @@ const NotificationSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <School sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Nhắc nhở sinh viên
+                {t('settings:notifications.student_reminders_title')}
               </Typography>
               
               {studentReminders.map((reminder) => (
@@ -364,16 +365,16 @@ const NotificationSettings = () => {
                           min={reminder.min}
                           max={reminder.max}
                           step={reminder.step}
-                          marks={[
-                            { value: 0, label: 'Tắt' },
-                            { value: 15, label: '15p' },
-                            { value: 30, label: '30p' },
-                            { value: 60, label: '1h' }
-                          ]}
+                          marks={(() => { const s = t('min_short'); return [
+                            { value: 0, label: t('off') },
+                            { value: 15, label: `15${s}` },
+                            { value: 30, label: `30${s}` },
+                            { value: 60, label: `1${t('hour_short')}` }
+                          ] })()}
                           sx={{ flex: 1 }}
                         />
                         <Typography variant="body2" sx={{ minWidth: 50 }}>
-                          {notificationSettings.events?.[reminder.key] || 15} {reminder.unit}
+                          {(notificationSettings.events?.[reminder.key] || 15) + ' ' + t('minute')}
                         </Typography>
                       </Box>
                     </Box>
@@ -408,18 +409,18 @@ const NotificationSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Email sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Tóm tắt & Người nhận
+                {t('settings:notifications.digest_and_recipients_title')}
               </Typography>
               
               {/* Digest Settings */}
               <Box mb={3}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Tóm tắt định kỳ
+                  {t('settings:notifications.digest.title')}
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={6}>
                     <FormControl fullWidth size="small">
-                      <InputLabel>Tần suất</InputLabel>
+                      <InputLabel>{t('settings:notifications.digest.frequency_label')}</InputLabel>
                       <Select
                         value={
                           notificationSettings.digest?.daily ? 'daily' :
@@ -429,17 +430,17 @@ const NotificationSettings = () => {
                           handleDigestChange('daily', e.target.value === 'daily')
                           handleDigestChange('weekly', e.target.value === 'weekly')
                         }}
-                        label="Tần suất"
+                        label={t('settings:notifications.digest.frequency_label')}
                       >
-                        <MenuItem value="none">Không gửi</MenuItem>
-                        <MenuItem value="daily">Hàng ngày</MenuItem>
-                        <MenuItem value="weekly">Hàng tuần</MenuItem>
+                        <MenuItem value="none">{t('settings:notifications.digest.frequency_value.none')}</MenuItem>
+                        <MenuItem value="daily">{t('settings:notifications.digest.frequency_value.daily')}</MenuItem>
+                        <MenuItem value="weekly">{t('settings:notifications.digest.frequency_value.weekly')}</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
                   <Grid item xs={6}>
                     <TextField
-                      label="Thời gian gửi"
+                      label={t('settings:notifications.digest.send_time')}
                       type="time"
                       value={notificationSettings.digest?.time || '08:00'}
                       onChange={(e) => handleDigestChange('time', e.target.value)}
@@ -456,11 +457,11 @@ const NotificationSettings = () => {
               {/* Additional Recipients */}
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Email nhận thông báo bổ sung
+                  {t('settings:notifications.recipients.title')}
                 </Typography>
                 <Box display="flex" gap={1} mb={2}>
                   <TextField
-                    placeholder="email@example.com"
+                    placeholder={t('settings:notifications.recipients.placeholder')}
                     value={newEmail}
                     onChange={(e) => setNewEmail(e.target.value)}
                     size="small"
@@ -493,8 +494,7 @@ const NotificationSettings = () => {
       {/* Info Alert */}
       <Alert severity="info" sx={{ mt: 3 }} icon={<Info />}>
         <Typography variant="body2">
-          <strong>Lưu ý:</strong> Thông báo email chỉ hoạt động khi bạn đã xác thực địa chỉ email.
-          SMS là tính năng Premium và cần đăng ký gói dịch vụ.
+          <strong>{t('note')}:</strong> {t('settings:notifications.info_note')}
         </Typography>
       </Alert>
     </Box>

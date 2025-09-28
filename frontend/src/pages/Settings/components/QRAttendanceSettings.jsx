@@ -44,10 +44,12 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { updateSetting } from '../../../store/slices/teacherSettingsSlice'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 const QRAttendanceSettings = () => {
   const dispatch = useDispatch()
   const { settings } = useSelector(state => state.teacherSettings)
+  const { t } = useTranslation()
   
   const qrSettings = settings?.qrAttendance?.qrCode || {}
   const attendanceRules = settings?.qrAttendance?.rules || {}
@@ -123,12 +125,12 @@ const QRAttendanceSettings = () => {
               sx={{ mb: 2 }}
               action={
                 <Typography variant="caption" color="success.main">
-                  Nhấn "Lưu cài đặt" để lưu thay đổi
+                  {t('settings:qr.press_save', { action: t('save') })}
                 </Typography>
               }
             >
               <Typography variant="body2">
-                Cài đặt đã thay đổi!
+                {t('settings:qr.changed')}
               </Typography>
             </Alert>
           </motion.div>
@@ -138,8 +140,7 @@ const QRAttendanceSettings = () => {
       {/* Info Alert */}
       <Alert severity="info" icon={<Info />} sx={{ mb: 3 }}>
         <Typography variant="body2">
-          Các cài đặt này sẽ được áp dụng mặc định cho tất cả phiên điểm danh mới. 
-          Bạn vẫn có thể thay đổi riêng cho từng phiên khi cần.
+          {t('settings:qr.info')}
         </Typography>
       </Alert>
 
@@ -150,7 +151,7 @@ const QRAttendanceSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <QrCode2 sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Cài đặt QR Code
+                {t('settings:qr.qr_settings')}
               </Typography>
 
               <List>
@@ -166,11 +167,11 @@ const QRAttendanceSettings = () => {
                     <RestartAlt color={changedFields.has('qr-autoRefreshInterval') ? 'primary' : 'inherit'} />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Tự động làm mới QR"
+                    primary={t('settings:qr.auto_refresh.title')}
                     secondary={
                       <Box>
                         <Typography variant="caption">
-                          Mã QR sẽ tự động thay đổi sau {qrSettings.autoRefreshInterval || 5} phút
+                          {t('settings:qr.auto_refresh.desc', { minutes: qrSettings.autoRefreshInterval || 5, unit: t('minute') })}
                         </Typography>
                         <Slider
                           value={qrSettings.autoRefreshInterval || 5}
@@ -178,12 +179,12 @@ const QRAttendanceSettings = () => {
                           min={1}
                           max={15}
                           step={1}
-                          marks={[
-                            { value: 1, label: '1p' },
-                            { value: 5, label: '5p' },
-                            { value: 10, label: '10p' },
-                            { value: 15, label: '15p' }
-                          ]}
+                          marks={(() => { const s = t('min_short'); return [
+                            { value: 1, label: `1${s}` },
+                            { value: 5, label: `5${s}` },
+                            { value: 10, label: `10${s}` },
+                            { value: 15, label: `15${s}` }
+                          ] })()}
                           sx={{ mt: 2 }}
                         />
                       </Box>
@@ -199,11 +200,11 @@ const QRAttendanceSettings = () => {
                     <Timer />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Thời hạn QR Code"
+                    primary={t('settings:qr.validity.title')}
                     secondary={
                       <Box>
                         <Typography variant="caption">
-                          Mã QR hết hạn sau {qrSettings.validityDuration || 15} phút kể từ khi tạo
+                          {t('settings:qr.validity.desc', { minutes: qrSettings.validityDuration || 15, unit: t('minute') })}
                         </Typography>
                         <Slider
                           value={qrSettings.validityDuration || 15}
@@ -211,12 +212,12 @@ const QRAttendanceSettings = () => {
                           min={5}
                           max={60}
                           step={5}
-                          marks={[
-                            { value: 10, label: '10p' },
-                            { value: 15, label: '15p' },
-                            { value: 30, label: '30p' },
-                            { value: 60, label: '60p' }
-                          ]}
+                          marks={(() => { const s = t('min_short'); return [
+                            { value: 10, label: `10${s}` },
+                            { value: 15, label: `15${s}` },
+                            { value: 30, label: `30${s}` },
+                            { value: 60, label: `60${s}` }
+                          ] })()}
                           sx={{ mt: 2 }}
                         />
                       </Box>
@@ -232,8 +233,8 @@ const QRAttendanceSettings = () => {
                     <Security />
                   </ListItemIcon>
                   <ListItemText
-                    primary="Mức độ bảo mật"
-                    secondary="Kiểm soát mức độ xác thực khi điểm danh"
+                    primary={t('settings:qr.security_level.title')}
+                    secondary={t('settings:qr.security_level.desc')}
                   />
                   <ListItemSecondaryAction>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -241,9 +242,9 @@ const QRAttendanceSettings = () => {
                         value={qrSettings.securityLevel || 'medium'}
                         onChange={(e) => handleQRSettingChange('securityLevel', e.target.value)}
                       >
-                        <MenuItem value="low">Thấp</MenuItem>
-                        <MenuItem value="medium">Trung bình</MenuItem>
-                        <MenuItem value="high">Cao</MenuItem>
+                        <MenuItem value="low">{t('settings:qr.security_level.options.low')}</MenuItem>
+                        <MenuItem value="medium">{t('settings:qr.security_level.options.medium')}</MenuItem>
+                        <MenuItem value="high">{t('settings:qr.security_level.options.high')}</MenuItem>
                       </Select>
                     </FormControl>
                   </ListItemSecondaryAction>
@@ -254,8 +255,8 @@ const QRAttendanceSettings = () => {
                 {/* Allow Manual Code */}
                 <ListItem>
                   <ListItemText
-                    primary="Cho phép nhập mã thủ công"
-                    secondary="Sinh viên có thể nhập mã nếu không quét được QR"
+                    primary={t('settings:qr.manual_code.title')}
+                    secondary={t('settings:qr.manual_code.desc')}
                   />
                   <ListItemSecondaryAction>
                     <Switch
@@ -275,22 +276,22 @@ const QRAttendanceSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Schedule sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Quy tắc điểm danh
+                {t('settings:qr.rules.title')}
               </Typography>
 
               <Grid container spacing={2}>
                 {/* Late Threshold */}
                 <Grid item xs={12}>
                   <TextField
-                    label="Ngưỡng đi trễ"
+                    label={t('settings:qr.rules.late_threshold.label')}
                     type="number"
                     value={attendanceRules.lateThreshold || 15}
                     onChange={(e) => handleRuleChange('lateThreshold', parseInt(e.target.value))}
                     fullWidth
                     size="small"
-                    helperText="Sau thời gian này tính là đi trễ"
+                    helperText={t('settings:qr.rules.late_threshold.helper')}
                     InputProps={{
-                      endAdornment: <InputAdornment position="end">phút</InputAdornment>
+                      endAdornment: <InputAdornment position="end">{t('minute')}</InputAdornment>
                     }}
                   />
                 </Grid>
@@ -298,15 +299,15 @@ const QRAttendanceSettings = () => {
                 {/* Absent Threshold */}
                 <Grid item xs={12}>
                   <TextField
-                    label="Ngưỡng vắng mặt"
+                    label={t('settings:qr.rules.absent_threshold.label')}
                     type="number"
                     value={attendanceRules.absentThreshold || 30}
                     onChange={(e) => handleRuleChange('absentThreshold', parseInt(e.target.value))}
                     fullWidth
                     size="small"
-                    helperText="Sau thời gian này tính là vắng"
+                    helperText={t('settings:qr.rules.absent_threshold.helper')}
                     InputProps={{
-                      endAdornment: <InputAdornment position="end">phút</InputAdornment>
+                      endAdornment: <InputAdornment position="end">{t('minute')}</InputAdornment>
                     }}
                   />
                 </Grid>
@@ -314,15 +315,15 @@ const QRAttendanceSettings = () => {
                 {/* Grace Time */}
                 <Grid item xs={12}>
                   <TextField
-                    label="Thời gian ân hạn"
+                    label={t('settings:qr.rules.grace_time.label')}
                     type="number"
                     value={attendanceRules.graceTime || 10}
                     onChange={(e) => handleRuleChange('graceTime', parseInt(e.target.value))}
                     fullWidth
                     size="small"
-                    helperText="Thời gian cho phép điểm danh trước giờ học"
+                    helperText={t('settings:qr.rules.grace_time.helper')}
                     InputProps={{
-                      endAdornment: <InputAdornment position="end">phút</InputAdornment>
+                      endAdornment: <InputAdornment position="end">{t('minute')}</InputAdornment>
                     }}
                   />
                 </Grid>
@@ -336,7 +337,7 @@ const QRAttendanceSettings = () => {
                         onChange={(e) => handleRuleChange('autoCloseSession', e.target.checked)}
                       />
                     }
-                    label="Tự động đóng phiên khi hết giờ"
+                    label={t('settings:qr.rules.auto_close')}
                   />
                 </Grid>
               </Grid>
@@ -350,7 +351,7 @@ const QRAttendanceSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Security sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Bảo mật điểm danh
+                {t('settings:qr.security.title')}
               </Typography>
 
               <Grid container spacing={3}>
@@ -360,7 +361,7 @@ const QRAttendanceSettings = () => {
                     <Box display="flex" alignItems="center" mb={2}>
                       <LocationOn color="primary" sx={{ mr: 1 }} />
                       <Typography variant="subtitle1" fontWeight={600}>
-                        Xác thực vị trí
+                        {t('settings:qr.security.location.title')}
                       </Typography>
                     </Box>
 
@@ -371,12 +372,12 @@ const QRAttendanceSettings = () => {
                           onChange={(e) => handleRuleChange('requireLocation', e.target.checked)}
                         />
                       }
-                      label="Yêu cầu xác thực vị trí"
+                      label={t('settings:qr.security.location.require')}
                       sx={{ mb: 2 }}
                     />
 
                     <TextField
-                      label="Bán kính cho phép"
+                      label={t('settings:qr.security.location.radius_label')}
                       type="number"
                       value={attendanceRules.locationRadius || 50}
                       onChange={(e) => handleRuleChange('locationRadius', parseInt(e.target.value))}
@@ -384,17 +385,17 @@ const QRAttendanceSettings = () => {
                       fullWidth
                       size="small"
                       InputProps={{
-                        endAdornment: <InputAdornment position="end">mét</InputAdornment>
+                        endAdornment: <InputAdornment position="end">{t('meter_short')}</InputAdornment>
                       }}
                     />
                     
-                    {attendanceRules.requireLocation && (
-                      <Alert severity="warning" sx={{ mt: 2 }}>
-                        <Typography variant="caption">
-                          Sinh viên phải trong phạm vi {attendanceRules.locationRadius}m từ phòng học
-                        </Typography>
-                      </Alert>
-                    )}
+                      {attendanceRules.requireLocation && (
+                        <Alert severity="warning" sx={{ mt: 2 }}>
+                          <Typography variant="caption">
+                            {t('settings:qr.security.location.warning', { meters: attendanceRules.locationRadius })}
+                          </Typography>
+                        </Alert>
+                      )}
                   </Paper>
                 </Grid>
 
@@ -404,18 +405,18 @@ const QRAttendanceSettings = () => {
                     <Box display="flex" alignItems="center" mb={2}>
                       <Devices color="primary" sx={{ mr: 1 }} />
                       <Typography variant="subtitle1" fontWeight={600}>
-                        Giới hạn thiết bị
+                        {t('settings:qr.security.device.title')}
                       </Typography>
                     </Box>
 
                     <TextField
-                      label="Số thiết bị tối đa/sinh viên"
+                      label={t('settings:qr.security.device.max_per_student')}
                       type="number"
                       value={attendanceRules.maxDevicesPerStudent || 2}
                       onChange={(e) => handleRuleChange('maxDevicesPerStudent', parseInt(e.target.value))}
                       fullWidth
                       size="small"
-                      helperText="Giới hạn số thiết bị mỗi sinh viên có thể dùng"
+                      helperText={t('settings:qr.security.device.helper')}
                       InputProps={{
                         inputProps: { min: 1, max: 5 }
                       }}
@@ -429,7 +430,7 @@ const QRAttendanceSettings = () => {
                           onChange={(e) => handleRuleChange('preventDuplicateCheckIn', e.target.checked)}
                         />
                       }
-                      label="Chặn điểm danh trùng lặp"
+                      label={t('settings:qr.security.device.prevent_duplicate')}
                     />
                   </Paper>
                 </Grid>
@@ -444,20 +445,20 @@ const QRAttendanceSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <School sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Phiên học mặc định
+                {t('settings:qr.defaults.title')}
               </Typography>
 
               <Grid container spacing={3}>
                 {/* Session Templates */}
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Mẫu phiên học
+                    {t('settings:qr.defaults.templates_label')}
                   </Typography>
                   <Box display="flex" gap={2}>
                     {templates.map((template) => (
                       <Chip
                         key={template.id}
-                        label={template.name}
+                        label={t(`settings:qr.defaults.templates.${template.id}`)}
                         icon={template.icon}
                         color={sessionDefaults.template === template.id ? template.color : 'default'}
                         variant={sessionDefaults.template === template.id ? 'filled' : 'outlined'}
@@ -471,14 +472,14 @@ const QRAttendanceSettings = () => {
                 {/* Default Duration */}
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Thời lượng mặc định"
+                    label={t('settings:qr.defaults.default_duration')}
                     type="number"
                     value={sessionDefaults.duration || 120}
                     onChange={(e) => handleSessionDefaultChange('duration', parseInt(e.target.value))}
                     fullWidth
                     size="small"
                     InputProps={{
-                      endAdornment: <InputAdornment position="end">phút</InputAdornment>
+                      endAdornment: <InputAdornment position="end">{t('minute')}</InputAdornment>
                     }}
                   />
                 </Grid>
@@ -486,12 +487,12 @@ const QRAttendanceSettings = () => {
                 {/* Default Location */}
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Vị trí mặc định"
+                    label={t('settings:qr.defaults.default_location')}
                     value={sessionDefaults.location || ''}
                     onChange={(e) => handleSessionDefaultChange('location', e.target.value)}
                     fullWidth
                     size="small"
-                    placeholder="VD: Phòng 14-02"
+                    placeholder={t('settings:qr.defaults.default_location_placeholder')}
                   />
                 </Grid>
               </Grid>
@@ -499,26 +500,26 @@ const QRAttendanceSettings = () => {
               {/* Template Preview */}
               <Box mt={3} p={2} bgcolor="grey.50" borderRadius={1}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Xem trước cài đặt mặc định:
+                  {t('settings:qr.defaults.preview')}
                 </Typography>
                 <Grid container spacing={2}>
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">QR tự động làm mới</Typography>
-                    <Typography variant="body2">{qrSettings.autoRefreshInterval || 5} phút</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('settings:qr.defaults.preview_fields.auto_refresh')}</Typography>
+                    <Typography variant="body2">{`${qrSettings.autoRefreshInterval || 5} ${t('minute')}`}</Typography>
                   </Grid>
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">Thời hạn QR</Typography>
-                    <Typography variant="body2">{qrSettings.validityDuration || 15} phút</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('settings:qr.defaults.preview_fields.validity')}</Typography>
+                    <Typography variant="body2">{`${qrSettings.validityDuration || 15} ${t('minute')}`}</Typography>
                   </Grid>
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">Ngưỡng trễ</Typography>
-                    <Typography variant="body2">{attendanceRules.lateThreshold || 15} phút</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('settings:qr.defaults.preview_fields.late_threshold')}</Typography>
+                    <Typography variant="body2">{`${attendanceRules.lateThreshold || 15} ${t('minute')}`}</Typography>
                   </Grid>
                   <Grid item xs={6} sm={3}>
-                    <Typography variant="caption" color="text.secondary">Bảo mật</Typography>
+                    <Typography variant="caption" color="text.secondary">{t('settings:qr.defaults.preview_fields.security')}</Typography>
                     <Typography variant="body2">
-                      {qrSettings.securityLevel === 'high' ? 'Cao' : 
-                       qrSettings.securityLevel === 'low' ? 'Thấp' : 'Trung bình'}
+                      {qrSettings.securityLevel === 'high' ? t('settings:qr.security_level.options.high') : 
+                       qrSettings.securityLevel === 'low' ? t('settings:qr.security_level.options.low') : t('settings:qr.security_level.options.medium')}
                     </Typography>
                   </Grid>
                 </Grid>

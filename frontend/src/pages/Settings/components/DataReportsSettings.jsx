@@ -46,11 +46,13 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { updateSetting } from '../../../store/slices/teacherSettingsSlice'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 const DataReportsSettings = () => {
   const dispatch = useDispatch()
   const { settings } = useSelector(state => state.teacherSettings)
   const dataSettings = settings?.dataReports || {}
+  const { t } = useTranslation()
   
   // Local states
   const [testExportLoading, setTestExportLoading] = useState(false)
@@ -134,22 +136,22 @@ const DataReportsSettings = () => {
   
   // Available columns for export
   const availableColumns = [
-    { id: 'mssv', label: 'Mã số sinh viên', required: true },
-    { id: 'name', label: 'Họ và tên', required: true },
-    { id: 'email', label: 'Email' },
-    { id: 'phone', label: 'Số điện thoại' },
-    { id: 'attendance', label: 'Điểm danh' },
-    { id: 'attendance_rate', label: 'Tỷ lệ điểm danh' },
-    { id: 'grade', label: 'Điểm số' },
-    { id: 'notes', label: 'Ghi chú' },
-    { id: 'last_checkin', label: 'Lần điểm danh cuối' }
+    { id: 'mssv', label: t('settings:data.columns.mssv'), required: true },
+    { id: 'name', label: t('settings:data.columns.name'), required: true },
+    { id: 'email', label: t('settings:data.columns.email') },
+    { id: 'phone', label: t('settings:data.columns.phone') },
+    { id: 'attendance', label: t('settings:data.columns.attendance') },
+    { id: 'attendance_rate', label: t('settings:data.columns.attendance_rate') },
+    { id: 'grade', label: t('settings:data.columns.grade') },
+    { id: 'notes', label: t('settings:data.columns.notes') },
+    { id: 'last_checkin', label: t('settings:data.columns.last_checkin') }
   ]
   
   // Export formats
   const exportFormats = [
-    { value: 'excel', label: 'Excel (.xlsx)', icon: <TableChart />, color: 'success' },
-    { value: 'csv', label: 'CSV (.csv)', icon: <Description />, color: 'primary' },
-    { value: 'pdf', label: 'PDF (.pdf)', icon: <PictureAsPdf />, color: 'error' }
+    { value: 'excel', label: t('settings:data.formats.excel'), icon: <TableChart />, color: 'success' },
+    { value: 'csv', label: t('settings:data.formats.csv'), icon: <Description />, color: 'primary' },
+    { value: 'pdf', label: t('settings:data.formats.pdf'), icon: <PictureAsPdf />, color: 'error' }
   ]
   
   // Report templates
@@ -170,13 +172,13 @@ const DataReportsSettings = () => {
               <CardContent>
                 <Typography variant="h6" fontWeight={600} mb={3}>
                   <FileDownload sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Xuất dữ liệu
+                  {t('settings:data.export_title')}
                 </Typography>
                 
                 {/* Default Format */}
                 <Box mb={3}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Định dạng mặc định
+                    {t('settings:data.default_format')}
                   </Typography>
                   <Grid container spacing={1}>
                     {exportFormats.map((format) => (
@@ -212,7 +214,7 @@ const DataReportsSettings = () => {
                 {/* Export Columns */}
                 <Box mb={3}>
                   <Typography variant="subtitle2" gutterBottom>
-                    Cột dữ liệu xuất
+                    {t('settings:data.columns_title')}
                   </Typography>
                   <FormGroup>
                     {availableColumns.map((col) => (
@@ -229,7 +231,7 @@ const DataReportsSettings = () => {
                           <Box display="flex" alignItems="center" gap={1}>
                             <span>{col.label}</span>
                             {col.required && (
-                              <Chip label="Bắt buộc" size="small" color="primary" />
+                              <Chip label={t('settings:data.column_required')} size="small" color="primary" />
                             )}
                           </Box>
                         }
@@ -249,7 +251,7 @@ const DataReportsSettings = () => {
                         onChange={(e) => handleExportChange('includePhotos', e.target.checked)}
                       />
                     }
-                    label="Bao gồm ảnh sinh viên"
+                    label={t('settings:data.include_photos')}
                   />
                   <FormControlLabel
                     control={
@@ -258,7 +260,7 @@ const DataReportsSettings = () => {
                         onChange={(e) => handleReportChange('includeCharts', e.target.checked)}
                       />
                     }
-                    label="Thêm biểu đồ thống kê"
+                    label={t('settings:data.include_charts')}
                   />
                 </Box>
                 
@@ -271,7 +273,7 @@ const DataReportsSettings = () => {
                     onClick={handleTestExport}
                     disabled={testExportLoading}
                   >
-                    {testExportLoading ? 'Đang xuất...' : 'Xuất mẫu'}
+                    {testExportLoading ? t('settings:data.test_export.exporting') : t('settings:data.test_export.export_sample')}
                   </Button>
                 </Box>
               </CardContent>
@@ -282,7 +284,7 @@ const DataReportsSettings = () => {
               <CardContent>
                 <Typography variant="h6" fontWeight={600} mb={3}>
                   <Lock sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Bảo mật dữ liệu
+                  {t('settings:data.privacy_title')}
                 </Typography>
                 
                 <List>
@@ -291,8 +293,8 @@ const DataReportsSettings = () => {
                       <Share />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Chia sẻ với quản trị viên"
-                      secondary="Cho phép admin xem báo cáo của bạn"
+                      primary={t('settings:data.share_with_admin.title')}
+                      secondary={t('settings:data.share_with_admin.desc')}
                     />
                     <ListItemSecondaryAction>
                       <Switch
@@ -309,8 +311,8 @@ const DataReportsSettings = () => {
                       <Lock />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Ẩn danh dữ liệu xuất"
-                      secondary="Làm ẩn thông tin nhạy cảm khi xuất"
+                      primary={t('settings:data.anonymize_exports.title')}
+                      secondary={t('settings:data.anonymize_exports.desc')}
                     />
                     <ListItemSecondaryAction>
                       <Switch
@@ -327,8 +329,8 @@ const DataReportsSettings = () => {
                       <Storage />
                     </ListItemIcon>
                     <ListItemText
-                      primary="Thời gian lưu trữ"
-                      secondary={`Dữ liệu sẽ được lưu trong ${dataSettings.privacy?.retentionDays || 90} ngày`}
+                      primary={t('settings:data.retention.title')}
+                      secondary={t('settings:data.retention.desc', { days: dataSettings.privacy?.retentionDays || 90 })}
                     />
                     <ListItemSecondaryAction>
                       <FormControl size="small" sx={{ minWidth: 80 }}>
@@ -336,10 +338,10 @@ const DataReportsSettings = () => {
                           value={dataSettings.privacy?.retentionDays || 90}
                           onChange={(e) => handlePrivacyChange('retentionDays', e.target.value)}
                         >
-                          <MenuItem value={30}>30 ngày</MenuItem>
-                          <MenuItem value={90}>90 ngày</MenuItem>
-                          <MenuItem value={180}>180 ngày</MenuItem>
-                          <MenuItem value={365}>1 năm</MenuItem>
+                          <MenuItem value={30}>{t('settings:data.retention.option_30')}</MenuItem>
+                          <MenuItem value={90}>{t('settings:data.retention.option_90')}</MenuItem>
+                          <MenuItem value={180}>{t('settings:data.retention.option_180')}</MenuItem>
+                          <MenuItem value={365}>{t('settings:data.retention.option_365')}</MenuItem>
                         </Select>
                       </FormControl>
                     </ListItemSecondaryAction>
@@ -358,7 +360,7 @@ const DataReportsSettings = () => {
               <CardContent>
                 <Typography variant="h6" fontWeight={600} mb={3}>
                   <Schedule sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Báo cáo tự động
+                  {t('settings:data.auto_reports_title')}
                 </Typography>
                 
                 {/* Auto Generate */}
@@ -370,7 +372,7 @@ const DataReportsSettings = () => {
                         onChange={(e) => handleReportChange('autoGenerate', e.target.checked)}
                       />
                     }
-                    label="Tự động tạo báo cáo định kỳ"
+                    label={t('settings:data.auto_generate_label')}
                   />
                 </Box>
                 
@@ -379,16 +381,16 @@ const DataReportsSettings = () => {
                     {/* Frequency */}
                     <Box mb={3}>
                       <FormControl fullWidth size="small">
-                        <InputLabel>Tần suất báo cáo</InputLabel>
+                        <InputLabel>{t('settings:data.frequency_label')}</InputLabel>
                         <Select
                           value={dataSettings.reports?.frequency || 'weekly'}
                           onChange={(e) => handleReportChange('frequency', e.target.value)}
-                          label="Tần suất báo cáo"
+                          label={t('settings:data.frequency_label')}
                         >
-                          <MenuItem value="daily">Hàng ngày</MenuItem>
-                          <MenuItem value="weekly">Hàng tuần</MenuItem>
-                          <MenuItem value="monthly">Hàng tháng</MenuItem>
-                          <MenuItem value="quarterly">Hàng quý</MenuItem>
+                          <MenuItem value="daily">{t('settings:data.frequency.daily')}</MenuItem>
+                          <MenuItem value="weekly">{t('settings:data.frequency.weekly')}</MenuItem>
+                          <MenuItem value="monthly">{t('settings:data.frequency.monthly')}</MenuItem>
+                          <MenuItem value="quarterly">{t('settings:data.frequency.quarterly')}</MenuItem>
                         </Select>
                       </FormControl>
                     </Box>
@@ -396,7 +398,7 @@ const DataReportsSettings = () => {
                     {/* Report Template */}
                     <Box mb={3}>
                       <Typography variant="subtitle2" gutterBottom>
-                        Mẫu báo cáo
+                        {t('settings:data.report_template')}
                       </Typography>
                       <Stack spacing={1}>
                         {reportTemplates.map((template) => (
@@ -410,9 +412,9 @@ const DataReportsSettings = () => {
                             }}
                             onClick={() => handleReportChange('template', template.id)}
                           >
-                            <Typography variant="subtitle2">{template.name}</Typography>
+                            <Typography variant="subtitle2">{t(`settings:data.report_templates.${template.id}.name`)}</Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {template.description}
+                              {t(`settings:data.report_templates.${template.id}.desc`)}
                             </Typography>
                           </Paper>
                         ))}
@@ -422,13 +424,13 @@ const DataReportsSettings = () => {
                     {/* Recipients */}
                     <Box>
                       <Typography variant="subtitle2" gutterBottom>
-                        Gửi báo cáo đến
+                        {t('settings:data.recipients_label')}
                       </Typography>
                       <TextField
                         fullWidth
                         size="small"
-                        placeholder="email1@example.com, email2@example.com"
-                        helperText="Ngăn cách bằng dấu phẩy"
+                        placeholder={t('settings:data.recipients_placeholder')}
+                        helperText={t('settings:data.recipients_helper')}
                         value={(dataSettings.reports?.recipients || []).join(', ')}
                         onChange={(e) => {
                           const list = e.target.value
@@ -449,12 +451,12 @@ const DataReportsSettings = () => {
               <CardContent>
                 <Typography variant="h6" fontWeight={600} mb={3}>
                   <Storage sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Dung lượng lưu trữ
+                  {t('settings:data.storage_title')}
                 </Typography>
                 
                 <Box mb={3}>
                   <Box display="flex" justifyContent="space-between" mb={1}>
-                    <Typography variant="body2">Dung lượng sử dụng</Typography>
+                    <Typography variant="body2">{t('settings:data.storage_used')}</Typography>
                     <Typography variant="body2" fontWeight={600}>1.2 GB / 5 GB</Typography>
                   </Box>
                   <LinearProgress variant="determinate" value={24} sx={{ height: 8, borderRadius: 4 }} />
@@ -462,7 +464,7 @@ const DataReportsSettings = () => {
                 
                 <List dense>
                   <ListItem>
-                    <ListItemText primary="Báo cáo" secondary="450 MB" />
+                    <ListItemText primary={t('settings:data.storage.categories.reports')} secondary="450 MB" />
                     <ListItemSecondaryAction>
                       <IconButton size="small">
                         <Delete />
@@ -470,7 +472,7 @@ const DataReportsSettings = () => {
                     </ListItemSecondaryAction>
                   </ListItem>
                   <ListItem>
-                    <ListItemText primary="Dữ liệu xuất" secondary="320 MB" />
+                    <ListItemText primary={t('settings:data.storage.categories.exports')} secondary="320 MB" />
                     <ListItemSecondaryAction>
                       <IconButton size="small">
                         <Delete />
@@ -478,7 +480,7 @@ const DataReportsSettings = () => {
                     </ListItemSecondaryAction>
                   </ListItem>
                   <ListItem>
-                    <ListItemText primary="Hình ảnh" secondary="430 MB" />
+                    <ListItemText primary={t('settings:data.storage.categories.images')} secondary="430 MB" />
                     <ListItemSecondaryAction>
                       <IconButton size="small">
                         <Delete />
@@ -494,7 +496,7 @@ const DataReportsSettings = () => {
                   color="error"
                   sx={{ mt: 2 }}
                 >
-                  Xóa dữ liệu cũ
+                  {t('settings:data.storage_delete_old')}
                 </Button>
               </CardContent>
             </Card>
@@ -507,25 +509,24 @@ const DataReportsSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <CloudUpload sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Sao lưu đám mây
+                {t('settings:data.cloud_backup_title')}
               </Typography>
               
               <Alert severity="info" icon={<Info />}>
                 <Typography variant="body2">
-                  Tính năng sao lưu tự động lên đám mây sắp ra mắt. 
-                  Bạn sẽ có thể tự động sao lưu dữ liệu quan trọng và khôi phục khi cần.
+                  {t('settings:data.cloud_backup_coming')}
                 </Typography>
               </Alert>
               
               <Box display="flex" gap={2} mt={2}>
                 <Button variant="outlined" disabled>
-                  Kết nối Google Drive
+                  {t('settings:data.connect_google_drive')}
                 </Button>
                 <Button variant="outlined" disabled>
-                  Kết nối OneDrive
+                  {t('settings:data.connect_onedrive')}
                 </Button>
                 <Button variant="outlined" disabled>
-                  Kết nối Dropbox
+                  {t('settings:data.connect_dropbox')}
                 </Button>
               </Box>
             </CardContent>

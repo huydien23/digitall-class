@@ -136,11 +136,11 @@ const UIPreferencesSettings = () => {
   
   // Theme colors
   const themeColors = [
-    { name: 'Mặc định', value: '#1976d2', label: 'primary' },
-    { name: 'Xanh lá', value: '#4caf50', label: 'success' },
-    { name: 'Tím', value: '#9c27b0', label: 'purple' },
-    { name: 'Cam', value: '#ff9800', label: 'orange' },
-    { name: 'Đỏ', value: '#f44336', label: 'error' }
+    { name: t('colors.default'), value: '#1976d2', label: 'primary' },
+    { name: t('colors.green'), value: '#4caf50', label: 'success' },
+    { name: t('colors.purple'), value: '#9c27b0', label: 'purple' },
+    { name: t('colors.orange'), value: '#ff9800', label: 'orange' },
+    { name: t('colors.red'), value: '#f44336', label: 'error' }
   ]
   
   // Dashboard widgets

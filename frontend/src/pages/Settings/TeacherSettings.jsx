@@ -45,6 +45,7 @@ import {
   resetSettings,
   setActiveTab,
   clearChanges,
+  clearError,
   selectSettings
 } from '../../store/slices/teacherSettingsSlice'
 
@@ -78,34 +79,34 @@ function TabPanel({ children, value, index, ...other }) {
 // Tab configuration (use translation keys)
 const SETTINGS_TABS = [
   {
-    labelKey: 'settings.tabs.account',
+    labelKey: 'tabs.account',
     icon: <SecurityIcon />,
     component: AccountSecuritySettings,
-    descKey: 'settings.desc.account'
+    descKey: 'desc.account'
   },
   {
-    labelKey: 'settings.tabs.qr',
+    labelKey: 'tabs.qr',
     icon: <QrIcon />,
     component: QRAttendanceSettings,
-    descKey: 'settings.desc.qr'
+    descKey: 'desc.qr'
   },
   {
-    labelKey: 'settings.tabs.notifications',
+    labelKey: 'tabs.notifications',
     icon: <NotificationsIcon />,
     component: NotificationSettings,
-    descKey: 'settings.desc.notifications'
+    descKey: 'desc.notifications'
   },
   {
-    labelKey: 'settings.tabs.interface',
+    labelKey: 'tabs.interface',
     icon: <ThemeIcon />,
     component: UIPreferencesSettings,
-    descKey: 'settings.desc.interface'
+    descKey: 'desc.interface'
   },
   {
-    labelKey: 'settings.tabs.data',
+    labelKey: 'tabs.data',
     icon: <ReportsIcon />,
     component: DataReportsSettings,
-    descKey: 'settings.desc.data'
+    descKey: 'desc.data'
   }
 ]
 
@@ -218,7 +219,7 @@ const TeacherSettings = () => {
                 {t('settings')}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                {t(SETTINGS_TABS[activeTab].descKey)}
+                {t(SETTINGS_TABS[activeTab].descKey, { ns: 'settings' })}
               </Typography>
             </Box>
             <Box display="flex" gap={2} alignItems="center">
@@ -256,7 +257,7 @@ const TeacherSettings = () => {
                   label={
                     <Box display="flex" alignItems="center" gap={1}>
                       {tab.icon}
-                      <span>{t(`settings:${tab.labelKey}`)}</span>
+                      <span>{t(tab.labelKey, { ns: 'settings' })}</span>
                       {index === 0 && hasChanges && (
                         <Badge variant="dot" color="warning" />
                       )}
@@ -272,17 +273,20 @@ const TeacherSettings = () => {
           {/* Tab Description */}
           <Box sx={{ px: 3, py: 2, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary">
-{t(`settings:${SETTINGS_TABS[activeTab].descKey}`)}
+              {t(SETTINGS_TABS[activeTab].descKey, { ns: 'settings' })}
             </Typography>
           </Box>
 
           {/* Tab Content */}
           <Box sx={{ px: 3, minHeight: '400px' }}>
-            {SETTINGS_TABS.map((tab, index) => (
-              <TabPanel key={index} value={activeTab} index={index}>
-                <CurrentTabComponent />
-              </TabPanel>
-            ))}
+            {SETTINGS_TABS.map((tab, index) => {
+              const TabComponent = tab.component
+              return (
+                <TabPanel key={index} value={activeTab} index={index}>
+                  <TabComponent />
+                </TabPanel>
+              )
+            })}
           </Box>
 
           {/* Action Buttons */}
@@ -360,7 +364,7 @@ const TeacherSettings = () => {
                 {t('restore_confirmation')}
               </Typography>
               <Typography variant="body2" color="text.secondary" paragraph>
-                {t('restore_confirm_message', { section: t(`settings:${SETTINGS_TABS[activeTab].labelKey}`) })}
+                {t('restore_confirm_message', { section: t(SETTINGS_TABS[activeTab].labelKey, { ns: 'settings' }) })}
               </Typography>
               <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
                 <Button onClick={() => setShowResetConfirm(false)}>

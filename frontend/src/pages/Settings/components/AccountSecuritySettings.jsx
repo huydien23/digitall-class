@@ -37,11 +37,13 @@ import {
 import { useSelector, useDispatch } from 'react-redux'
 import { updateSetting } from '../../../store/slices/teacherSettingsSlice'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 const AccountSecuritySettings = () => {
   const dispatch = useDispatch()
   const { user } = useSelector(state => state.auth)
   const { settings } = useSelector(state => state.teacherSettings)
+  const { t } = useTranslation()
   
   // Profile edit state
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -85,7 +87,7 @@ const AccountSecuritySettings = () => {
         value: profileData
       }))
       setIsEditingProfile(false)
-      setSuccessMessage('Thông tin cá nhân đã được cập nhật!')
+      setSuccessMessage(t('settings:account.profile.updated'))
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error) {
       setErrors({ profile: error.message })
@@ -98,12 +100,12 @@ const AccountSecuritySettings = () => {
     
     // Validation
     if (passwordData.new_password !== passwordData.confirm_password) {
-      setErrors({ password: 'Mật khẩu xác nhận không khớp' })
+      setErrors({ password: t('settings:account.password.errors.mismatch') })
       return
     }
     
     if (passwordData.new_password.length < 8) {
-      setErrors({ password: 'Mật khẩu mới phải có ít nhất 8 ký tự' })
+      setErrors({ password: t('settings:account.password.errors.too_short') })
       return
     }
     
@@ -113,7 +115,7 @@ const AccountSecuritySettings = () => {
         setTimeout(() => {
           // Simulate password validation
           if (passwordData.current_password === '123456') {
-            reject(new Error('Mật khẩu hiện tại không chính xác'))
+            reject(new Error(t('settings:account.password.errors.current_incorrect')))
           } else {
             resolve()
           }
@@ -126,10 +128,10 @@ const AccountSecuritySettings = () => {
         new_password: '',
         confirm_password: ''
       })
-      setSuccessMessage('Mật khẩu đã được thay đổi thành công!')
+      setSuccessMessage(t('settings:account.password.changed'))
       setTimeout(() => setSuccessMessage(''), 3000)
     } catch (error) {
-      setErrors({ password: error.message || 'Đổi mật khẩu thất bại' })
+      setErrors({ password: error.message || t('settings:account.password.errors.change_failed') })
     }
   }
 
@@ -175,13 +177,13 @@ const AccountSecuritySettings = () => {
   
   const handleLogoutSession = (sessionId) => {
     setActiveSessions(prev => prev.filter(s => s.id !== sessionId))
-    setSuccessMessage(`Đã đăng xuất phiên làm việc #${sessionId}`)
+    setSuccessMessage(t('settings:account.sessions.logged_out_session', { id: sessionId }))
     setTimeout(() => setSuccessMessage(''), 3000)
   }
   
   const handleLogoutAllOthers = () => {
     setActiveSessions(prev => prev.filter(s => s.current))
-    setSuccessMessage('Đã đăng xuất tất cả thiết bị khác')
+    setSuccessMessage(t('settings:account.sessions.logged_out_others'))
     setTimeout(() => setSuccessMessage(''), 3000)
   }
 
@@ -202,7 +204,7 @@ const AccountSecuritySettings = () => {
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
                 <Typography variant="h6" fontWeight={600}>
                   <Person sx={{ verticalAlign: 'middle', mr: 1 }} />
-                  Thông tin cá nhân
+                  {t('settings:account.profile.title')}
                 </Typography>
                 {!isEditingProfile ? (
                   <IconButton size="small" onClick={() => setIsEditingProfile(true)}>
@@ -251,7 +253,7 @@ const AccountSecuritySettings = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Họ"
+                    label={t('settings:account.profile.labels.first_name')}
                     value={profileData.first_name}
                     onChange={(e) => setProfileData({ ...profileData, first_name: e.target.value })}
                     disabled={!isEditingProfile}
@@ -261,7 +263,7 @@ const AccountSecuritySettings = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
-                    label="Tên"
+                    label={t('settings:account.profile.labels.last_name')}
                     value={profileData.last_name}
                     onChange={(e) => setProfileData({ ...profileData, last_name: e.target.value })}
                     disabled={!isEditingProfile}
@@ -271,17 +273,17 @@ const AccountSecuritySettings = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    label="Email"
+                    label={t('settings:account.profile.labels.email')}
                     value={user?.email}
                     disabled
                     fullWidth
                     size="small"
-                    helperText="Email không thể thay đổi"
+                    helperText={t('settings:account.profile.email_fixed_note')}
                   />
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    label="Số điện thoại"
+                    label={t('settings:account.profile.labels.phone')}
                     value={profileData.phone}
                     onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                     disabled={!isEditingProfile}
@@ -291,7 +293,7 @@ const AccountSecuritySettings = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    label="Khoa/Bộ môn"
+                    label={t('settings:account.profile.labels.department')}
                     value={profileData.department}
                     onChange={(e) => setProfileData({ ...profileData, department: e.target.value })}
                     disabled={!isEditingProfile}
@@ -301,7 +303,7 @@ const AccountSecuritySettings = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    label="Giới thiệu"
+                    label={t('settings:account.profile.labels.bio')}
                     value={profileData.bio}
                     onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
                     disabled={!isEditingProfile}
@@ -328,13 +330,13 @@ const AccountSecuritySettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Lock sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Đổi mật khẩu
+                {t('settings:account.password.title')}
               </Typography>
 
               <Grid container spacing={2}>
                 <Grid item xs={12}>
                   <TextField
-                    label="Mật khẩu hiện tại"
+                    label={t('settings:account.password.current')}
                     type={showPasswords.current ? 'text' : 'password'}
                     value={passwordData.current_password}
                     onChange={(e) => setPasswordData({ ...passwordData, current_password: e.target.value })}
@@ -356,7 +358,7 @@ const AccountSecuritySettings = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    label="Mật khẩu mới"
+                    label={t('settings:account.password.new')}
                     type={showPasswords.new ? 'text' : 'password'}
                     value={passwordData.new_password}
                     onChange={(e) => setPasswordData({ ...passwordData, new_password: e.target.value })}
@@ -378,7 +380,7 @@ const AccountSecuritySettings = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <TextField
-                    label="Xác nhận mật khẩu mới"
+                    label={t('settings:account.password.confirm')}
                     type={showPasswords.confirm ? 'text' : 'password'}
                     value={passwordData.confirm_password}
                     onChange={(e) => setPasswordData({ ...passwordData, confirm_password: e.target.value })}
@@ -405,7 +407,7 @@ const AccountSecuritySettings = () => {
                     onClick={handlePasswordChange}
                     disabled={!passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password}
                   >
-                    Đổi mật khẩu
+                    {t('settings:account.password.change_button')}
                   </Button>
                 </Grid>
               </Grid>
@@ -425,14 +427,14 @@ const AccountSecuritySettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Security sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Cài đặt bảo mật
+                {t('settings:account.security.title')}
               </Typography>
 
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="Xác thực 2 yếu tố"
-                    secondary="Thêm lớp bảo mật cho tài khoản"
+                    primary={t('settings:account.security.two_factor.title')}
+                    secondary={t('settings:account.security.two_factor.desc')}
                   />
                   <ListItemSecondaryAction>
                     <Switch
@@ -444,8 +446,8 @@ const AccountSecuritySettings = () => {
                 <Divider />
                 <ListItem>
                   <ListItemText
-                    primary="Thông báo đăng nhập mới"
-                    secondary="Nhận thông báo khi có đăng nhập từ thiết bị mới"
+                    primary={t('settings:account.security.new_login.title')}
+                    secondary={t('settings:account.security.new_login.desc')}
                   />
                   <ListItemSecondaryAction>
                     <Switch
@@ -457,8 +459,8 @@ const AccountSecuritySettings = () => {
                 <Divider />
                 <ListItem>
                   <ListItemText
-                    primary="Thời gian hết phiên"
-                    secondary={`Tự động đăng xuất sau ${accountSettings.sessionTimeout || 30} phút không hoạt động`}
+                    primary={t('settings:account.security.session_timeout.title')}
+                    secondary={t('settings:account.security.session_timeout.desc', { minutes: accountSettings.sessionTimeout || 30 })}
                   />
                   <ListItemSecondaryAction>
                     <TextField
@@ -468,7 +470,7 @@ const AccountSecuritySettings = () => {
                       size="small"
                       sx={{ width: 70 }}
                       InputProps={{
-                        endAdornment: <Typography variant="caption">phút</Typography>
+                        endAdornment: <Typography variant="caption">{t('minute')}</Typography>
                       }}
                     />
                   </ListItemSecondaryAction>
@@ -484,7 +486,7 @@ const AccountSecuritySettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <DevicesOther sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Phiên đăng nhập
+                {t('settings:account.sessions.title')}
               </Typography>
 
               <List>
@@ -496,7 +498,7 @@ const AccountSecuritySettings = () => {
                           <Box display="flex" alignItems="center" gap={1}>
                             {session.device}
                             {session.current && (
-                              <Chip label="Phiên hiện tại" size="small" color="primary" />
+                              <Chip label={t('settings:account.sessions.current_session')} size="small" color="primary" />
                             )}
                           </Box>
                         }
@@ -528,7 +530,7 @@ const AccountSecuritySettings = () => {
                 onClick={handleLogoutAllOthers}
                 disabled={activeSessions.length <= 1}
               >
-                Đăng xuất tất cả thiết bị khác ({activeSessions.filter(s => !s.current).length})
+                {t('settings:account.sessions.logout_all_others', { count: activeSessions.filter(s => !s.current).length })}
               </Button>
             </CardContent>
           </Card>
