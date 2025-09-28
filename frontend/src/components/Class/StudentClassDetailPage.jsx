@@ -5,7 +5,7 @@ import {
   Box, Container, Typography, Card, CardContent, Grid, Chip,
   Avatar, List, ListItem, ListItemIcon, ListItemText, Divider,
   Alert, CircularProgress, Button, Table, TableHead, TableRow,
-  TableCell, TableBody, TableContainer, Paper, Tabs, Tab
+  TableCell, TableBody, TableContainer, Paper, Tabs, Tab, TextField
 } from '@mui/material'
 import {
   School as SchoolIcon,
@@ -19,11 +19,13 @@ import {
   Description as DescriptionIcon
 } from '@mui/icons-material'
 import { PictureAsPdf as PdfIcon, Slideshow as PptIcon, TableChart as XlsIcon, Archive as ZipIcon, Link as LinkIcon, InsertDriveFile as FileIcon } from '@mui/icons-material'
+import { CloudUpload as UploadIcon } from '@mui/icons-material'
 
 import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
 import materialService from '../../services/materialService'
+import submissionService from '../../services/submissionService'
 import StudentCheckInDialog from '../Attendance/StudentCheckInDialog'
 import { QrCode as QrIcon } from '@mui/icons-material'
 
@@ -43,6 +45,15 @@ const StudentClassDetailPage = () => {
   const [tab, setTab] = useState(0) // 0 Overview, 1 Materials
   const [materials, setMaterials] = useState([])
   const [materialsLoading, setMaterialsLoading] = useState(true)
+
+  // Submissions
+  const [submissions, setSubmissions] = useState([])
+  const [submissionsLoading, setSubmissionsLoading] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadFile, setUploadFile] = useState(null)
+  const [uploadTitle, setUploadTitle] = useState('')
+  const [uploadError, setUploadError] = useState('')
+  const [uploadSuccess, setUploadSuccess] = useState('')
 
   // Check-in dialog
   const [checkInOpen, setCheckInOpen] = useState(false)
@@ -127,6 +138,56 @@ const StudentClassDetailPage = () => {
     load()
   }, [classId, studentCode])
 
+  const handleTabChange = async (v) => {
+    setTab(v)
+    if (v === 2) {
+      // Load submissions when switching to "Bài nộp"
+      try {
+        setSubmissionsLoading(true)
+        const res = await submissionService.getSubmissions({ class_id: classId, page_size: 200 })
+        setSubmissions(res.data?.results || res.data || [])
+      } catch (e) {
+        // ignore
+      } finally {
+        setSubmissionsLoading(false)
+      }
+    }
+  }
+
+  const handleSubmitUpload = async (e) => {
+    e.preventDefault()
+    setUploadError('')
+    setUploadSuccess('')
+    if (!uploadFile) {
+      setUploadError('Vui lòng chọn file để nộp')
+      return
+    }
+    const fd = new FormData()
+    fd.append('class_obj', classId)
+    fd.append('file', uploadFile)
+    if (uploadTitle) fd.append('title', uploadTitle)
+    try {
+      setUploading(true)
+      await submissionService.uploadSubmission(fd)
+      setUploadSuccess('Nộp bài thành công!')
+      setUploadFile(null)
+      setUploadTitle('')
+      // Refresh list
+      try {
+        setSubmissionsLoading(true)
+        const res = await submissionService.getSubmissions({ class_id: classId, page_size: 200 })
+        setSubmissions(res.data?.results || res.data || [])
+      } finally {
+        setSubmissionsLoading(false)
+      }
+    } catch (err) {
+      const apiErr = err?.response?.data
+      setUploadError(apiErr?.file || apiErr?.error || 'Nộp bài thất bại')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const attendanceRate = useMemo(() => {
     if (sessions.length === 0) return 0
     const presentCount = sessions.filter((s) => attendanceMap[s.id] === 'present' || attendanceMap[s.id] === 'excused').length
@@ -200,9 +261,10 @@ const StudentClassDetailPage = () => {
 
       {/* Tabs: Tổng quan | Tài liệu */}
       <Paper sx={{ mb: 3 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
+        <Tabs value={tab} onChange={(_, v) => handleTabChange(v)} variant="fullWidth">
           <Tab label="Tổng quan" />
           <Tab label="Tài liệu" />
+          <Tab label="Bài nộp" />
         </Tabs>
       </Paper>
 
@@ -351,6 +413,113 @@ const StudentClassDetailPage = () => {
                             <Button size="small" variant="outlined" href={m.file_url} target="_blank" rel="noopener">Tải xuống</Button>
                           ) : m.link ? (
                             <Button size="small" variant="outlined" href={m.link} target="_blank" rel="noopener">Mở liên kết</Button>
+                          ) : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Submissions */}
+      {tab === 2 && (
+        <Card>
+          <CardContent>
+            <Box display="flex" alignItems="center" gap={1} mb={2}>
+              <UploadIcon />
+              <Typography variant="h6">Bài nộp của tôi</Typography>
+            </Box>
+
+            <Box component="form" onSubmit={handleSubmitUpload} sx={{ mb: 3 }}>
+              <Grid container spacing={2} alignItems="center">
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    label="Tiêu đề (tuỳ chọn)"
+                    fullWidth
+                    size="small"
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={5}>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    startIcon={<UploadIcon />}
+                  >
+                    Chọn file
+                    <input type="file" hidden onChange={(e) => setUploadFile(e.target.files?.[0] || null)} />
+                  </Button>
+                  {uploadFile && (
+                    <Typography variant="body2" sx={{ ml: 2, display: 'inline' }}>{uploadFile.name}</Typography>
+                  )}
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <Button type="submit" variant="contained" disabled={uploading}>
+                    {uploading ? 'Đang nộp...' : 'Nộp bài'}
+                  </Button>
+                </Grid>
+              </Grid>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                Định dạng cho phép: PDF, DOC/DOCX, PPT/PPTX, XLS/XLSX, ZIP • Tối đa 20MB
+              </Typography>
+              {uploadError && <Alert severity="error" sx={{ mt: 1 }}>{uploadError}</Alert>}
+              {uploadSuccess && <Alert severity="success" sx={{ mt: 1 }}>{uploadSuccess}</Alert>}
+            </Box>
+
+            {submissionsLoading ? (
+              <Box display="flex" justifyContent="center" alignItems="center" minHeight={160}><CircularProgress /></Box>
+            ) : submissions.length === 0 ? (
+              <Alert severity="info">Bạn chưa nộp bài nào.</Alert>
+            ) : (
+              <TableContainer component={Paper}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Tiêu đề</TableCell>
+                      <TableCell>Ngày nộp</TableCell>
+                      <TableCell>Định dạng</TableCell>
+                      <TableCell>Kích thước</TableCell>
+                      <TableCell align="right">Tải về</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {submissions.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell>{s.title || s.file?.split('/').pop() || s.file_url?.split('/').pop() || '—'}</TableCell>
+                        <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
+                        <TableCell>
+                          {(() => {
+                            try {
+                              const src = s?.file || s?.file_url || ''
+                              const clean = String(src).split('?')[0].split('#')[0]
+                              const base = clean.split('/').pop()
+                              const parts = base.split('.')
+                              const ext = (parts.length > 1 ? parts.pop() : '')
+                              const up = String(ext).toUpperCase() || '—'
+                              const icon = (() => {
+                                const low = String(ext).toLowerCase()
+                                if (low === 'pdf') return <PdfIcon sx={{ color: 'error.main' }} />
+                                if (low === 'doc' || low === 'docx') return <DescriptionIcon sx={{ color: 'info.main' }} />
+                                if (low === 'ppt' || low === 'pptx') return <PptIcon sx={{ color: 'warning.main' }} />
+                                if (low === 'xls' || low === 'xlsx') return <XlsIcon sx={{ color: 'success.main' }} />
+                                if (low === 'zip') return <ZipIcon sx={{ color: 'text.secondary' }} />
+                                return <FileIcon sx={{ color: 'text.disabled' }} />
+                              })()
+                              return <Box display="flex" alignItems="center" gap={1}>{icon}{up}</Box>
+                            } catch {
+                              return '—'
+                            }
+                          })()}
+                        </TableCell>
+                        <TableCell>{s.file_size ? (() => { const n = Number(s.file_size); if (!n || n <= 0) return '—'; const units=['B','KB','MB','GB','TB']; const i=Math.floor(Math.log(n)/Math.log(1024)); const v=n/Math.pow(1024,i); return `${v.toFixed(v>=100?0:v>=10?1:2)} ${units[i]}` })() : '—'}</TableCell>
+                        <TableCell align="right">
+                          {s.file_url ? (
+                            <Button size="small" variant="outlined" href={s.file_url} target="_blank" rel="noopener">Tải xuống</Button>
                           ) : '—'}
                         </TableCell>
                       </TableRow>

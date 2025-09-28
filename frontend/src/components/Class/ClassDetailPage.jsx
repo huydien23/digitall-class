@@ -69,6 +69,7 @@ import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
 import studentService from '../../services/studentService'
 import materialService from '../../services/materialService'
+import submissionService from '../../services/submissionService'
 import * as XLSX from 'xlsx'
 import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
 import ManualAttendance from '../Attendance/ManualAttendance'
@@ -128,6 +129,13 @@ const ClassDetailPage = () => {
   const [uploadError, setUploadError] = useState('')
   const [uploadSaving, setUploadSaving] = useState(false)
   const [deletingMaterialId, setDeletingMaterialId] = useState(null)
+
+  // Submissions (for teacher view)
+  const [submissions, setSubmissions] = useState([])
+  const [submissionsLoading, setSubmissionsLoading] = useState(false)
+  const [submissionsError, setSubmissionsError] = useState('')
+  const [deletingSubmissionId, setDeletingSubmissionId] = useState(null)
+  const [submissionsFilterStudentId, setSubmissionsFilterStudentId] = useState('')
 
   // Sessions ascending for attendance table (Buổi 1 -> ...)
   const sessionsAsc = useMemo(() => {
@@ -353,8 +361,28 @@ const ClassDetailPage = () => {
     XLSX.writeFile(wb, fileName)
   }
 
-  const handleTabChange = (event, newValue) => {
+  const fetchSubmissions = async (opts = {}) => {
+    const { class_id = classId, student_id = submissionsFilterStudentId } = opts
+    try {
+      setSubmissionsError('')
+      setSubmissionsLoading(true)
+      const params = { class_id, page_size: 2000 }
+      const sid = String(student_id || '').trim()
+      if (sid) params.student_id = sid
+      const res = await submissionService.getSubmissions(params)
+      setSubmissions(res.data?.results || res.data || [])
+    } catch (e) {
+      setSubmissionsError(e?.response?.data?.error || e?.message || 'Không thể tải bài nộp')
+    } finally {
+      setSubmissionsLoading(false)
+    }
+  }
+
+  const handleTabChange = async (event, newValue) => {
     setTabValue(newValue)
+    if (newValue === 4) {
+      await fetchSubmissions()
+    }
   }
 
   const handleMenuClick = (event) => {
@@ -933,6 +961,7 @@ const handleEditGrade = (student) => {
           <Tab label="Bảng điểm danh" />
           <Tab label="Bảng điểm số" />
           <Tab label="Tài liệu" />
+          <Tab label="Bài nộp" />
         </Tabs>
       </Paper>
 
@@ -1294,6 +1323,169 @@ const handleEditGrade = (student) => {
                               </IconButton>
                             </TableCell>
                           )}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {tabValue === 4 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                <Typography variant="h6" fontWeight={600}>
+                  Bài nộp của sinh viên
+                </Typography>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <TextField
+                    size="small"
+                    label="MSSV"
+                    placeholder="VD: 221234"
+                    value={submissionsFilterStudentId}
+                    onChange={(e) => setSubmissionsFilterStudentId(e.target.value)}
+                  />
+                  <Button size="small" variant="outlined" onClick={() => fetchSubmissions()}>
+                    Lọc
+                  </Button>
+                  <Button size="small" onClick={() => { setSubmissionsFilterStudentId(''); fetchSubmissions({ student_id: '' }) }}>
+                    Xóa lọc
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<FileDownloadIcon />}
+                    onClick={() => {
+                      try {
+                        const rows = (submissions || []).map((s, idx) => {
+                          const src = s?.file || s?.file_url || ''
+                          let ext = ''
+                          try {
+                            const clean = String(src).split('?')[0].split('#')[0]
+                            const base = clean.split('/').pop()
+                            const parts = base.split('.')
+                            ext = (parts.length > 1 ? parts.pop() : '')
+                          } catch {}
+                          const sizeText = s.file_size ? formatBytes(s.file_size) : ''
+                          return {
+                            STT: idx + 1,
+                            MSSV: s.student_info?.student_id || '',
+                            'Họ tên': s.student_info?.full_name || '',
+                            Email: s.student_info?.email || '',
+                            'Tiêu đề': s.title || '',
+                            'Ngày nộp': new Date(s.created_at).toLocaleString(),
+                            'Định dạng': (ext || '').toUpperCase(),
+                            'Kích thước': sizeText,
+                          }
+                        })
+                        const ws = XLSX.utils.json_to_sheet(rows)
+                        const wb = XLSX.utils.book_new()
+                        XLSX.utils.book_append_sheet(wb, ws, 'Bài nộp')
+                        const date = new Date().toISOString().split('T')[0]
+                        const className = (classData?.class_name || 'Lop').replace(/[^a-zA-Z0-9-_]/g, '_')
+                        XLSX.writeFile(wb, `BaiNop_${className}_${date}.xlsx`)
+                      } catch (err) {
+                        alert('Xuất Excel thất bại: ' + (err?.message || err))
+                      }
+                    }}
+                  >
+                    Xuất Excel
+                  </Button>
+                </Box>
+              </Box>
+
+              {submissionsLoading ? (
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight={160}>
+                  <CircularProgress />
+                </Box>
+              ) : submissionsError ? (
+                <Alert severity="error">{submissionsError}</Alert>
+              ) : submissions.length === 0 ? (
+                <Alert severity="info">Chưa có bài nộp nào.</Alert>
+              ) : (
+                <TableContainer component={Paper}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>STT</TableCell>
+                        <TableCell>Sinh viên</TableCell>
+                        <TableCell>MSSV</TableCell>
+                        <TableCell>Tiêu đề</TableCell>
+                        <TableCell>Ngày nộp</TableCell>
+                        <TableCell>Định dạng</TableCell>
+                        <TableCell>Kích thước</TableCell>
+                        <TableCell align="right">Tải về</TableCell>
+                        <TableCell align="right">Thao tác</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {submissions.map((s, idx) => (
+                        <TableRow key={s.id}>
+                          <TableCell>{idx + 1}</TableCell>
+                          <TableCell>{s.student_info?.full_name || s.student_info?.email || '—'}</TableCell>
+                          <TableCell>{s.student_info?.student_id || '—'}</TableCell>
+                          <TableCell>{s.title || s.file?.split('/').pop() || s.file_url?.split('/').pop() || '—'}</TableCell>
+                          <TableCell>{new Date(s.created_at).toLocaleString()}</TableCell>
+                          <TableCell>
+                            {(() => {
+                              try {
+                                const src = s?.file || s?.file_url || ''
+                                const clean = String(src).split('?')[0].split('#')[0]
+                                const base = clean.split('/').pop()
+                                const parts = base.split('.')
+                                const ext = (parts.length > 1 ? parts.pop() : '')
+                                const up = String(ext).toUpperCase() || '—'
+                                const icon = (() => {
+                                  const low = String(ext).toLowerCase()
+                                  if (low === 'pdf') return <PdfIcon sx={{ color: 'error.main' }} />
+                                  if (low === 'doc' || low === 'docx') return <DocIcon sx={{ color: 'info.main' }} />
+                                  if (low === 'ppt' || low === 'pptx') return <PptIcon sx={{ color: 'warning.main' }} />
+                                  if (low === 'xls' || low === 'xlsx') return <XlsIcon sx={{ color: 'success.main' }} />
+                                  if (low === 'zip') return <ZipIcon sx={{ color: 'text.secondary' }} />
+                                  return <FileIcon sx={{ color: 'text.disabled' }} />
+                                })()
+                                return <Box display="flex" alignItems="center" gap={1}>{icon}{up}</Box>
+                              } catch {
+                                return '—'
+                              }
+                            })()}
+                          </TableCell>
+                          <TableCell>{s.file_size ? formatBytes(s.file_size) : '—'}</TableCell>
+                          <TableCell align="right">
+                            {s.file_url ? (
+                              <Button size="small" variant="outlined" href={s.file_url} target="_blank" rel="noopener">Tải xuống</Button>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              disabled={deletingSubmissionId === s.id}
+                              onClick={async () => {
+                                if (!window.confirm('Xóa bài nộp này?')) return
+                                try {
+                                  setDeletingSubmissionId(s.id)
+                                  await submissionService.deleteSubmission(s.id)
+                                  setSubmissions(prev => prev.filter(x => x.id !== s.id))
+                                } catch (e) {
+                                  alert(e?.response?.data?.error || e?.message || 'Xóa thất bại')
+                                } finally {
+                                  setDeletingSubmissionId(null)
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
