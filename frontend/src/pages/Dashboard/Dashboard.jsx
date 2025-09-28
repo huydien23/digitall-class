@@ -5,9 +5,11 @@ import ProductionAdminDashboard from './ProductionAdminDashboard'
 import ProperTeacherDashboard from './ProperTeacherDashboard'
 import ProductionStudentDashboard from './ProductionStudentDashboard'
 import { AdminMockDataProvider } from '../../components/Dashboard/AdminMockDataProvider'
+import { useTranslation } from 'react-i18next'
 
 const Dashboard = () => {
   const { user, isLoading } = useSelector((state) => state.auth)
+  const { t } = useTranslation()
 
   // Show loading while checking authentication
   if (isLoading) {
@@ -15,7 +17,7 @@ const Dashboard = () => {
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress />
         <Typography variant="h6" sx={{ ml: 2 }}>
-          Đang tải...
+          {t('loading', 'Đang tải...')}
         </Typography>
       </Box>
     )
@@ -26,7 +28,7 @@ const Dashboard = () => {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <Typography variant="h6" color="error">
-          Vui lòng đăng nhập để tiếp tục
+          {t('please_login', 'Vui lòng đăng nhập để tiếp tục')}
         </Typography>
       </Box>
     )

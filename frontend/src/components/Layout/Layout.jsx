@@ -44,118 +44,15 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { logout } from '../../store/slices/authSlice'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 const drawerWidth = 280
 
-// Navigation items based on user role
-const getNavigationItems = (userRole) => {
-  const baseItems = [
-    { 
-      text: 'Trang chủ', 
-      icon: <Home />, 
-      path: '/home'
-    },
-    { 
-      text: 'Tổng quan', 
-      icon: <Dashboard />, 
-      path: '/dashboard'
-    },
-  ]
-
-  // Role-specific items
-  if (userRole === 'admin') {
-    return [
-      ...baseItems,
-      { 
-        text: 'Quản lý sinh viên', 
-        icon: <People />, 
-        path: '/students'
-      },
-      { 
-        text: 'Quản lý giảng viên', 
-        icon: <PersonIcon />, 
-        path: '/teachers'
-      },
-      { 
-        text: 'Quản lý lớp học', 
-        icon: <School />, 
-        path: '/classes'
-      },
-      { 
-        text: 'Quản lý điểm số', 
-        icon: <Assessment />, 
-        path: '/grades'
-      },
-      { 
-        text: 'Quản lý điểm danh', 
-        icon: <Assignment />, 
-        path: '/attendance'
-      },
-      { 
-        text: 'Quản lý thời khóa biểu', 
-        icon: <Schedule />, 
-        path: '/schedule-management'
-      },
-      { 
-        text: 'Quản lý phòng học', 
-        icon: <RoomIcon />, 
-        path: '/rooms'
-      },
-      { 
-        text: 'Báo cáo hệ thống', 
-        icon: <BarChart />, 
-        path: '/reports'
-      },
-    ]
-  }
-
-  if (userRole === 'teacher') {
-    // Teacher-first mode: tập trung vào quản lý lớp; ẩn các trang quản trị tổng hợp
-    return [
-      ...baseItems,
-      { 
-        text: 'Lớp của tôi', 
-        icon: <School />, 
-        path: '/classes'
-      },
-      // Điểm và điểm danh sẽ thao tác trong trang lớp/phiên học
-      { 
-        text: 'Cài đặt', 
-        icon: <Settings />, 
-        path: '/settings',
-        badge: 'new' // Temporary badge to highlight new feature
-      },
-    ]
-  }
-
-  // Default to student
-  return [
-    ...baseItems,
-    { 
-      text: 'Lớp học', 
-      icon: <School />, 
-      path: '/classes'
-    },
-    { 
-      text: 'Điểm số', 
-      icon: <Assessment />, 
-      path: '/grades'
-    },
-    { 
-      text: 'Thời khóa biểu', 
-      icon: <Schedule />, 
-      path: '/schedule'
-    },
-    { 
-      text: 'Điểm danh', 
-      icon: <Assignment />, 
-      path: '/attendance'
-    },
-  ]
-}
+// Navigation items based on user role (language-aware)
 
 const Layout = ({ children }) => {
   const theme = useTheme()
+  const { t } = useTranslation()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
@@ -166,7 +63,39 @@ const Layout = ({ children }) => {
   const [anchorEl, setAnchorEl] = useState(null)
   const [notifications] = useState(3) // Mock notifications
 
-  const navigationItems = getNavigationItems(user?.role)
+  const navigationItems = React.useMemo(() => {
+    const baseItems = [
+      { text: t('nav.home'), icon: <Home />, path: '/home' },
+      { text: t('nav.overview'), icon: <Dashboard />, path: '/dashboard' },
+    ]
+    if (user?.role === 'admin') {
+      return [
+        ...baseItems,
+        { text: t('nav.students'), icon: <People />, path: '/students' },
+        { text: t('nav.teachers'), icon: <PersonIcon />, path: '/teachers' },
+        { text: t('nav.classes'), icon: <School />, path: '/classes' },
+        { text: t('nav.grades'), icon: <Assessment />, path: '/grades' },
+        { text: t('nav.attendance'), icon: <Assignment />, path: '/attendance' },
+        { text: t('nav.schedule_management'), icon: <Schedule />, path: '/schedule-management' },
+        { text: t('nav.rooms'), icon: <RoomIcon />, path: '/rooms' },
+        { text: t('nav.reports'), icon: <BarChart />, path: '/reports' },
+      ]
+    }
+    if (user?.role === 'teacher') {
+      return [
+        ...baseItems,
+        { text: t('nav.my_classes'), icon: <School />, path: '/classes' },
+        { text: t('nav.settings'), icon: <Settings />, path: '/settings', badge: 'new' },
+      ]
+    }
+    return [
+      ...baseItems,
+      { text: t('nav.classes_student'), icon: <School />, path: '/classes' },
+      { text: t('nav.grades_student'), icon: <Assessment />, path: '/grades' },
+      { text: t('nav.schedule'), icon: <Schedule />, path: '/schedule' },
+      { text: t('nav.attendance'), icon: <Assignment />, path: '/attendance' },
+    ]
+  }, [t, user?.role])
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -217,7 +146,7 @@ const Layout = ({ children }) => {
               EduAttend
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Quản lý sinh viên
+              {t('brand.subtitle')}
             </Typography>
           </Box>
         </Box>
@@ -234,7 +163,7 @@ const Layout = ({ children }) => {
               {user?.first_name} {user?.last_name}
             </Typography>
             <Chip 
-              label={user?.role === 'admin' ? 'Admin' : user?.role === 'teacher' ? 'Giảng viên' : 'Sinh viên'}
+              label={user?.role === 'admin' ? t('roles.admin') : user?.role === 'teacher' ? t('roles.teacher') : t('roles.student')}
               size="small"
               color="primary"
               variant="outlined"
@@ -313,13 +242,13 @@ const Layout = ({ children }) => {
             <MenuIcon />
           </IconButton>
           
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            {navigationItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
-          </Typography>
+            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
+              {navigationItems.find(item => item.path === location.pathname)?.text || t('nav.overview')}
+            </Typography>
           
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {/* Notifications */}
-            <Tooltip title="Thông báo">
+            <Tooltip title={t('header.notifications')}>
               <IconButton color="inherit">
                 <Badge badgeContent={notifications} color="error">
                   <Notifications />
@@ -328,7 +257,7 @@ const Layout = ({ children }) => {
             </Tooltip>
             
             {/* Settings */}
-            <Tooltip title="Cài đặt">
+            <Tooltip title={t('header.settings')}>
               <IconButton color="inherit">
                 <Settings />
               </IconButton>
@@ -342,12 +271,12 @@ const Layout = ({ children }) => {
                 display: { xs: 'none', sm: 'block' },
                 fontWeight: 500
               }}
-            >
-              Xin chào, {user?.first_name}
+>
+              {t('header.greeting', { name: user?.first_name || '' })}
             </Typography>
             
             {/* Profile menu */}
-            <Tooltip title="Tài khoản">
+            <Tooltip title={t('header.account')}>
               <IconButton
                 size="large"
                 edge="end"
@@ -410,14 +339,14 @@ const Layout = ({ children }) => {
                 <ListItemIcon>
                   <AccountCircle fontSize="small" />
                 </ListItemIcon>
-                <ListItemText>Hồ sơ cá nhân</ListItemText>
+                <ListItemText>{t('account.profile')}</ListItemText>
               </MenuItem>
               
               <MenuItem onClick={() => { handleNavigation('/settings'); handleProfileMenuClose(); }}>
                 <ListItemIcon>
                   <Settings fontSize="small" />
                 </ListItemIcon>
-                <ListItemText>Cài đặt</ListItemText>
+                <ListItemText>{t('account.settings')}</ListItemText>
               </MenuItem>
               
               <Divider />
@@ -426,7 +355,7 @@ const Layout = ({ children }) => {
                 <ListItemIcon>
                   <Logout fontSize="small" sx={{ color: 'error.main' }} />
                 </ListItemIcon>
-                <ListItemText>Đăng xuất</ListItemText>
+                <ListItemText>{t('account.logout')}</ListItemText>
               </MenuItem>
             </Menu>
           </Box>

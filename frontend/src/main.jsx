@@ -1,13 +1,16 @@
-import React from 'react'
+import React, { useEffect, useMemo } from 'react'
 import ReactDOM from 'react-dom/client'
-import { Provider } from 'react-redux'
+import { Provider, useSelector } from 'react-redux'
 import { BrowserRouter } from 'react-router-dom'
 import { ThemeProvider, createTheme } from '@mui/material/styles'
 import CssBaseline from '@mui/material/CssBaseline'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import { HelmetProvider } from 'react-helmet-async'
+import dayjs from 'dayjs'
 import 'dayjs/locale/vi'
+import 'dayjs/locale/en'
+import i18n from './i18n'
 
 import App from './App.jsx'
 import { store } from './store/store.js'
@@ -182,16 +185,35 @@ const theme = createTheme({
   },
 })
 
+const LangAwareApp = () => {
+  const lang = useSelector((s) => s.teacherSettings?.settings?.ui?.language) || (localStorage.getItem('appLanguage') || 'vi')
+
+  useEffect(() => {
+    try { localStorage.setItem('appLanguage', lang) } catch {}
+    i18n.changeLanguage(lang)
+    dayjs.locale(lang === 'vi' ? 'vi' : 'en')
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('lang', lang)
+    }
+  }, [lang])
+
+  const adapterLocale = useMemo(() => (lang === 'vi' ? 'vi' : 'en'), [lang])
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale={adapterLocale}>
+      <CssBaseline />
+      <App />
+    </LocalizationProvider>
+  )
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <HelmetProvider>
       <Provider store={store}>
         <BrowserRouter>
           <ThemeProvider theme={theme}>
-            <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="vi">
-              <CssBaseline />
-              <App />
-            </LocalizationProvider>
+            <LangAwareApp />
           </ThemeProvider>
         </BrowserRouter>
       </Provider>

@@ -7,6 +7,43 @@ const resources = {
   vi: {
     common: {
       settings: 'Cài đặt',
+      // Navigation & header
+      nav: {
+        home: 'Trang chủ',
+        overview: 'Tổng quan',
+        my_classes: 'Lớp của tôi',
+        settings: 'Cài đặt',
+        students: 'Quản lý sinh viên',
+        teachers: 'Quản lý giảng viên',
+        classes: 'Quản lý lớp học',
+        classes_student: 'Lớp học',
+        grades: 'Quản lý điểm số',
+        grades_student: 'Điểm số',
+        attendance: 'Điểm danh',
+        schedule: 'Thời khóa biểu',
+        schedule_management: 'Quản lý thời khóa biểu',
+        rooms: 'Quản lý phòng học',
+        reports: 'Báo cáo hệ thống'
+      },
+      header: {
+        notifications: 'Thông báo',
+        settings: 'Cài đặt',
+        greeting: 'Xin chào, {{name}}',
+        account: 'Tài khoản'
+      },
+      account: {
+        profile: 'Hồ sơ cá nhân',
+        settings: 'Cài đặt',
+        logout: 'Đăng xuất'
+      },
+      roles: {
+        admin: 'Admin',
+        teacher: 'Giảng viên',
+        student: 'Sinh viên'
+      },
+      brand: {
+        subtitle: 'Quản lý sinh viên'
+      },
       teacher_settings: 'Cài đặt giảng viên',
       save: 'Lưu',
       saving: 'Đang lưu...',
@@ -62,6 +99,8 @@ const resources = {
       warning: 'Cảnh báo',
       vietnamese: 'Tiếng Việt',
       english: 'English',
+      loading: 'Đang tải...',
+      please_login: 'Vui lòng đăng nhập để tiếp tục',
       // Common units and helpers
       minute: 'phút',
       min_short: 'p',
@@ -387,11 +426,93 @@ const resources = {
         connect_onedrive: 'Kết nối OneDrive',
         connect_dropbox: 'Kết nối Dropbox'
       }
+    },
+    dashboard: {
+      title_teacher: 'Dashboard Giảng viên',
+      welcome: 'Chào mừng, {{first}} {{last}}',
+      refresh_data: 'Làm mới dữ liệu',
+      stats: {
+        my_classes: 'Lớp của tôi',
+        assigned_classes: 'Lớp được phân công',
+        students: 'Sinh viên',
+        total_students: 'Tổng sinh viên',
+        attendance_rate: 'Tỷ lệ điểm danh',
+        avg_today: 'Trung bình hôm nay',
+        avg_grade: 'Điểm trung bình',
+        recent_grade: 'Điểm gần đây'
+      },
+      today_sessions: {
+        title: 'Buổi điểm danh hôm nay',
+        none: 'Hôm nay chưa có buổi điểm danh',
+        start: 'Bắt đầu',
+        stop: 'Kết thúc',
+        qr: 'QR điểm danh',
+        view: 'Xem'
+      },
+      my_classes: {
+        title: 'Lớp của tôi',
+        none: 'Chưa được phân công lớp nào',
+        students_suffix: 'sinh viên',
+        manage: 'Quản lý'
+      },
+      quick_actions: {
+        title: 'Thao tác nhanh',
+        create_session: 'Tạo buổi học',
+        generate_qr: 'Tạo QR điểm danh',
+        join_code: 'Mã tham gia lớp',
+        import_grades: 'Nhập điểm',
+        view_reports: 'Xem báo cáo'
+      },
+      excel: {
+        title: 'Import từ Excel',
+        subtitle: 'Tải file Excel để nhập dữ liệu hàng loạt',
+        import_students: 'Import Sinh Viên',
+        import_grades: 'Import Điểm Số',
+        import_attendance: 'Import Điểm Danh',
+        drag_drop: 'Kéo Thả Excel'
+      }
     }
   },
   en: {
     common: {
       settings: 'Settings',
+      // Navigation & header
+      nav: {
+        home: 'Home',
+        overview: 'Overview',
+        my_classes: 'My classes',
+        settings: 'Settings',
+        students: 'Students',
+        teachers: 'Teachers',
+        classes: 'Classes',
+        classes_student: 'Classes',
+        grades: 'Grades management',
+        grades_student: 'Grades',
+        attendance: 'Attendance',
+        schedule: 'Schedule',
+        schedule_management: 'Schedule management',
+        rooms: 'Rooms',
+        reports: 'System reports'
+      },
+      header: {
+        notifications: 'Notifications',
+        settings: 'Settings',
+        greeting: 'Hello, {{name}}',
+        account: 'Account'
+      },
+      account: {
+        profile: 'Profile',
+        settings: 'Settings',
+        logout: 'Log out'
+      },
+      roles: {
+        admin: 'Admin',
+        teacher: 'Teacher',
+        student: 'Student'
+      },
+      brand: {
+        subtitle: 'Student management'
+      },
       teacher_settings: 'Teacher Settings',
       save: 'Save',
       saving: 'Saving...',
@@ -447,6 +568,8 @@ const resources = {
       warning: 'Warning',
       vietnamese: 'Tiếng Việt',
       english: 'English',
+      loading: 'Loading...',
+      please_login: 'Please log in to continue',
       // Common units and helpers
       minute: 'minute',
       min_short: 'min',
@@ -757,7 +880,52 @@ const resources = {
         cloud_backup_coming: 'Automatic cloud backup is coming soon. You will be able to auto-backup important data and restore when needed.',
         connect_google_drive: 'Connect Google Drive',
         connect_onedrive: 'Connect OneDrive',
-        connect_dropbox: 'Connect Dropbox'
+      connect_dropbox: 'Connect Dropbox'
+      }
+    },
+    dashboard: {
+      title_teacher: 'Teacher Dashboard',
+      welcome: 'Welcome, {{first}} {{last}}',
+      refresh_data: 'Refresh data',
+      stats: {
+        my_classes: 'My classes',
+        assigned_classes: 'Assigned classes',
+        students: 'Students',
+        total_students: 'Total students',
+        attendance_rate: 'Attendance rate',
+        avg_today: 'Today\'s average',
+        avg_grade: 'Average grade',
+        recent_grade: 'Recent grades'
+      },
+      today_sessions: {
+        title: 'Today\'s sessions',
+        none: 'No attendance sessions today',
+        start: 'Start',
+        stop: 'Stop',
+        qr: 'Attendance QR',
+        view: 'View'
+      },
+      my_classes: {
+        title: 'My classes',
+        none: 'No classes assigned',
+        students_suffix: 'students',
+        manage: 'Manage'
+      },
+      quick_actions: {
+        title: 'Quick actions',
+        create_session: 'Create session',
+        generate_qr: 'Generate attendance QR',
+        join_code: 'Class join code',
+        import_grades: 'Record grades',
+        view_reports: 'View reports'
+      },
+      excel: {
+        title: 'Import from Excel',
+        subtitle: 'Upload an Excel file to bulk import data',
+        import_students: 'Import Students',
+        import_grades: 'Import Grades',
+        import_attendance: 'Import Attendance',
+        drag_drop: 'Drag & Drop Excel'
       }
     }
   }

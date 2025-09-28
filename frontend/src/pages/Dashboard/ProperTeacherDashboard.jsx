@@ -44,6 +44,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import SessionManagement from '../../components/SessionManagement/SessionManagement'
 import ExcelDragDrop from '../../components/ExcelDragDrop/ExcelDragDrop'
 import ClassJoinTokenDialog from '../../components/Class/ClassJoinTokenDialog'
@@ -54,6 +55,7 @@ import gradeService from '../../services/gradeService'
 const ProperTeacherDashboard = () => {
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [excelUploadOpen, setExcelUploadOpen] = useState(false)
@@ -264,7 +266,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
   return (
     <>
       <Helmet>
-        <title>Dashboard Giảng viên - Hệ thống Quản lý Sinh viên</title>
+        <title>{t('dashboard:title_teacher')}</title>
       </Helmet>
 
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -277,15 +279,15 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
               </Avatar>
               <Box>
                 <Typography variant="h4" fontWeight={700} gutterBottom>
-                  Dashboard Giảng viên
+                  {t('dashboard:title_teacher')}
                 </Typography>
                 <Typography variant="body1" color="text.secondary">
-                  Chào mừng, {user.first_name} {user.last_name}
+                  {t('dashboard:welcome', { first: user.first_name, last: user.last_name })}
                 </Typography>
               </Box>
             </Box>
             <Box display="flex" gap={1}>
-              <Tooltip title="Làm mới dữ liệu">
+              <Tooltip title={t('dashboard:refresh_data')}>
                 <IconButton onClick={handleRefresh} color="primary">
                   <RefreshIcon />
                 </IconButton>
@@ -304,38 +306,38 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
         <Grid container spacing={3} mb={4}>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Lớp của tôi"
+              title={t('dashboard:stats.my_classes')}
               value={teacherData.statistics.totalClasses}
               icon={<SchoolIcon />}
               color="primary"
-              subtitle="Lớp được phân công"
+              subtitle={t('dashboard:stats.assigned_classes')}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Sinh viên"
+              title={t('dashboard:stats.students')}
               value={teacherData.statistics.activeStudents}
               icon={<PeopleIcon />}
               color="success"
-              subtitle="Tổng sinh viên"
+              subtitle={t('dashboard:stats.total_students')}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Tỷ lệ điểm danh"
+              title={t('dashboard:stats.attendance_rate')}
               value={`${Number.isFinite(teacherData.statistics.attendanceRate) ? teacherData.statistics.attendanceRate : 0}%`}
               icon={<ScheduleIcon />}
               color="info"
-              subtitle="Trung bình hôm nay"
+              subtitle={t('dashboard:stats.avg_today')}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <StatCard
-              title="Điểm trung bình"
+              title={t('dashboard:stats.avg_grade')}
               value={Number.isFinite(teacherData.statistics.averageGrade) ? teacherData.statistics.averageGrade : 0}
               icon={<AssignmentIcon />}
               color="warning"
-              subtitle="Điểm gần đây"
+              subtitle={t('dashboard:stats.recent_grade')}
             />
           </Grid>
         </Grid>
@@ -346,14 +348,14 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Buổi điểm danh hôm nay
+                  {t('dashboard:today_sessions.title')}
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 {teacherData.todaySessions.length === 0 ? (
                   <Box textAlign="center" py={4}>
                     <ScheduleIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="body1" color="text.secondary">
-                      Hôm nay chưa có buổi điểm danh
+                      {t('dashboard:today_sessions.none')}
                     </Typography>
                   </Box>
                 ) : (
@@ -376,8 +378,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                                 size="small"
                                 startIcon={<PlayArrowIcon />}
                                 onClick={() => handleStartSession(session.id)}
-                              >
-                                Bắt đầu
+>
+                                {t('dashboard:today_sessions.start')}
                               </Button>
                             ) : (
                               <Button
@@ -385,23 +387,23 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                                 startIcon={<StopIcon />}
                                 onClick={() => handleStopSession(session.id)}
                                 color="error"
-                              >
-                                Kết thúc
+>
+                                {t('dashboard:today_sessions.stop')}
                               </Button>
                             )}
                             <Button
                               size="small"
                               startIcon={<QrCodeIcon />}
                               onClick={() => handleGenerateQR(session.id)}
-                            >
-                              QR điểm danh
+>
+                              {t('dashboard:today_sessions.qr')}
                             </Button>
                           <Button
                               size="small"
                               startIcon={<VisibilityIcon />}
                               onClick={() => setSessionManagementOpen(true)}
-                            >
-                              Xem
+>
+                              {t('dashboard:today_sessions.view')}
                             </Button>
                           </Box>
                         </ListItemSecondaryAction>
@@ -417,14 +419,14 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
             <Card>
               <CardContent>
                 <Typography variant="h6" fontWeight={600} gutterBottom>
-                  Lớp của tôi
+                  {t('dashboard:my_classes.title')}
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 {teacherData.assignedClasses.length === 0 ? (
                   <Box textAlign="center" py={4}>
                     <SchoolIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
                     <Typography variant="body1" color="text.secondary">
-                      Chưa được phân công lớp nào
+                      {t('dashboard:my_classes.none')}
                     </Typography>
                   </Box>
                 ) : (
@@ -433,11 +435,11 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                       <ListItem key={classItem.id} divider>
                         <ListItemText
                           primary={classItem.class_name}
-                          secondary={`${classItem.current_students_count || 0} sinh viên`}
+                          secondary={`${classItem.current_students_count || 0} ${t('dashboard:my_classes.students_suffix')}`}
                         />
                         <ListItemSecondaryAction>
                           <Button size="small" startIcon={<EditIcon />} onClick={() => navigate(`/classes/${classItem.id}`)}>
-                            Manage
+                            {t('dashboard:my_classes.manage')}
                           </Button>
                         </ListItemSecondaryAction>
                       </ListItem>
@@ -453,7 +455,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
         <Card>
           <CardContent>
             <Typography variant="h6" fontWeight={600} gutterBottom>
-              Thao tác nhanh
+              {t('dashboard:quick_actions.title')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -464,8 +466,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   startIcon={<AddIcon />}
                   onClick={() => setSessionManagementOpen(true)}
                   sx={{ py: 1.5 }}
-                >
-                  Tạo buổi học
+>
+                  {t('dashboard:quick_actions.create_session')}
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -476,7 +478,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   onClick={handleQuickGenerateQR}
                   sx={{ py: 1.5 }}
 >
-                  Tạo QR điểm danh
+                  {t('dashboard:quick_actions.generate_qr')}
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -487,8 +489,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   onClick={() => setJoinTokenDialogOpen(true)}
                   sx={{ py: 1.5 }}
                   color="secondary"
-                >
-                  Mã tham gia lớp
+>
+                  {t('dashboard:quick_actions.join_code')}
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -498,8 +500,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   startIcon={<AssignmentIcon />}
                   onClick={() => { setUploadType('grades'); setExcelUploadOpen(true) }}
                   sx={{ py: 1.5 }}
-                >
-                  Nhập điểm
+>
+                  {t('dashboard:quick_actions.import_grades')}
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -509,8 +511,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   startIcon={<VisibilityIcon />}
                   onClick={() => window.alert('Tính năng báo cáo đang phát triển')}
                   sx={{ py: 1.5 }}
-                >
-                  Xem báo cáo
+>
+                  {t('dashboard:quick_actions.view_reports')}
                 </Button>
               </Grid>
             </Grid>
@@ -521,10 +523,10 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
         <Card sx={{ mt: 3 }}>
           <CardContent>
             <Typography variant="h6" fontWeight={600} gutterBottom>
-              Import từ Excel
+              {t('dashboard:excel.title')}
             </Typography>
             <Typography variant="body2" color="text.secondary" gutterBottom>
-              Tải file Excel để nhập dữ liệu hàng loạt
+              {t('dashboard:excel.subtitle')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
@@ -535,8 +537,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   startIcon={<UploadIcon />}
                   onClick={() => handleExcelUpload('students')}
                   sx={{ py: 1.5 }}
-                >
-                  Import Sinh Viên
+>
+                  {t('dashboard:excel.import_students')}
                 </Button>
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
@@ -546,8 +548,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   startIcon={<UploadIcon />}
                   onClick={() => handleExcelUpload('grades')}
                   sx={{ py: 1.5 }}
-                >
-                  Import Điểm Số
+>
+                  {t('dashboard:excel.import_grades')}
                 </Button>
               </Grid>
                     <Grid item xs={12} sm={6} md={4}>
@@ -557,8 +559,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                         startIcon={<UploadIcon />}
                         onClick={() => handleExcelUpload('attendance')}
                         sx={{ py: 1.5 }}
-                      >
-                        Import Điểm Danh
+>
+                        {t('dashboard:excel.import_attendance')}
                       </Button>
                     </Grid>
                     <Grid item xs={12} sm={6} md={4}>
@@ -568,8 +570,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                         startIcon={<UploadIcon />}
                         onClick={() => handleExcelUpload('students')}
                         sx={{ py: 1.5 }}
-                      >
-                        Kéo Thả Excel
+>
+                        {t('dashboard:excel.drag_drop')}
                       </Button>
                     </Grid>
             </Grid>
