@@ -94,6 +94,14 @@ const StudentItem = ({ a, onChanged }) => {
             <Button size="small" variant="outlined" startIcon={<StartIcon />} onClick={start} disabled={disabled}>Bắt đầu</Button>
           )}
           <Button size="small" variant="text" onClick={() => setDetailOpen(true)}>Chi tiết</Button>
+          {subm?.file && (
+            <Button size="small" variant="outlined" href={subm.file} startIcon={<DownloadIcon />}>Bài đã nộp</Button>
+          )}
+          {subm?.file && (
+            <Button size="small" color="warning" variant="outlined" onClick={async () => { try { await assignmentService.unsubmit(a.id); await loadMy(); onChanged?.() } catch (e) { alert(e?.response?.data?.error || e.message) } }} disabled={subm?.status === 'graded' || (due && now.isAfter(due))}>
+              Hủy nộp
+            </Button>
+          )}
           <Button size="small" component="label" variant="contained" disabled={uploading || disabled}>
             Nộp
             <input type="file" hidden onChange={(e) => e.target.files?.[0] && submit(e.target.files[0])} />
@@ -149,7 +157,11 @@ const AssignmentsInline = ({ classId, isTeacher }) => {
       setLoading(false)
     }
   }
-  useEffect(() => { if (classId) load() }, [classId])
+  useEffect(() => {
+    if (classId) load()
+    const id = setInterval(() => { if (classId) load() }, 15000) // auto refresh mỗi 15s để thấy bài mới
+    return () => clearInterval(id)
+  }, [classId])
 
   return (
     <Box>
@@ -161,6 +173,7 @@ const AssignmentsInline = ({ classId, isTeacher }) => {
               Tạo bài
             </Button>
           )}
+          <Button size="small" variant="outlined" onClick={load}>Làm mới</Button>
           <Button size="small" variant="outlined" endIcon={<ArrowForwardIcon />} onClick={() => navigate(`/classes/${classId}/assignments`)}>
             Xem tất cả
           </Button>

@@ -21,7 +21,8 @@ const StatusChip = ({ assignment }) => {
 const CreateAssignmentDialog = ({ open, onClose, classId, onCreated }) => {
   const [form, setForm] = useState({
     title: '', description: '', type: 'assignment', session_id: '',
-    release_at: '', due_at: '', time_limit_minutes: '', allowed_file_types: 'pdf,doc,docx,zip', max_file_size_mb: 20
+    release_at: '', due_at: '', time_limit_minutes: '', allowed_file_types: 'pdf,doc,docx,zip', max_file_size_mb: 20,
+    is_published: true,
   })
   const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -62,6 +63,11 @@ const CreateAssignmentDialog = ({ open, onClose, classId, onCreated }) => {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
             <TextField label="Định dạng cho phép" value={form.allowed_file_types} onChange={e => setForm({ ...form, allowed_file_types: e.target.value })} fullWidth />
             <TextField type="number" label="Dung lượng tối đa (MB)" value={form.max_file_size_mb} onChange={e => setForm({ ...form, max_file_size_mb: e.target.value })} />
+          </Stack>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Button variant="outlined" onClick={() => setForm({ ...form, is_published: !form.is_published })}>
+              {form.is_published ? 'Đang công khai' : 'Bản nháp (không hiển thị SV)'}
+            </Button>
           </Stack>
           <Button variant="outlined" component="label" startIcon={<UploadIcon />}>Chọn file đề
             <input type="file" hidden onChange={e => setFile(e.target.files?.[0])} />
@@ -146,6 +152,14 @@ const StudentRow = ({ a, onChanged }) => {
             <Button size="small" variant="outlined" startIcon={<StartIcon />} onClick={start} disabled={disabled}>Bắt đầu thi</Button>
           )}
           <Button size="small" variant="text" onClick={() => setDetailOpen(true)}>Chi tiết</Button>
+          {subm?.file && (
+            <Button size="small" variant="outlined" href={subm.file} startIcon={<DownloadIcon />}>Bài đã nộp</Button>
+          )}
+          {subm?.file && (
+            <Button size="small" color="warning" variant="outlined" onClick={async () => { try { await assignmentService.unsubmit(a.id); await loadMy(); onChanged?.() } catch (e) { alert(e?.response?.data?.error || e.message) } }} disabled={subm?.status === 'graded' || (due && now.isAfter(due))}>
+              Hủy nộp
+            </Button>
+          )}
           <Button component="label" variant="contained" size="small" disabled={uploading || disabled}>
             Nộp bài
             <input type="file" hidden onChange={e => e.target.files?.[0] && submit(e.target.files[0])} />

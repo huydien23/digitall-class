@@ -16,6 +16,7 @@ const assignmentService = {
     form.append('file', file)
     return apiService.axiosInstance.post(`/assignments/${assignmentId}/submit/`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
   },
+  unsubmit: (assignmentId) => apiService.axiosInstance.post(`/assignments/${assignmentId}/unsubmit/`),
 
   // teacher
   listSubmissions: (assignmentId) => apiService.axiosInstance.get(`/assignments/${assignmentId}/submissions/`),

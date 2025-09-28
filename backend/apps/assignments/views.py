@@ -138,8 +138,47 @@ def my_submission(request, assignment_id):
             return Response({'error': 'Không tìm thấy hồ sơ sinh viên'}, status=status.HTTP_400_BAD_REQUEST)
         subm = AssignmentSubmission.objects.filter(assignment=assignment, student=student).order_by('-attempt_number').first()
         if not subm:
-            return Response({'detail': 'no submission'}, status=status.HTTP_204_NO_CONTENT)
+            # Return 204 with no body to avoid content-length mismatch in some clients
+            return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(MySubmissionSerializer(subm).data)
+    except Assignment.DoesNotExist:
+        return Response({'error': 'Không tìm thấy bài'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def unsubmit_assignment(request, assignment_id):
+    """Allow student to cancel a submission before due and when not graded"""
+    try:
+        assignment = Assignment.objects.get(id=assignment_id)
+        user = request.user
+        student = Student.objects.filter(user=user).first()
+        if not student:
+            return Response({'error': 'Không tìm thấy hồ sơ sinh viên'}, status=status.HTTP_400_BAD_REQUEST)
+        # Must be enrolled
+        if not ClassStudent.objects.filter(class_obj=assignment.class_obj, student=student, is_active=True).exists():
+            return Response({'error': 'Bạn không thuộc lớp này'}, status=status.HTTP_403_FORBIDDEN)
+
+        subm = AssignmentSubmission.objects.filter(assignment=assignment, student=student).order_by('-attempt_number').first()
+        if not subm or not subm.file:
+            return Response({'error': 'Chưa có bài để hủy'}, status=status.HTTP_400_BAD_REQUEST)
+        # Not allowed if graded
+        if subm.status == AssignmentSubmission.Status.GRADED:
+            return Response({'error': 'Bài đã chấm, không thể hủy'}, status=status.HTTP_400_BAD_REQUEST)
+        # Not allowed after due (personal or assignment)
+        now = timezone.now()
+        due = subm.personal_due_at or assignment.due_at
+        if due and now > due:
+            return Response({'error': 'Đã quá hạn, không thể hủy'}, status=status.HTTP_400_BAD_REQUEST)
+        # Clear file
+        subm.file.delete(save=False)
+        subm.file = None
+        subm.file_size = 0
+        subm.uploaded_at = None
+        subm.status = AssignmentSubmission.Status.DRAFT
+        subm.is_late = False
+        subm.save()
+        return Response({'message': 'Đã hủy nộp'}, status=status.HTTP_200_OK)
     except Assignment.DoesNotExist:
         return Response({'error': 'Không tìm thấy bài'}, status=status.HTTP_404_NOT_FOUND)
 
