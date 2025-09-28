@@ -82,6 +82,7 @@ import QuickCreateSession from '../Session/QuickCreateSession'
 import BulkCreateSessions from '../Session/BulkCreateSessions'
 import SessionManagementDialog from '../Session/SessionManagementDialog'
 import EditSessionDialog from '../Session/EditSessionDialog'
+import AssignmentsInline from '../Assignments/AssignmentsInline'
 
 const ClassDetailPage = () => {
   const { classId } = useParams()
@@ -890,6 +891,9 @@ const handleEditGrade = (student) => {
                 Quản lý buổi học
               </Button>
             )}
+            <Button size="small" variant="outlined" onClick={() => navigate(`/classes/${classId}/assignments`)}>
+              Bài tập/Thi
+            </Button>
           </Box>
           <Divider sx={{ mb: 2 }} />
           {(() => {
@@ -1366,14 +1370,19 @@ const handleEditGrade = (student) => {
                           )}
                         </TableRow>
                       ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+    )}
+
+    {/* Assignments inline section */}
+    <Box mt={3}>
+      <AssignmentsInline classId={classId} isTeacher={isTeacher} />
+    </Box>
 
       {tabValue === 4 && (
         <motion.div

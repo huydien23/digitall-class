@@ -59,6 +59,7 @@ LOCAL_APPS = [
     'apps.attendance',
     'apps.rooms',
     'apps.materials',
+    'apps.assignments',
     'apps.submissions',
     'apps.grouping',
 ]

@@ -28,6 +28,8 @@ import Attendance from './pages/Attendance/Attendance'
 import StudentCheckInPage from './pages/Attendance/StudentCheckInPage'
 import JoinClassPage from './pages/Classes/JoinClassPage'
 import Schedule from './pages/Schedule/Schedule'
+import ClassAssignmentsPage from './pages/Assignments/ClassAssignmentsPage'
+import AssignmentSubmissionsPage from './pages/Assignments/AssignmentSubmissionsPage'
 import Teachers from './pages/Teachers/Teachers'
 import ScheduleManagement from './pages/ScheduleManagement/ScheduleManagement'
 import Rooms from './pages/Rooms/Rooms'
@@ -141,6 +143,22 @@ const App = () => {
             <ProtectedRoute requiredRole={['admin', 'teacher', 'student']}>
               <Layout>
                 <RoleAwareClassDetail />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/classes/:classId/assignments" element={
+            <ProtectedRoute requiredRole={['admin', 'teacher', 'student']}>
+              <Layout>
+                <ClassAssignmentsPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/classes/:classId/assignments/:assignmentId/submissions" element={
+            <ProtectedRoute requiredRole={['admin', 'teacher']}>
+              <Layout>
+                <AssignmentSubmissionsPage />
               </Layout>
             </ProtectedRoute>
           } />

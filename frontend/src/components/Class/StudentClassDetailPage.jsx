@@ -28,6 +28,7 @@ import materialService from '../../services/materialService'
 import submissionService from '../../services/submissionService'
 import StudentCheckInDialog from '../Attendance/StudentCheckInDialog'
 import { QrCode as QrIcon } from '@mui/icons-material'
+import AssignmentsInline from '../Assignments/AssignmentsInline'
 
 const StudentClassDetailPage = () => {
   const { classId } = useParams()
@@ -258,6 +259,11 @@ const StudentClassDetailPage = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Assignments inline for student */}
+      <Box mb={3}>
+        <AssignmentsInline classId={classId} isTeacher={false} />
+      </Box>
 
       {/* Tabs: Tổng quan | Tài liệu */}
       <Paper sx={{ mb: 3 }}>
