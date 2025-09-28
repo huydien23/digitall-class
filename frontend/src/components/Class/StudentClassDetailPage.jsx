@@ -546,14 +546,54 @@ const StudentClassDetailPage = () => {
         open={checkInOpen}
         onClose={() => setCheckInOpen(false)}
         studentCode={studentCode}
-        onSuccess={(data) => {
-          const att = data?.attendance || data
-          const sessId = att?.session?.id
-          if (sessId) {
-            setAttendanceMap((prev) => ({ ...prev, [sessId]: 'present' }))
+        onSuccess={async (data) => {
+          try {
+            // Show immediate feedback
+            setScanMessage('Điểm danh thành công!')
+            
+            // Also update state immediately for quick UI feedback
+            const att = data?.attendance || data
+            const sessId = att?.session?.id
+            if (sessId) {
+              setAttendanceMap((prev) => ({ ...prev, [sessId]: 'present' }))
+            }
+            
+            // Force reload attendance data from server to ensure sync
+            // This prevents data loss on page reload
+            if (sessions.length > 0) {
+              console.log('Refreshing attendance data after successful checkin...')
+              const updatedMap = {}
+              await Promise.all(
+                sessions.map(async (s) => {
+                  try {
+                    const params = { session_id: s.id }
+                    if (studentCode) params.student_id = studentCode
+                    const aRes = await attendanceService.getAttendances(params)
+                    const arr = aRes.data?.results || aRes.data || []
+                    if (arr.length > 0) {
+                      updatedMap[s.id] = arr[0].status
+                    } else {
+                      updatedMap[s.id] = 'none'
+                    }
+                  } catch {
+                    updatedMap[s.id] = 'none'
+                  }
+                })
+              )
+              setAttendanceMap(updatedMap)
+              console.log('Attendance data refreshed successfully')
+            }
+            
+            setTimeout(() => setScanMessage(''), 4000)
+          } catch (error) {
+            console.error('Error refreshing attendance data:', error)
+            // Keep the manual update as fallback
+            const att = data?.attendance || data
+            const sessId = att?.session?.id
+            if (sessId) {
+              setAttendanceMap((prev) => ({ ...prev, [sessId]: 'present' }))
+            }
           }
-          setScanMessage('Điểm danh thành công!')
-          setTimeout(() => setScanMessage(''), 4000)
         }}
       />
     </Container>

@@ -36,13 +36,24 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
         if session_id:
             queryset = queryset.filter(session_id=session_id)
         
-        # Filter by student if provided. Accept both Student.pk (numeric) and student.student_id (code)
+        # Filter by student if provided
         if student_id:
             sid = str(student_id).strip()
-            if sid.isdigit():
-                queryset = queryset.filter(student_id=int(sid))
-            else:
+            logger.debug(f"Filtering attendance by student_id: {sid} (type: {type(student_id)})")
+            
+            # Always try student_code first (more common case for frontend)
+            try:
                 queryset = queryset.filter(student__student_id=sid)
+                logger.debug(f"Filtered by student__student_id: {sid}, found {queryset.count()} records")
+            except Exception as e:
+                logger.warning(f"Failed to filter by student_code {sid}: {e}")
+                # Fallback: if it's pure numeric, try as Student.pk
+                if sid.isdigit():
+                    try:
+                        queryset = queryset.filter(student_id=int(sid))
+                        logger.debug(f"Fallback: filtered by student_id (pk): {sid}")
+                    except Exception as e2:
+                        logger.error(f"Failed to filter by both student_code and pk for {sid}: {e2}")
             
         return queryset.order_by('-created_at')
 
