@@ -30,6 +30,8 @@ import {
 } from '@mui/icons-material'
 import QRCode from 'qrcode'
 import { motion } from 'framer-motion'
+import { useSelector } from 'react-redux'
+import { selectQRSettings } from '../../store/slices/teacherSettingsSlice'
 
 const QRDisplay = ({ 
   sessionData, 
@@ -37,6 +39,8 @@ const QRDisplay = ({
   onClose,
   onRefresh 
 }) => {
+  // Get QR settings from Redux
+  const qrSettings = useSelector(selectQRSettings)
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -54,16 +58,18 @@ const QRDisplay = ({
     }
   }, [open, sessionData])
 
-  // Auto-refresh QR code every 5 minutes for security
+  // Auto-refresh QR code based on settings
   useEffect(() => {
     if (open) {
+      // Use settings or fallback to 5 minutes
+      const refreshInterval = (qrSettings?.autoRefreshInterval || 5) * 60 * 1000
       const interval = setInterval(() => {
         generateQRCode()
-      }, 5 * 60 * 1000) // 5 minutes
+      }, refreshInterval)
 
       return () => clearInterval(interval)
     }
-  }, [open])
+  }, [open, qrSettings?.autoRefreshInterval])
 
   const generateQRCode = async () => {
     if (!sessionData) return
@@ -78,7 +84,8 @@ const QRDisplay = ({
         teacher: sessionData.teacher_name,
         timestamp: new Date().toISOString(),
         token: sessionData.qr_token || Math.random().toString(36).substr(2, 9),
-        validUntil: new Date(Date.now() + 15 * 60 * 1000).toISOString() // Valid for 15 minutes
+        // Use validity duration from settings or fallback to 15 minutes
+        validUntil: new Date(Date.now() + (qrSettings?.validityDuration || 15) * 60 * 1000).toISOString()
       })
 
       const url = await QRCode.toDataURL(qrData, {
@@ -210,7 +217,7 @@ const QRDisplay = ({
                   </Typography>
                   
                   <Typography variant="body2" color="text.secondary">
-                    Mã QR có hiệu lực trong 15 phút
+                    Mã QR có hiệu lực trong {qrSettings?.validityDuration || 15} phút
                   </Typography>
 
                   <Box sx={{ mt: 2, display: 'flex', gap: 1, justifyContent: 'center' }}>

@@ -4,6 +4,7 @@ import studentReducer from './slices/studentSlice'
 import classReducer from './slices/classSlice'
 import gradeReducer from './slices/gradeSlice'
 import attendanceReducer from './slices/attendanceSlice'
+import teacherSettingsReducer from './slices/teacherSettingsSlice'
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     classes: classReducer,
     grades: gradeReducer,
     attendance: attendanceReducer,
+    teacherSettings: teacherSettingsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

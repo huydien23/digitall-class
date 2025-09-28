@@ -2,6 +2,7 @@ import React, { useEffect } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { SnackbarProvider } from 'notistack'
+import { ThemeProvider } from './contexts/ThemeContext'
 
 // Layout
 import Layout from './components/Layout/Layout'
@@ -33,6 +34,7 @@ import SystemReports from './pages/Reports/SystemReports'
 import AttendanceManagement from './pages/Attendance/AttendanceManagement'
 import GradeManagement from './pages/Grades/GradeManagement'
 import Profile from './pages/Profile/Profile'
+import TeacherSettings from './pages/Settings/TeacherSettings'
 import NotFound from './pages/NotFound/NotFound'
 
 // Debug Components - Removed
@@ -80,9 +82,10 @@ const App = () => {
   }
 
   return (
-    <EnhancedErrorBoundary>
-      <SnackbarProvider maxSnack={3}>
-        <Routes>
+    <ThemeProvider>
+      <EnhancedErrorBoundary>
+        <SnackbarProvider maxSnack={3}>
+          <Routes>
           {/* Public Routes - Only accessible when NOT authenticated */}
           <Route path="/login" element={
             isAuthenticated ? <Navigate to={getDashboardRoute(user?.role)} replace /> : <Login />
@@ -204,6 +207,15 @@ const App = () => {
             </ProtectedRoute>
           } />
 
+          {/* Settings Route - For Teachers and Admin */}
+          <Route path="/settings" element={
+            <ProtectedRoute requiredRole={['admin', 'teacher']}>
+              <Layout>
+                <TeacherSettings />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
           {/* Debug Routes - Removed */}
 
           {/* 404 Route */}
@@ -211,6 +223,7 @@ const App = () => {
         </Routes>
       </SnackbarProvider>
     </EnhancedErrorBoundary>
+    </ThemeProvider>
   )
 }
 

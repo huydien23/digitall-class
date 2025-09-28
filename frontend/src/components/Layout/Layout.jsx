@@ -119,6 +119,12 @@ const getNavigationItems = (userRole) => {
         path: '/classes'
       },
       // Điểm và điểm danh sẽ thao tác trong trang lớp/phiên học
+      { 
+        text: 'Cài đặt', 
+        icon: <Settings />, 
+        path: '/settings',
+        badge: 'new' // Temporary badge to highlight new feature
+      },
     ]
   }
 
