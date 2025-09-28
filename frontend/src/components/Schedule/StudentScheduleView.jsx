@@ -41,6 +41,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon
 } from '@mui/icons-material'
+import classService from '../../services/classService'
+import attendanceService from '../../services/attendanceService'
 
 const StudentScheduleView = ({ user }) => {
   const theme = useTheme()
@@ -51,112 +53,116 @@ const StudentScheduleView = ({ user }) => {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
   const [error, setError] = useState('')
 
-  // Mock data for student schedule
+  // Load real data from student's enrolled classes
   useEffect(() => {
     const loadSchedule = async () => {
       setIsLoading(true)
       try {
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // 1. Get student's enrolled classes
+        const myClassesRes = await classService.getMyClasses()
+        const myClasses = myClassesRes.data?.results || myClassesRes.data || []
         
-        // Mock schedule data based on real schedule
-        const mockSchedule = [
-          // Thứ 2
-          {
-            id: 1,
-            subject: 'Lập trình Python',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Đặng Mạnh Huy',
-            room: 'Phòng 14-02',
-            building: 'Phòng máy 8',
-            dayOfWeek: 2, // Thứ 2
-            startTime: '07:00',
-            endTime: '11:00',
-            duration: 240, // 4 tiết
-            type: 'Thực hành',
-            color: '#1976d2',
-            week: 'all',
-            periods: 'Tiết: 7 - 11'
-          },
-          // Thứ 4
-          {
-            id: 2,
-            subject: 'Phát triển phần mềm mã nguồn mở - Thực hành',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Võ Thanh Vinh',
-            room: 'Phòng 15-03',
-            building: 'Phòng máy 15',
-            dayOfWeek: 4, // Thứ 4
-            startTime: '07:00',
-            endTime: '11:00',
-            duration: 240, // 4 tiết
-            type: 'Thực hành',
-            color: '#4caf50',
-            week: 'all',
-            periods: 'Tiết: 7 - 11'
-          },
-          // Thứ 5
-          {
-            id: 3,
-            subject: 'Lịch sử Đảng cộng sản Việt Nam',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Đinh Cao Tín',
-            room: 'Phòng D4-04',
-            building: 'Hội trường Khu D',
-            dayOfWeek: 5, // Thứ 5
-            startTime: '06:45',
-            endTime: '08:15',
-            duration: 90, // 2 tiết
-            type: 'Lý thuyết',
-            color: '#ff9800',
-            week: 'all',
-            periods: 'Tiết: 4 - 6'
-          },
-          // Thứ 6
-          {
-            id: 4,
-            subject: 'Lập trình thiết bị di động',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Đoàn Chí Trung',
-            room: 'Phòng 14-02',
-            building: 'Phòng máy 8',
-            dayOfWeek: 6, // Thứ 6
-            startTime: '07:00',
-            endTime: '11:00',
-            duration: 240, // 4 tiết
-            type: 'Thực hành',
-            color: '#9c27b0',
-            week: 'all',
-            periods: 'Tiết: 7 - 11'
-          },
-          // Thứ 7
-          {
-            id: 5,
-            subject: 'Pháp luật về công nghệ thông tin',
-            subjectCode: 'DH22TIN06',
-            teacher: 'GV: Trần Minh Tâm',
-            room: 'Phòng T4-05',
-            building: 'Học đường',
-            dayOfWeek: 7, // Thứ 7
-            startTime: '06:45',
-            endTime: '08:15',
-            duration: 90, // 2 tiết
-            type: 'Lý thuyết',
-            color: '#607d8b',
-            week: 'all',
-            periods: 'Tiết: 1 - 3'
+        if (myClasses.length === 0) {
+          setSchedules([])
+          setError('Bạn chưa tham gia lớp học nào.')
+          return
+        }
+        
+        // 2. Get all attendance sessions from enrolled classes
+        const allSchedules = []
+        const colors = ['#1976d2', '#4caf50', '#ff9800', '#9c27b0', '#607d8b', '#f44336', '#00bcd4']
+        
+        await Promise.all(
+          myClasses.map(async (classItem, index) => {
+            try {
+              const sessionsRes = await attendanceService.getSessions({ 
+                class_id: classItem.id, 
+                page_size: 200 
+              })
+              const sessions = sessionsRes.data?.results || sessionsRes.data || []
+              
+              sessions.forEach(session => {
+                // Convert session to schedule format
+                const sessionDate = new Date(session.session_date)
+                let dayOfWeek = sessionDate.getDay() // 0=Sunday, 1=Monday, ..., 6=Saturday
+                // Convert to format expected by component: 1=Monday, ..., 7=Sunday
+                if (dayOfWeek === 0) {
+                  dayOfWeek = 7 // Sunday becomes 7
+                } else {
+                  // Monday-Saturday remain 1-6
+                }
+                
+                // Calculate duration in minutes
+                const startTime = session.start_time
+                const endTime = session.end_time
+                let duration = 60 // default
+                
+                if (startTime && endTime) {
+                  const [startH, startM] = startTime.split(':').map(Number)
+                  const [endH, endM] = endTime.split(':').map(Number)
+                  duration = (endH * 60 + endM) - (startH * 60 + startM)
+                }
+                
+                // Only add sessions that are on weekdays (Monday-Saturday)
+                if (dayOfWeek >= 1 && dayOfWeek <= 6) {
+                  allSchedules.push({
+                    id: session.id,
+                    subject: classItem.class_name,
+                    subjectCode: classItem.class_id,
+                    teacher: classItem.teacher ? 
+                      `${classItem.teacher.first_name} ${classItem.teacher.last_name}` : 
+                      'Chưa có giảng viên',
+                    room: session.location || 'Chưa có phòng',
+                    building: session.location || 'Chưa xác định',
+                    dayOfWeek: dayOfWeek,
+                    startTime: startTime?.slice(0, 5) || '00:00',
+                    endTime: endTime?.slice(0, 5) || '00:00',
+                    duration: duration,
+                    type: session.session_type === 'lecture' ? 'Lý thuyết' : 
+                          session.session_type === 'practice' ? 'Thực hành' : 
+                          session.session_type === 'seminar' ? 'Seminar' : 
+                          session.session_type === 'exam' ? 'Kiểm tra' : 'Học',
+                    color: colors[index % colors.length],
+                    week: 'all',
+                    periods: `Buổi: ${session.session_name || 'Không tên'}`,
+                    session_date: session.session_date,
+                    // Additional data
+                    classObj: classItem,
+                    sessionObj: session
+                  })
+                }
+              })
+            } catch (err) {
+              console.warn(`Failed to load sessions for class ${classItem.class_id}:`, err)
+            }
+          })
+        )
+        
+        // Sort by day of week and time
+        allSchedules.sort((a, b) => {
+          if (a.dayOfWeek !== b.dayOfWeek) {
+            return a.dayOfWeek - b.dayOfWeek
           }
-        ]
+          return a.startTime.localeCompare(b.startTime)
+        })
         
-        setSchedules(mockSchedule)
+        // Debug logging
+        console.log('Total schedules loaded:', allSchedules.length)
+        allSchedules.forEach(s => {
+          console.log(`Schedule: ${s.subject} on day ${s.dayOfWeek} (${s.session_date})`)
+        })
+        
+        setSchedules(allSchedules)
       } catch (err) {
-        setError('Không thể tải thời khóa biểu')
+        console.error('Error loading schedule:', err)
+        setError('Không thể tải thời khóa biểu. Vui lòng thử lại sau.')
       } finally {
         setIsLoading(false)
       }
     }
 
     loadSchedule()
-  }, [])
+  }, [user?.id, user?.student_id])
 
   const getDayName = (dayOfWeek) => {
     const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7']
@@ -164,7 +170,29 @@ const StudentScheduleView = ({ user }) => {
   }
 
   const getScheduleForDay = (dayOfWeek) => {
-    return schedules.filter(schedule => schedule.dayOfWeek === dayOfWeek)
+    const targetDate = getWeekDates(selectedWeek)[dayOfWeek === 7 ? 6 : dayOfWeek - 1] // Convert dayOfWeek to array index
+    if (!targetDate) return []
+    
+    console.log(`Getting schedules for day ${dayOfWeek}, target date: ${targetDate.toLocaleDateString()}`);
+    
+    const filtered = schedules.filter(schedule => {
+      if (schedule.dayOfWeek !== dayOfWeek) return false
+      
+      // Check if the schedule session falls within the selected week
+      if (schedule.session_date) {
+        const sessionDate = new Date(schedule.session_date)
+        const targetDateOnly = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate())
+        const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate())
+        const matches = sessionDateOnly.getTime() === targetDateOnly.getTime()
+        console.log(`  Session ${schedule.subject}: ${schedule.session_date} matches ${targetDate.toLocaleDateString()}? ${matches}`)
+        return matches
+      }
+      
+      return true // Show recurring schedules for current week
+    })
+    
+    console.log(`  Found ${filtered.length} sessions for day ${dayOfWeek}`);
+    return filtered
   }
 
   const handleClassClick = (classItem) => {
@@ -179,7 +207,7 @@ const StudentScheduleView = ({ user }) => {
     monday.setDate(today.getDate() - currentDay + 1 + (weekOffset * 7))
     
     const weekDates = []
-    for (let i = 0; i < 6; i++) { // Thứ 2 đến Thứ 7
+    for (let i = 0; i < 7; i++) { // Thứ 2 đến Chủ nhật (7 ngày)
       const date = new Date(monday)
       date.setDate(monday.getDate() + i)
       weekDates.push(date)
@@ -225,7 +253,7 @@ const StudentScheduleView = ({ user }) => {
             {selectedWeek === 0 ? 'Tuần này' : selectedWeek === 1 ? 'Tuần sau' : `Tuần ${selectedWeek + 1}`}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            {weekDates[0]?.toLocaleDateString('vi-VN')} - {weekDates[5]?.toLocaleDateString('vi-VN')}
+            {weekDates[0]?.toLocaleDateString('vi-VN')} - {weekDates[6]?.toLocaleDateString('vi-VN')}
           </Typography>
         </Box>
         
@@ -240,7 +268,13 @@ const StudentScheduleView = ({ user }) => {
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" fontWeight={600} color="primary.main">
-                {schedules.length}
+                {(() => {
+                  // Count sessions for current week
+                  const weekSchedules = [1, 2, 3, 4, 5, 6, 7].reduce((total, day) => {
+                    return total + getScheduleForDay(day).length
+                  }, 0)
+                  return weekSchedules
+                })()}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Tiết học/tuần
@@ -252,7 +286,14 @@ const StudentScheduleView = ({ user }) => {
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" fontWeight={600} color="success.main">
-                {new Set(schedules.map(s => s.subject)).size}
+                {(() => {
+                  // Count unique subjects for current week
+                  const weekSubjects = [1, 2, 3, 4, 5, 6, 7].reduce((subjects, day) => {
+                    getScheduleForDay(day).forEach(s => subjects.add(s.subject))
+                    return subjects
+                  }, new Set())
+                  return weekSubjects.size
+                })()}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Môn học
@@ -264,7 +305,7 @@ const StudentScheduleView = ({ user }) => {
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" fontWeight={600} color="warning.main">
-                {schedules.filter(s => isToday(s.dayOfWeek)).length}
+                {selectedWeek === 0 ? getScheduleForDay(new Date().getDay()).length : 0}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Tiết hôm nay
@@ -276,7 +317,13 @@ const StudentScheduleView = ({ user }) => {
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" fontWeight={600} color="info.main">
-                {Math.round(schedules.reduce((sum, s) => sum + s.duration, 0) / 60)}
+                {(() => {
+                  // Calculate total hours for current week
+                  const weekMinutes = [1, 2, 3, 4, 5, 6, 7].reduce((total, day) => {
+                    return total + getScheduleForDay(day).reduce((sum, s) => sum + s.duration, 0)
+                  }, 0)
+                  return Math.round(weekMinutes / 60)
+                })()}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Giờ/tuần
@@ -288,19 +335,34 @@ const StudentScheduleView = ({ user }) => {
 
       {/* Error Display */}
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert severity="warning" sx={{ mb: 2 }}>
           {error}
         </Alert>
+      )}
+      
+      {/* Empty State */}
+      {!isLoading && schedules.length === 0 && !error && (
+        <Card sx={{ textAlign: 'center', py: 6 }}>
+          <CardContent>
+            <ScheduleIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Chưa có lịch học nào
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Bạn chưa tham gia lớp học nào hoặc chưa có buổi học nào được tạo.
+            </Typography>
+          </CardContent>
+        </Card>
       )}
 
       {/* Schedule Grid */}
       <Grid container spacing={2}>
-        {[2, 3, 4, 5, 6, 7].map((dayOfWeek, index) => {
+        {[1, 2, 3, 4, 5, 6, 7].map((dayOfWeek, index) => {
           const daySchedules = getScheduleForDay(dayOfWeek)
           const isCurrentDay = isToday(dayOfWeek)
           
           return (
-            <Grid item xs={12} sm={6} md={4} lg={2} key={dayOfWeek}>
+            <Grid item xs={12} sm={6} md={4} lg={12/7} key={dayOfWeek}>
               <Card 
                 variant="outlined"
                 sx={{ 
@@ -317,7 +379,7 @@ const StudentScheduleView = ({ user }) => {
                         {getDayName(dayOfWeek)}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {weekDates[index]?.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
+                        {weekDates[dayOfWeek === 7 ? 6 : dayOfWeek - 1]?.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                       </Typography>
                     </Box>
                     {isCurrentDay && (
