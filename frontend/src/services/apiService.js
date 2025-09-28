@@ -49,14 +49,19 @@ class APIService {
     // Response interceptor for token refresh
     this.axiosInstance.interceptors.response.use(
       (response) => {
-        // Ensure we return clean data without proxy objects
-        if (response?.data) {
-          // Force serialize to clean JSON to remove any proxy objects
+        // Skip cleaning for binary downloads (blob/arraybuffer)
+        const rt = response?.config?.responseType
+        const isBinary = rt === 'blob' || rt === 'arraybuffer' || (typeof Blob !== 'undefined' && response?.data instanceof Blob)
+        if (isBinary) {
+          return response
+        }
+        // Ensure we return clean data without proxy objects (JSON only)
+        if (response?.data && typeof response.data === 'object') {
           try {
             const cleanData = JSON.parse(JSON.stringify(response.data))
             response.data = cleanData
           } catch (e) {
-            console.warn('Failed to clean response data:', e)
+            // Ignore cleaning errors for non-JSON responses
           }
         }
         return response

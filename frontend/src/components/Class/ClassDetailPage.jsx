@@ -39,6 +39,7 @@ import {
   SpeedDialIcon,
   CircularProgress
 } from '@mui/material'
+import Autocomplete from '@mui/material/Autocomplete'
 import {
   ArrowBack as ArrowBackIcon,
   School as SchoolIcon,
@@ -72,6 +73,7 @@ import materialService from '../../services/materialService'
 import submissionService from '../../services/submissionService'
 import * as XLSX from 'xlsx'
 import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
+import groupingService from '../../services/groupingService'
 import ManualAttendance from '../Attendance/ManualAttendance'
 import CreateSession from '../Session/CreateSession'
 import StudentForm from '../Form/StudentForm'
@@ -122,6 +124,16 @@ const ClassDetailPage = () => {
   const [materialsError, setMaterialsError] = useState('')
   // Upload dialog state
   const [uploadOpen, setUploadOpen] = useState(false)
+
+  // Grouping state
+  const [groupSets, setGroupSets] = useState([])
+  const [selectedGroupSetId, setSelectedGroupSetId] = useState(null)
+  const [groups, setGroups] = useState([])
+  const [groupingLoading, setGroupingLoading] = useState(false)
+  const [groupingError, setGroupingError] = useState('')
+  const [groupSizeInput, setGroupSizeInput] = useState(3)
+  const [groupSeedInput, setGroupSeedInput] = useState('')
+  const [availableStudents, setAvailableStudents] = useState([])
   const [uploadTitle, setUploadTitle] = useState('')
   const [uploadDescription, setUploadDescription] = useState('')
   const [uploadFile, setUploadFile] = useState(null)
@@ -382,6 +394,34 @@ const ClassDetailPage = () => {
     setTabValue(newValue)
     if (newValue === 4) {
       await fetchSubmissions()
+    }
+    if (newValue === 5) {
+      // Load latest groupset
+      try {
+        setGroupingError('')
+        setGroupingLoading(true)
+        const latest = await groupingService.listGroupSets({ class_id: classId, latest: 1 })
+        const gs = latest.data?.results ? (latest.data.results[0] || null) : latest.data
+        if (gs && gs.id) {
+          setSelectedGroupSetId(gs.id)
+          const detail = await groupingService.getGroups({ groupset_id: gs.id })
+          setGroups(detail.data?.groups || [])
+          try {
+            const as = await groupingService.listAvailableStudents({ groupset_id: gs.id })
+            setAvailableStudents(as.data?.results || as.data || [])
+          } catch {}
+        } else {
+          setSelectedGroupSetId(null)
+          setGroups([])
+        }
+        // Also list all for selector
+        const listAll = await groupingService.listGroupSets({ class_id: classId })
+        setGroupSets(listAll.data?.results || listAll.data || [])
+      } catch (e) {
+        setGroupingError(e?.response?.data?.error || e?.message || 'Không thể tải nhóm')
+      } finally {
+        setGroupingLoading(false)
+      }
     }
   }
 
@@ -962,6 +1002,7 @@ const handleEditGrade = (student) => {
           <Tab label="Bảng điểm số" />
           <Tab label="Tài liệu" />
           <Tab label="Bài nộp" />
+          <Tab label="Nhóm" />
         </Tabs>
       </Paper>
 
@@ -1491,6 +1532,270 @@ const handleEditGrade = (student) => {
                     </TableBody>
                   </Table>
                 </TableContainer>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Groups */}
+      {tabValue === 5 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Card>
+            <CardContent>
+              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                <Typography variant="h6" fontWeight={600}>Chia nhóm ngẫu nhiên</Typography>
+                <Box display="flex" gap={1} alignItems="center">
+                  <TextField
+                    type="number"
+                    size="small"
+                    label="Sĩ số nhóm"
+                    value={groupSizeInput}
+                    onChange={(e) => setGroupSizeInput(Number(e.target.value) || 2)}
+                    inputProps={{ min: 2 }}
+                    sx={{ width: 140 }}
+                  />
+                  <TextField
+                    size="small"
+                    label="Seed (tùy chọn)"
+                    value={groupSeedInput}
+                    onChange={(e) => setGroupSeedInput(e.target.value)}
+                    sx={{ width: 180 }}
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={async () => {
+                      try {
+                        setGroupingLoading(true)
+                        const res = await groupingService.generateGroups({ class_id: classId, group_size: Number(groupSizeInput) || 2, seed: groupSeedInput })
+                        const gs = res.data?.groupset
+                        if (gs?.id) {
+                          setSelectedGroupSetId(gs.id)
+                        }
+                        setGroups(res.data?.groups || [])
+                        // refresh list of groupsets
+                        const listAll = await groupingService.listGroupSets({ class_id: classId })
+                        setGroupSets(listAll.data?.results || listAll.data || [])
+                      } catch (e) {
+                        alert(e?.response?.data?.error || e?.message || 'Chia nhóm thất bại')
+                      } finally {
+                        setGroupingLoading(false)
+                      }
+                      // refresh available students
+                      try {
+                        if (selectedGroupSetId) {
+                          const as = await groupingService.listAvailableStudents({ groupset_id: selectedGroupSetId })
+                          setAvailableStudents(as.data?.results || as.data || [])
+                        }
+                      } catch {}
+                    }}
+                  >
+                    Chia nhóm
+                  </Button>
+                  <TextField
+                    select
+                    size="small"
+                    label="Đợt chia nhóm"
+                    value={selectedGroupSetId || ''}
+                    onChange={async (e) => {
+                      const id = e.target.value || null
+                      setSelectedGroupSetId(id)
+                      if (!id) { setGroups([]); setAvailableStudents([]); return }
+                      try {
+                        setGroupingLoading(true)
+                        const detail = await groupingService.getGroups({ groupset_id: id })
+                        setGroups(detail.data?.groups || [])
+                        const as = await groupingService.listAvailableStudents({ groupset_id: id })
+                        setAvailableStudents(as.data?.results || as.data || [])
+                      } catch (er) {
+                        setGroupingError(er?.response?.data?.error || er?.message || 'Không thể tải nhóm')
+                      } finally {
+                        setGroupingLoading(false)
+                      }
+                    }}
+                    sx={{ minWidth: 220 }}
+                  >
+                    <MenuItem value="">—</MenuItem>
+                    {(groupSets || []).map(gs => (
+                      <MenuItem key={gs.id} value={gs.id}>{new Date(gs.created_at).toLocaleString()} • size={gs.group_size}</MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    variant="outlined"
+                    disabled={!selectedGroupSetId}
+                    onClick={async () => {
+                      if (!selectedGroupSetId) return
+                      try {
+                        const blob = await groupingService.exportGroups(selectedGroupSetId)
+                        const url = window.URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `Groups_${classData?.class_name || classId}.xlsx`
+                        a.click()
+                        window.URL.revokeObjectURL(url)
+                      } catch (e) {
+                        alert(e?.response?.data?.error || e?.message || 'Xuất Excel thất bại')
+                      }
+                    }}
+                  >
+                    Xuất Excel
+                  </Button>
+                </Box>
+              </Box>
+
+              {groupingLoading ? (
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight={160}><CircularProgress /></Box>
+              ) : groupingError ? (
+                <Alert severity="error">{groupingError}</Alert>
+              ) : groups.length === 0 ? (
+                <Alert severity="info">Chưa có đợt chia nhóm. Hãy chọn sĩ số và nhấn "Chia nhóm".</Alert>
+              ) : (
+                <Grid container spacing={2}>
+                  {groups.map((g) => (
+                    <Grid item xs={12} md={6} lg={4} key={g.id}>
+                      <Card variant="outlined">
+                        <CardContent>
+                          <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Typography variant="subtitle1" fontWeight={700}>{g.name}</Typography>
+                              <IconButton size="small" onClick={async () => {
+                                const val = window.prompt('Đổi tên nhóm', g.name)
+                                if (!val) return
+                                try {
+                                  await groupingService.renameGroup(g.id, val)
+                                  if (selectedGroupSetId) {
+                                    const detail = await groupingService.getGroups({ groupset_id: selectedGroupSetId })
+                                    setGroups(detail.data?.groups || [])
+                                  }
+                                } catch (e) {
+                                  alert(e?.response?.data?.error || e?.message || 'Đổi tên thất bại')
+                                }
+                              }}>
+                                <EditIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                            <IconButton size="small" color="error" onClick={async () => {
+                              if (!window.confirm(`Xóa ${g.name}?`)) return
+                              try {
+                                setGroupingLoading(true)
+                                await groupingService.deleteGroup(g.id)
+                                // reload current groupset
+                                if (selectedGroupSetId) {
+                                  const detail = await groupingService.getGroups({ groupset_id: selectedGroupSetId })
+                                  setGroups(detail.data?.groups || [])
+                                }
+                              } catch (e) {
+                                alert(e?.response?.data?.error || e?.message || 'Xóa nhóm thất bại')
+                              } finally {
+                                setGroupingLoading(false)
+                              }
+                            }}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                          <Table
+                            size="small"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={async (e) => {
+                              try {
+                                const data = JSON.parse(e.dataTransfer.getData('text/plain') || '{}')
+                                if (!data.student_id) return
+                                await groupingService.addMember(g.id, { student_id: data.student_id })
+                                if (selectedGroupSetId) {
+                                  const detail = await groupingService.getGroups({ groupset_id: selectedGroupSetId })
+                                  setGroups(detail.data?.groups || [])
+                                }
+                                // refresh available
+                                if (selectedGroupSetId) {
+                                  const as = await groupingService.listAvailableStudents({ groupset_id: selectedGroupSetId })
+                                  setAvailableStudents(as.data?.results || as.data || [])
+                                }
+                              } catch {}
+                            }}
+                          >
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>STT</TableCell>
+                                <TableCell>MSSV</TableCell>
+                                <TableCell>Họ tên</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {g.members.map((m, idx) => (
+                                <TableRow key={m.id} draggable onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', JSON.stringify({ student_id: m.student_id }))
+                                }}>
+                                  <TableCell>{idx + 1}</TableCell>
+                                  <TableCell>{m.student_id}</TableCell>
+                                  <TableCell>
+                                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                                      <span>{m.full_name}</span>
+                                      <IconButton size="small" color="error" onClick={async () => {
+                                        try {
+                                          await groupingService.removeMember(g.id, { student_id: m.student_id })
+                                          if (selectedGroupSetId) {
+                                            const detail = await groupingService.getGroups({ groupset_id: selectedGroupSetId })
+                                            setGroups(detail.data?.groups || [])
+                                          }
+                                        } catch (e) {
+                                          alert(e?.response?.data?.error || e?.message || 'Xóa khỏi nhóm thất bại')
+                                        }
+                                      }}>
+                                        <DeleteIcon fontSize="small" />
+                                      </IconButton>
+                                    </Box>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                          <Box display="flex" alignItems="center" gap={1} mt={1}>
+                            <Autocomplete
+                              size="small"
+                              options={availableStudents}
+                              getOptionLabel={(o) => `${o.student_id} - ${o.full_name}`}
+                              renderInput={(params) => <TextField {...params} label="Thêm SV" placeholder="Nhập MSSV hoặc tên" />}
+                              sx={{ minWidth: 260 }}
+                              onChange={async (_e, value) => {
+                                if (!value) return
+                                try {
+                                  await groupingService.addMember(g.id, { student_id: value.student_id })
+                                  if (selectedGroupSetId) {
+                                    const detail = await groupingService.getGroups({ groupset_id: selectedGroupSetId })
+                                    setGroups(detail.data?.groups || [])
+                                    const as = await groupingService.listAvailableStudents({ groupset_id: selectedGroupSetId })
+                                    setAvailableStudents(as.data?.results || as.data || [])
+                                  }
+                                } catch (e) {
+                                  alert(e?.response?.data?.error || e?.message || 'Thêm vào nhóm thất bại')
+                                }
+                              }}
+                            />
+                            <Button size="small" variant="outlined" onClick={async () => {
+                              const input = document.getElementById(`add-st-${g.id}`)
+                              const code = (input?.value || '').trim()
+                              if (!code) return
+                              try {
+                                await groupingService.addMember(g.id, { student_id: code })
+                                input.value = ''
+                                if (selectedGroupSetId) {
+                                  const detail = await groupingService.getGroups({ groupset_id: selectedGroupSetId })
+                                  setGroups(detail.data?.groups || [])
+                                }
+                              } catch (e) {
+                                alert(e?.response?.data?.error || e?.message || 'Thêm vào nhóm thất bại')
+                              }
+                            }}>Thêm</Button>
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
               )}
             </CardContent>
           </Card>
