@@ -141,7 +141,7 @@ const StudentClassDetailPage = () => {
 
   const handleTabChange = async (v) => {
     setTab(v)
-    if (v === 2) {
+    if (v === 3) {
       // Load submissions when switching to "Bài nộp"
       try {
         setSubmissionsLoading(true)
@@ -260,15 +260,11 @@ const StudentClassDetailPage = () => {
         </Grid>
       </Grid>
 
-      {/* Assignments inline for student */}
-      <Box mb={3}>
-        <AssignmentsInline classId={classId} isTeacher={false} />
-      </Box>
-
-      {/* Tabs: Tổng quan | Tài liệu */}
+      {/* Tabs */}
       <Paper sx={{ mb: 3 }}>
         <Tabs value={tab} onChange={(_, v) => handleTabChange(v)} variant="fullWidth">
           <Tab label="Tổng quan" />
+          <Tab label="Bài tập/Thi" />
           <Tab label="Tài liệu" />
           <Tab label="Bài nộp" />
         </Tabs>
@@ -357,8 +353,15 @@ const StudentClassDetailPage = () => {
         </Grid>
       )}
 
-      {/* Materials */}
+      {/* Assignments */}
       {tab === 1 && (
+        <Box mb={3}>
+          <AssignmentsInline classId={classId} isTeacher={false} />
+        </Box>
+      )}
+
+      {/* Materials */}
+      {tab === 2 && (
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -432,7 +435,7 @@ const StudentClassDetailPage = () => {
       )}
 
       {/* Submissions */}
-      {tab === 2 && (
+      {tab === 3 && (
         <Card>
           <CardContent>
             <Box display="flex" alignItems="center" gap={1} mb={2}>

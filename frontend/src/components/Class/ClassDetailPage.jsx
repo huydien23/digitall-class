@@ -393,10 +393,11 @@ const ClassDetailPage = () => {
 
   const handleTabChange = async (event, newValue) => {
     setTabValue(newValue)
-    if (newValue === 4) {
+    // Note: indexes shift because we insert a new "Bài tập/Thi" tab at index 4
+    if (newValue === 5) {
       await fetchSubmissions()
     }
-    if (newValue === 5) {
+    if (newValue === 6) {
       // Load latest groupset
       try {
         setGroupingError('')
@@ -1005,6 +1006,7 @@ const handleEditGrade = (student) => {
           <Tab label="Bảng điểm danh" />
           <Tab label="Bảng điểm số" />
           <Tab label="Tài liệu" />
+          <Tab label="Bài tập/Thi" />
           <Tab label="Bài nộp" />
           <Tab label="Nhóm" />
         </Tabs>
@@ -1040,7 +1042,7 @@ const handleEditGrade = (student) => {
                     {students.map((student, index) => {
                       const attendanceRate = calculateAttendanceRate(student)
                       const finalGrade = calculateFinalGrade(student)
-                      
+                      const fullName = (student.name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`).trim()
                       return (
                         <TableRow key={student.id}>
                           <TableCell>{index + 1}</TableCell>
@@ -1048,9 +1050,9 @@ const handleEditGrade = (student) => {
                           <TableCell>
                             <Box display="flex" alignItems="center" gap={1}>
                               <Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>
-                                {student.name.split(' ').pop().charAt(0)}
+                                {(fullName.split(' ').pop() || '').charAt(0)}
                               </Avatar>
-                              {student.name}
+                              {fullName}
                             </Box>
                           </TableCell>
                           <TableCell>{student.email}</TableCell>
@@ -1158,7 +1160,7 @@ const handleEditGrade = (student) => {
                       <TableRow key={student.id}>
                         <TableCell sx={{ position: 'sticky', left: 0, bgcolor: 'background.paper', zIndex: 1 }}>{index + 1}</TableCell>
                         <TableCell sx={{ position: 'sticky', left: 60, bgcolor: 'background.paper', zIndex: 1 }}>{student.student_id}</TableCell>
-                        <TableCell sx={{ position: 'sticky', left: 160, bgcolor: 'background.paper', zIndex: 1 }}>{student.name}</TableCell>
+                        <TableCell sx={{ position: 'sticky', left: 160, bgcolor: 'background.paper', zIndex: 1 }}>{(student.name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`).trim()}</TableCell>
                         {sessionsAsc.map(session => (
                           <TableCell key={session.id} align="center">
                             {student.attendance[session.id] ? (
@@ -1226,12 +1228,12 @@ const handleEditGrade = (student) => {
                         finalGrade >= 8.0 ? 'Giỏi' :
                         finalGrade >= 7.0 ? 'Khá' :
                         finalGrade >= 5.5 ? 'Trung bình' : 'Yếu'
-                      
+                      const fullName = (student.name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`).trim()
                       return (
                         <TableRow key={student.id}>
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{student.student_id}</TableCell>
-                          <TableCell>{student.name}</TableCell>
+                          <TableCell>{fullName}</TableCell>
                           <TableCell align="center">
                             <Typography variant="body2" fontWeight={600}>
                               {student.grades.regular}
@@ -1379,12 +1381,20 @@ const handleEditGrade = (student) => {
       </motion.div>
     )}
 
-    {/* Assignments inline section */}
-    <Box mt={3}>
-      <AssignmentsInline classId={classId} isTeacher={isTeacher} />
-    </Box>
+    {/* Assignments inline moved into its own tab */}
+    {tabValue === 4 && (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <Box mt={1}>
+          <AssignmentsInline classId={classId} isTeacher={isTeacher} />
+        </Box>
+      </motion.div>
+    )}
 
-      {tabValue === 4 && (
+      {tabValue === 5 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1548,7 +1558,7 @@ const handleEditGrade = (student) => {
       )}
 
       {/* Groups */}
-      {tabValue === 5 && (
+      {tabValue === 6 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

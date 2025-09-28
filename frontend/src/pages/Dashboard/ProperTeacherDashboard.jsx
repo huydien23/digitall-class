@@ -37,7 +37,6 @@ import {
   Visibility as VisibilityIcon,
   Add as AddIcon,
   Edit as EditIcon,
-  Upload as UploadIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material'
 import { useSelector, useDispatch } from 'react-redux'
@@ -45,7 +44,6 @@ import { motion } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import SessionManagement from '../../components/SessionManagement/SessionManagement'
-import ExcelDragDrop from '../../components/ExcelDragDrop/ExcelDragDrop'
 import ClassJoinTokenDialog from '../../components/Class/ClassJoinTokenDialog'
 import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
@@ -56,8 +54,6 @@ const ProperTeacherDashboard = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [excelUploadOpen, setExcelUploadOpen] = useState(false)
-  const [uploadType, setUploadType] = useState('students') // 'students', 'grades', 'attendance'
 const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
   const [joinTokenDialogOpen, setJoinTokenDialogOpen] = useState(false)
   const [teacherData, setTeacherData] = useState({
@@ -190,29 +186,6 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
     }
   }
 
-  const handleExcelUpload = (uploadType) => {
-    setUploadType(uploadType)
-    setExcelUploadOpen(true)
-  }
-
-  const handleUploadSuccess = (result) => {
-    console.log('Upload successful:', result)
-    // Refresh data after successful upload
-    loadTeacherData()
-  }
-
-  const getUploadEndpoint = () => {
-    switch (uploadType) {
-      case 'students':
-        return '/api/students/import-excel/'
-      case 'grades':
-        return '/api/grades/import-excel/'
-      case 'attendance':
-        return '/api/attendance/import-excel/'
-      default:
-        return '/api/students/import-excel/'
-    }
-  }
 
   const handleSessionCreated = () => {
     console.log('Session created successfully')
@@ -496,7 +469,11 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   variant="contained"
                   fullWidth
                   startIcon={<AssignmentIcon />}
-                  onClick={() => { setUploadType('grades'); setExcelUploadOpen(true) }}
+                  onClick={() => {
+                    const firstId = teacherData.assignedClasses?.[0]?.id
+                    if (firstId) navigate(`/classes/${firstId}/assignments`)
+                    else navigate('/classes')
+                  }}
                   sx={{ py: 1.5 }}
                 >
                   Nhập điểm
@@ -517,64 +494,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
           </CardContent>
         </Card>
 
-        {/* Excel Upload Actions */}
-        <Card sx={{ mt: 3 }}>
-          <CardContent>
-            <Typography variant="h6" fontWeight={600} gutterBottom>
-              Import từ Excel
-            </Typography>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Tải file Excel để nhập dữ liệu hàng loạt
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<UploadIcon />}
-                  onClick={() => handleExcelUpload('students')}
-                  sx={{ py: 1.5 }}
-                >
-                  Import Sinh Viên
-                </Button>
-              </Grid>
-              <Grid item xs={12} sm={6} md={4}>
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<UploadIcon />}
-                  onClick={() => handleExcelUpload('grades')}
-                  sx={{ py: 1.5 }}
-                >
-                  Import Điểm Số
-                </Button>
-              </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        startIcon={<UploadIcon />}
-                        onClick={() => handleExcelUpload('attendance')}
-                        sx={{ py: 1.5 }}
-                      >
-                        Import Điểm Danh
-                      </Button>
-                    </Grid>
-                    <Grid item xs={12} sm={6} md={4}>
-                      <Button
-                        variant="contained"
-                        fullWidth
-                        startIcon={<UploadIcon />}
-                        onClick={() => handleExcelUpload('students')}
-                        sx={{ py: 1.5 }}
-                      >
-                        Kéo Thả Excel
-                      </Button>
-                    </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
+        {/* Import từ Excel đã ẩn cho giao diện gọn hơn */}
         {/* Session Management Dialog */}
         <SessionManagement
           open={sessionManagementOpen}
@@ -583,13 +503,6 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
           onSessionUpdated={handleSessionUpdated}
         />
 
-        {/* Excel Drag Drop Dialog */}
-        <ExcelDragDrop
-          open={excelUploadOpen}
-          onClose={() => setExcelUploadOpen(false)}
-          onImportSuccess={handleUploadSuccess}
-          maxFileSize={5 * 1024 * 1024} // 5MB
-        />
 
         <ClassJoinTokenDialog
           open={joinTokenDialogOpen}

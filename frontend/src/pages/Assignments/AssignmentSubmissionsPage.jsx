@@ -8,6 +8,14 @@ import { ArrowBack as BackIcon, Save as SaveIcon, Download as DownloadIcon } fro
 import dayjs from 'dayjs'
 import assignmentService from '../../services/assignmentService'
 
+const statusLabelVi = (s) => ({
+  draft: 'Đang làm',
+  submitted: 'Đã nộp',
+  late: 'Nộp trễ',
+  graded: 'Đã chấm',
+  auto_closed: 'Đã khóa',
+}[s] || s || '')
+
 const AssignmentSubmissionsPage = () => {
   const { classId, assignmentId } = useParams()
   const navigate = useNavigate()
@@ -92,7 +100,7 @@ const AssignmentSubmissionsPage = () => {
                     {row.file ? <Button size="small" href={row.file} startIcon={<DownloadIcon />}>Tải</Button> : '-'}
                   </TableCell>
                   <TableCell>
-                    <Chip size="small" color={row.status === 'graded' ? 'success' : (row.status === 'submitted' ? 'info' : 'default')} label={row.status} />
+                    <Chip size="small" color={row.status === 'graded' ? 'success' : (row.status === 'submitted' ? 'info' : 'default')} label={statusLabelVi(row.status)} />
                     {row.is_late && <Chip size="small" color="error" label="Trễ" sx={{ ml: 1 }} />}
                   </TableCell>
                   <TableCell>

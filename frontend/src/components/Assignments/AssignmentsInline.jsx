@@ -5,6 +5,14 @@ import dayjs from 'dayjs'
 import assignmentService from '../../services/assignmentService'
 import { useNavigate } from 'react-router-dom'
 
+const statusLabelVi = (s) => ({
+  draft: 'Đang làm',
+  submitted: 'Đã nộp',
+  late: 'Nộp trễ',
+  graded: 'Đã chấm',
+  auto_closed: 'Đã khóa',
+}[s] || s || '')
+
 const fmtRemain = (target, now) => {
   if (!target) return ''
   const ms = target.diff(now)
@@ -120,7 +128,7 @@ const StudentItem = ({ a, onChanged }) => {
         <DialogContent>
           <Stack spacing={1} sx={{ mt: 1 }}>
             <Typography variant="body2">Loại: {a.type === 'exam' ? 'Bài thi' : 'Bài tập'}</Typography>
-            <Typography variant="body2">Trạng thái: {subm ? subm.status : 'Chưa nộp'}</Typography>
+            <Typography variant="body2">Trạng thái: {subm ? statusLabelVi(subm.status) : 'Chưa nộp'}</Typography>
             <Typography variant="body2">Nộp lúc: {subm?.uploaded_at ? dayjs(subm.uploaded_at).format('DD/MM/YYYY HH:mm') : '-'}</Typography>
             <Typography variant="body2">Điểm: {(subm && subm.grade !== null && subm.grade !== undefined) ? `${subm.grade}/10` : 'Chưa chấm'}</Typography>
             {subm?.feedback && (<Typography variant="body2">Nhận xét: {subm.feedback}</Typography>)}

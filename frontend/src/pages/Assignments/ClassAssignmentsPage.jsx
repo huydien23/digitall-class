@@ -10,6 +10,14 @@ import { Add as AddIcon, CloudUpload as UploadIcon, Delete as DeleteIcon, Downlo
 import dayjs from 'dayjs'
 import assignmentService from '../../services/assignmentService'
 
+const statusLabelVi = (s) => ({
+  draft: 'Đang làm',
+  submitted: 'Đã nộp',
+  late: 'Nộp trễ',
+  graded: 'Đã chấm',
+  auto_closed: 'Đã khóa',
+}[s] || s || '')
+
 const StatusChip = ({ assignment }) => {
   const now = dayjs()
   const open = (!assignment.release_at || now.isAfter(dayjs(assignment.release_at))) && (!assignment.due_at || now.isBefore(dayjs(assignment.due_at)))
@@ -170,7 +178,7 @@ const StudentRow = ({ a, onChanged }) => {
       {subm && (
         <>
           <Typography variant="caption" color={subm.is_late ? 'error' : 'text.secondary'} display="block" sx={{ mt: 1 }}>
-            Trạng thái: {subm.status} {subm.is_late ? '(trễ)' : ''} {subm.uploaded_at ? `• Nộp: ${dayjs(subm.uploaded_at).format('DD/MM HH:mm')}` : ''}
+            Trạng thái: {statusLabelVi(subm.status)} {subm.is_late ? '(trễ)' : ''} {subm.uploaded_at ? `• Nộp: ${dayjs(subm.uploaded_at).format('DD/MM HH:mm')}` : ''}
           </Typography>
           {(subm.grade !== null && subm.grade !== undefined) && (
             <Typography variant="caption" color={'text.secondary'} display="block">
@@ -186,7 +194,7 @@ const StudentRow = ({ a, onChanged }) => {
       <DialogContent>
         <Stack spacing={1} sx={{ mt: 1 }}>
           <Typography variant="body2">Loại: {a.type === 'exam' ? 'Bài thi' : 'Bài tập'}</Typography>
-          <Typography variant="body2">Trạng thái: {subm ? subm.status : 'Chưa nộp'}</Typography>
+          <Typography variant="body2">Trạng thái: {subm ? statusLabelVi(subm.status) : 'Chưa nộp'}</Typography>
           <Typography variant="body2">Nộp lúc: {subm?.uploaded_at ? dayjs(subm.uploaded_at).format('DD/MM/YYYY HH:mm') : '-'}</Typography>
           <Typography variant="body2">Điểm: {(subm && subm.grade !== null && subm.grade !== undefined) ? `${subm.grade}/10` : 'Chưa chấm'}</Typography>
           {subm?.feedback && (<Typography variant="body2">Nhận xét: {subm.feedback}</Typography>)}
