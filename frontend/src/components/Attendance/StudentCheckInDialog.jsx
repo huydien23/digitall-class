@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from 'react'
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Box, Tabs, Tab, TextField, Alert, CircularProgress,
-  Paper, Typography, IconButton
+  Paper, Typography, IconButton,
+  Link
 } from '@mui/material'
 import { 
+  Input as InputIcon,
+  Link as LinkIcon,
   Check as CheckIcon, 
   QrCode as QrIcon,
   CameraAlt as CameraIcon,
@@ -156,8 +159,8 @@ const StudentCheckInDialog = ({ open, onClose, studentCode, onSuccess }) => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)}>
             <Tab label="Quét QR" icon={<QrIcon />} iconPosition="start" />
-            <Tab label="Nhập mã" icon={<CheckIcon />} iconPosition="start" />
-            <Tab label="Dán link" icon={<CheckIcon />} iconPosition="start" />
+            <Tab label="Nhập mã" icon={<InputIcon />} iconPosition="start" />
+            <Tab label="Dán link" icon={<LinkIcon />} iconPosition="start" />
           </Tabs>
         </Box>
 
