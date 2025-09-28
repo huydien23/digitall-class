@@ -26,6 +26,7 @@ import RoleAwareClassDetail from './components/Class/RoleAwareClassDetail'
 import Grades from './pages/Grades/Grades'
 import Attendance from './pages/Attendance/Attendance'
 import StudentCheckInPage from './pages/Attendance/StudentCheckInPage'
+import JoinClassPage from './pages/Classes/JoinClassPage'
 import Schedule from './pages/Schedule/Schedule'
 import Teachers from './pages/Teachers/Teachers'
 import ScheduleManagement from './pages/ScheduleManagement/ScheduleManagement'
@@ -164,6 +165,14 @@ const App = () => {
             <ProtectedRoute>
               <Layout>
                 <StudentCheckInPage />
+              </Layout>
+            </ProtectedRoute>
+          } />
+
+          <Route path="/join-class" element={
+            <ProtectedRoute>
+              <Layout>
+                <JoinClassPage />
               </Layout>
             </ProtectedRoute>
           } />

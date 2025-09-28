@@ -25,54 +25,67 @@ import {
   WhatsApp as WhatsAppIcon,
   Email as EmailIcon,
   Print as PrintIcon,
+  Refresh as RefreshIcon,
   Close as CloseIcon
 } from '@mui/icons-material'
 import QRCode from 'qrcode'
+import classService from '../../services/classService'
 
 const ClassJoinQRCode = ({ open, onClose, classData }) => {
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [joinLink, setJoinLink] = useState('')
+  const [joinToken, setJoinToken] = useState('')
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' })
   const canvasRef = useRef(null)
+  const [expires, setExpires] = useState(120) // phút
+  const [expiresAt, setExpiresAt] = useState('')
+  const [loading, setLoading] = useState(false)
 
   React.useEffect(() => {
-    if (open && classData) {
+    if (open && classData?.id) {
       generateQRCode()
     }
-  }, [open, classData])
+  }, [open, classData?.id])
 
   const generateQRCode = async () => {
     try {
-      // Tạo link tham gia lớp
+      setLoading(true)
+      // Gọi backend để tạo token hợp lệ
+      const res = await classService.createJoinToken(classData.id, {
+        expires_in_minutes: Number(expires) || 0,
+        max_uses: 0,
+      })
+      const token = res?.data?.token
+      if (!token) throw new Error('Không lấy được token')
+      setJoinToken(token)
+      setExpiresAt(res?.data?.expires_at || '')
+
+      // Tạo link tham gia thân thiện cho người dùng (đi qua trang join-class của FE)
       const baseUrl = window.location.origin
-      const link = `${baseUrl}/join/${classData.class_id}?token=${generateJoinToken()}`
+      const link = `${baseUrl}/join-class?token=${encodeURIComponent(token)}`
       setJoinLink(link)
 
-      // Tạo QR Code
+      // Tạo QR Code từ link
       const qrDataUrl = await QRCode.toDataURL(link, {
         width: 300,
         height: 300,
         color: {
-          dark: '#1976D2',  // Màu xanh Material-UI
+          dark: '#1976D2',
           light: '#FFFFFF'
         },
         errorCorrectionLevel: 'M'
       })
-      
       setQrCodeUrl(qrDataUrl)
     } catch (error) {
       console.error('Error generating QR code:', error)
       setSnackbar({
         open: true,
-        message: 'Lỗi tạo mã QR',
+        message: 'Lỗi tạo mã QR tham gia lớp',
         severity: 'error'
       })
+    } finally {
+      setLoading(false)
     }
-  }
-
-  const generateJoinToken = () => {
-    // Tạo token đơn giản cho demo - trong thực tế nên dùng JWT
-    return btoa(`${classData.class_id}_${Date.now()}`).replace(/[+=]/g, '').substring(0, 12)
   }
 
   const handleCopyLink = () => {
@@ -84,6 +97,12 @@ const ClassJoinQRCode = ({ open, onClose, classData }) => {
     })
   }
 
+  const handleCopyToken = () => {
+    if (!joinToken) return
+    navigator.clipboard.writeText(joinToken)
+    setSnackbar({ open: true, message: 'Đã copy mã tham gia!', severity: 'success' })
+  }
+
   const handleShareWhatsApp = () => {
     const message = `🎓 Tham gia lớp học: ${classData.class_name}\n\n📚 Mô tả: ${classData.description}\n\n🔗 Link tham gia: ${joinLink}\n\n👨‍🏫 Giảng viên: ${classData.teacher_name}`
     const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`
@@ -92,7 +111,7 @@ const ClassJoinQRCode = ({ open, onClose, classData }) => {
 
   const handleShareEmail = () => {
     const subject = `Mời tham gia lớp học: ${classData.class_name}`
-    const body = `Xin chào,\n\nBạn được mời tham gia lớp học:\n\n📚 Lớp: ${classData.class_name}\n📝 Mô tả: ${classData.description}\n👨‍🏫 Giảng viên: ${classData.teacher_name}\n\n🔗 Link tham gia: ${joinLink}\n\nHoặc quét mã QR để tham gia nhanh chóng.\n\nTrân trọng!`
+    const body = `Xin chào,\n\nBạn được mời tham gia lớp học:\n\n📚 Lớp: ${classData.class_name}\n📝 Mô tả: ${classData.description || ''}\n👨‍🏫 Giảng viên: ${classData.teacher_name || ''}\n\n🔗 Link tham gia: ${joinLink}\n\nHoặc quét mã QR để tham gia nhanh chóng.\n\nTrân trọng!`
     const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
     window.location.href = mailtoUrl
   }
@@ -180,6 +199,24 @@ const ClassJoinQRCode = ({ open, onClose, classData }) => {
             </Typography>
           </Paper>
 
+          {/* Controls: set expiry */}
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} mb={2}>
+            <TextField
+              type="number"
+              size="small"
+              label="Hết hạn (phút)"
+              value={expires}
+              onChange={(e) => setExpires(e.target.value)}
+              sx={{ width: { xs: '100%', sm: 180 } }}
+            />
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={generateQRCode} disabled={loading}>
+              {loading ? 'Đang tạo...' : 'Tạo/Đổi mã'}
+            </Button>
+            {expiresAt && (
+              <Chip size="small" label={`Hết hạn: ${new Date(expiresAt).toLocaleString('vi-VN')}`} />
+            )}
+          </Stack>
+
           {/* QR Code */}
           <Box display="flex" flexDirection="column" alignItems="center" mb={3}>
             {qrCodeUrl && (
@@ -207,7 +244,7 @@ const ClassJoinQRCode = ({ open, onClose, classData }) => {
           <Divider sx={{ my: 2 }} />
 
           {/* Join Link */}
-          <Box mb={3}>
+          <Box mb={2}>
             <Typography variant="subtitle2" gutterBottom>
               Link tham gia lớp:
             </Typography>
@@ -224,6 +261,27 @@ const ClassJoinQRCode = ({ open, onClose, classData }) => {
               />
               <Tooltip title="Copy link">
                 <IconButton onClick={handleCopyLink} color="primary">
+                  <CopyIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+
+          {/* Join Token */}
+          <Box mb={3}>
+            <Typography variant="subtitle2" gutterBottom>
+              Mã tham gia (token):
+            </Typography>
+            <Box display="flex" gap={1}>
+              <TextField
+                fullWidth
+                value={joinToken}
+                variant="outlined"
+                size="small"
+                InputProps={{ readOnly: true, sx: { fontFamily: 'monospace' } }}
+              />
+              <Tooltip title="Copy token">
+                <IconButton onClick={handleCopyToken} color="primary">
                   <CopyIcon />
                 </IconButton>
               </Tooltip>
