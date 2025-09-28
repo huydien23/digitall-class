@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'first_name', 'last_name', 'full_name',
             'role', 'account_status', 'phone', 'avatar', 
-            'student_id', 'department', 'is_active', 
+            'student_id', 'teacher_id', 'department', 'is_active', 
             'created_at', 'updated_at', 'last_login_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'last_login_at']
@@ -26,9 +26,47 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name', 'full_name',
-            'phone', 'avatar', 'student_id', 'department'
+            'phone', 'avatar', 'student_id', 'teacher_id', 'department'
         ]
         read_only_fields = ['id', 'email']
+
+    def validate_first_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Tên không được để trống.")
+        return value.strip()
+
+    def validate_last_name(self, value):
+        if not value or not value.strip():
+            raise serializers.ValidationError("Họ không được để trống.")
+        return value.strip()
+
+    def validate_student_id(self, value):
+        if value and User.objects.filter(student_id=value).exclude(id=self.instance.id).exists():
+            raise serializers.ValidationError("Mã sinh viên này đã tồn tại.")
+        return value
+    
+    def validate_teacher_id(self, value):
+        if value and User.objects.filter(teacher_id=value).exclude(id=self.instance.id).exists():
+            raise serializers.ValidationError("Mã giảng viên này đã tồn tại.")
+        return value
+
+
+class AvatarUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['avatar']
+    
+    def validate_avatar(self, value):
+        if value:
+            # Check file size (max 5MB)
+            if value.size > 5 * 1024 * 1024:
+                raise serializers.ValidationError("Kích thước file không được vượt quá 5MB.")
+            
+            # Check file type
+            if not value.content_type.startswith('image/'):
+                raise serializers.ValidationError("Chỉ cho phép upload file hình ảnh.")
+        
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):

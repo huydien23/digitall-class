@@ -9,6 +9,7 @@ from .models import User
 from .serializers import (
     UserSerializer, 
     UserProfileSerializer,
+    AvatarUploadSerializer,
     RegisterSerializer, 
     LoginSerializer, 
     ChangePasswordSerializer,
@@ -204,6 +205,51 @@ class ChangePasswordView(APIView):
         return Response({
             'message': 'Đổi mật khẩu thành công!'
         }, status=status.HTTP_200_OK)
+
+
+class AvatarUploadView(APIView):
+    """Avatar Upload API"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        serializer = AvatarUploadSerializer(
+            request.user,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        
+        # Delete old avatar if exists
+        if request.user.avatar:
+            try:
+                request.user.avatar.delete(save=False)
+            except:
+                pass
+        
+        user = serializer.save()
+        
+        return Response({
+            'message': 'Cập nhật ảnh đại diện thành công!',
+            'user': UserSerializer(user).data,
+            'avatar_url': user.avatar.url if user.avatar else None
+        }, status=status.HTTP_200_OK)
+    
+    def delete(self, request):
+        """Delete avatar"""
+        if request.user.avatar:
+            try:
+                request.user.avatar.delete(save=True)
+                return Response({
+                    'message': 'Xóa ảnh đại diện thành công!'
+                }, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({
+                    'message': 'Lỗi khi xóa ảnh đại diện.'
+                }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        else:
+            return Response({
+                'message': 'Không có ảnh đại diện để xóa.'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])

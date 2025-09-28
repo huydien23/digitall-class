@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from "react";
 import {
   Box,
   AppBar,
@@ -21,7 +21,8 @@ import {
   alpha,
   Chip,
   Tooltip,
-} from '@mui/material'
+} from "@mui/material";
+import { getAvatarSrc, getUserInitials } from "../../utils/avatarUtils";
 import {
   Menu as MenuIcon,
   AccountCircle,
@@ -39,169 +40,179 @@ import {
   BarChart,
   Person as PersonIcon,
   Room as RoomIcon,
-} from '@mui/icons-material'
-import { useNavigate, useLocation } from 'react-router-dom'
-import { useDispatch, useSelector } from 'react-redux'
-import { logout } from '../../store/slices/authSlice'
-import { motion, AnimatePresence } from 'framer-motion'
+} from "@mui/icons-material";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { logout } from "../../store/slices/authSlice";
+import { motion, AnimatePresence } from "framer-motion";
 
-const drawerWidth = 280
+const drawerWidth = 280;
 
 // Navigation items based on user role
 const getNavigationItems = (userRole) => {
   const baseItems = [
-    { 
-      text: 'Trang chủ', 
-      icon: <Home />, 
-      path: '/home'
+    {
+      text: "Trang chủ",
+      icon: <Home />,
+      path: "/home",
     },
-    { 
-      text: 'Tổng quan', 
-      icon: <Dashboard />, 
-      path: '/dashboard'
+    {
+      text: "Tổng quan",
+      icon: <Dashboard />,
+      path: "/dashboard",
     },
-  ]
+  ];
 
   // Role-specific items
-  if (userRole === 'admin') {
+  if (userRole === "admin") {
     return [
       ...baseItems,
-      { 
-        text: 'Quản lý sinh viên', 
-        icon: <People />, 
-        path: '/students'
+      {
+        text: "Quản lý sinh viên",
+        icon: <People />,
+        path: "/students",
       },
-      { 
-        text: 'Quản lý giảng viên', 
-        icon: <PersonIcon />, 
-        path: '/teachers'
+      {
+        text: "Quản lý giảng viên",
+        icon: <PersonIcon />,
+        path: "/teachers",
       },
-      { 
-        text: 'Quản lý lớp học', 
-        icon: <School />, 
-        path: '/classes'
+      {
+        text: "Quản lý lớp học",
+        icon: <School />,
+        path: "/classes",
       },
-      { 
-        text: 'Quản lý điểm số', 
-        icon: <Assessment />, 
-        path: '/grades'
+      {
+        text: "Quản lý điểm số",
+        icon: <Assessment />,
+        path: "/grades",
       },
-      { 
-        text: 'Quản lý điểm danh', 
-        icon: <Assignment />, 
-        path: '/attendance'
+      {
+        text: "Quản lý điểm danh",
+        icon: <Assignment />,
+        path: "/attendance",
       },
-      { 
-        text: 'Quản lý thời khóa biểu', 
-        icon: <Schedule />, 
-        path: '/schedule-management'
+      {
+        text: "Quản lý thời khóa biểu",
+        icon: <Schedule />,
+        path: "/schedule-management",
       },
-      { 
-        text: 'Quản lý phòng học', 
-        icon: <RoomIcon />, 
-        path: '/rooms'
+      {
+        text: "Quản lý phòng học",
+        icon: <RoomIcon />,
+        path: "/rooms",
       },
-      { 
-        text: 'Báo cáo hệ thống', 
-        icon: <BarChart />, 
-        path: '/reports'
+      {
+        text: "Báo cáo hệ thống",
+        icon: <BarChart />,
+        path: "/reports",
       },
-    ]
+    ];
   }
 
-  if (userRole === 'teacher') {
+  if (userRole === "teacher") {
     // Teacher-first mode: tập trung vào quản lý lớp; ẩn các trang quản trị tổng hợp
     return [
       ...baseItems,
-      { 
-        text: 'Lớp của tôi', 
-        icon: <School />, 
-        path: '/classes'
+      {
+        text: "Lớp của tôi",
+        icon: <School />,
+        path: "/classes",
+      },
+      {
+        text: "Cài đặt",
+        icon: <Settings />,
+        path: "/settings",
       },
       // Điểm và điểm danh sẽ thao tác trong trang lớp/phiên học
-    ]
+    ];
   }
 
   // Default to student
   return [
     ...baseItems,
-    { 
-      text: 'Lớp học', 
-      icon: <School />, 
-      path: '/classes'
+    {
+      text: "Lớp học",
+      icon: <School />,
+      path: "/classes",
     },
-    { 
-      text: 'Điểm số', 
-      icon: <Assessment />, 
-      path: '/grades'
+    {
+      text: "Điểm số",
+      icon: <Assessment />,
+      path: "/grades",
     },
-    { 
-      text: 'Thời khóa biểu', 
-      icon: <Schedule />, 
-      path: '/schedule'
+    {
+      text: "Thời khóa biểu",
+      icon: <Schedule />,
+      path: "/schedule",
     },
-    { 
-      text: 'Điểm danh', 
-      icon: <Assignment />, 
-      path: '/attendance'
+    {
+      text: "Điểm danh",
+      icon: <Assignment />,
+      path: "/attendance",
     },
-  ]
-}
+    {
+      text: "Cài đặt",
+      icon: <Settings />,
+      path: "/settings",
+    },
+  ];
+};
 
 const Layout = ({ children }) => {
-  const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
-  const navigate = useNavigate()
-  const location = useLocation()
-  const dispatch = useDispatch()
-  const { user } = useSelector((state) => state.auth)
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useDispatch();
+  const { user } = useSelector((state) => state.auth);
 
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [anchorEl, setAnchorEl] = useState(null)
-  const [notifications] = useState(3) // Mock notifications
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [notifications] = useState(3); // Mock notifications
 
-  const navigationItems = getNavigationItems(user?.role)
+  const navigationItems = getNavigationItems(user?.role);
 
   const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen)
-  }
+    setMobileOpen(!mobileOpen);
+  };
 
   const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget)
-  }
+    setAnchorEl(event.currentTarget);
+  };
 
   const handleProfileMenuClose = () => {
-    setAnchorEl(null)
-  }
+    setAnchorEl(null);
+  };
 
   const handleLogout = () => {
-    dispatch(logout())
-    handleProfileMenuClose()
-    navigate('/login')
-  }
+    dispatch(logout());
+    handleProfileMenuClose();
+    navigate("/login");
+  };
 
   const handleNavigation = (path) => {
-    navigate(path)
+    navigate(path);
     if (isMobile) {
-      setMobileOpen(false)
+      setMobileOpen(false);
     }
-  }
+  };
 
   const drawer = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
       {/* Logo Section */}
-      <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ p: 3, borderBottom: "1px solid", borderColor: "divider" }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
           <Box
             sx={{
               width: 40,
               height: 40,
               borderRadius: 2,
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
+              bgcolor: "primary.main",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
             }}
           >
             <School />
@@ -219,16 +230,22 @@ const Layout = ({ children }) => {
 
       {/* User Info Section */}
       <Box sx={{ p: 2, bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Avatar sx={{ width: 40, height: 40 }}>
-            {user?.first_name?.[0]}{user?.last_name?.[0]}
+        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Avatar sx={{ width: 40, height: 40 }} src={getAvatarSrc(user)}>
+            {getUserInitials(user)}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" noWrap fontWeight={600}>
               {user?.first_name} {user?.last_name}
             </Typography>
-            <Chip 
-              label={user?.role === 'admin' ? 'Admin' : user?.role === 'teacher' ? 'Giảng viên' : 'Sinh viên'}
+            <Chip
+              label={
+                user?.role === "admin"
+                  ? "Admin"
+                  : user?.role === "teacher"
+                  ? "Giảng viên"
+                  : "Sinh viên"
+              }
               size="small"
               color="primary"
               variant="outlined"
@@ -238,7 +255,7 @@ const Layout = ({ children }) => {
       </Box>
 
       {/* Navigation Menu */}
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
+      <Box sx={{ flex: 1, overflow: "auto" }}>
         <List sx={{ px: 1, py: 2 }}>
           {navigationItems.map((item, index) => (
             <motion.div
@@ -254,22 +271,20 @@ const Layout = ({ children }) => {
                   sx={{
                     borderRadius: 2,
                     mx: 1,
-                    '&.Mui-selected': {
+                    "&.Mui-selected": {
                       bgcolor: alpha(theme.palette.primary.main, 0.12),
-                      '&:hover': {
+                      "&:hover": {
                         bgcolor: alpha(theme.palette.primary.main, 0.2),
                       },
                     },
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText 
+                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemText
                     primary={item.text}
                     primaryTypographyProps={{
-                      fontSize: '0.9rem',
-                      fontWeight: location.pathname === item.path ? 600 : 400
+                      fontSize: "0.9rem",
+                      fontWeight: location.pathname === item.path ? 600 : 400,
                     }}
                   />
                 </ListItemButton>
@@ -279,21 +294,27 @@ const Layout = ({ children }) => {
         </List>
       </Box>
     </Box>
-  )
+  );
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: "background.default",
+      }}
+    >
       {/* App Bar */}
       <AppBar
         position="fixed"
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
-          bgcolor: 'white',
-          color: 'text.primary',
-          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-          borderBottom: '1px solid',
-          borderColor: 'divider',
+          bgcolor: "white",
+          color: "text.primary",
+          boxShadow: "0 1px 3px 0 rgb(0 0 0 / 0.1)",
+          borderBottom: "1px solid",
+          borderColor: "divider",
         }}
       >
         <Toolbar>
@@ -302,16 +323,22 @@ const Layout = ({ children }) => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { md: 'none' } }}
+            sx={{ mr: 2, display: { md: "none" } }}
           >
             <MenuIcon />
           </IconButton>
-          
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
-            {navigationItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
+
+          <Typography
+            variant="h6"
+            noWrap
+            component="div"
+            sx={{ flexGrow: 1, fontWeight: 600 }}
+          >
+            {navigationItems.find((item) => item.path === location.pathname)
+              ?.text || "Dashboard"}
           </Typography>
-          
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             {/* Notifications */}
             <Tooltip title="Thông báo">
               <IconButton color="inherit">
@@ -320,26 +347,29 @@ const Layout = ({ children }) => {
                 </Badge>
               </IconButton>
             </Tooltip>
-            
+
             {/* Settings */}
             <Tooltip title="Cài đặt">
-              <IconButton color="inherit">
+              <IconButton
+                color="inherit"
+                onClick={() => handleNavigation("/settings")}
+              >
                 <Settings />
               </IconButton>
             </Tooltip>
-            
+
             {/* User greeting - hidden on mobile */}
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                mr: 2, 
-                display: { xs: 'none', sm: 'block' },
-                fontWeight: 500
+            <Typography
+              variant="body2"
+              sx={{
+                mr: 2,
+                display: { xs: "none", sm: "block" },
+                fontWeight: 500,
               }}
             >
               Xin chào, {user?.first_name}
             </Typography>
-            
+
             {/* Profile menu */}
             <Tooltip title="Tài khoản">
               <IconButton
@@ -351,29 +381,29 @@ const Layout = ({ children }) => {
                 onClick={handleProfileMenuOpen}
                 color="inherit"
                 sx={{
-                  border: '2px solid transparent',
-                  '&:hover': {
-                    border: '2px solid rgba(0, 0, 0, 0.1)',
-                  }
+                  border: "2px solid transparent",
+                  "&:hover": {
+                    border: "2px solid rgba(0, 0, 0, 0.1)",
+                  },
                 }}
               >
-                <Avatar sx={{ width: 36, height: 36 }}>
-                  {user?.first_name?.[0]}{user?.last_name?.[0]}
+                <Avatar sx={{ width: 36, height: 36 }} src={getAvatarSrc(user)}>
+                  {getUserInitials(user)}
                 </Avatar>
               </IconButton>
             </Tooltip>
-            
+
             <Menu
               id="primary-search-account-menu"
               anchorEl={anchorEl}
               anchorOrigin={{
-                vertical: 'bottom',
-                horizontal: 'right',
+                vertical: "bottom",
+                horizontal: "right",
               }}
               keepMounted
               transformOrigin={{
-                vertical: 'top',
-                horizontal: 'right',
+                vertical: "top",
+                horizontal: "right",
               }}
               open={Boolean(anchorEl)}
               onClose={handleProfileMenuClose}
@@ -383,7 +413,7 @@ const Layout = ({ children }) => {
                   mt: 1,
                   minWidth: 200,
                   borderRadius: 2,
-                  '& .MuiMenuItem-root': {
+                  "& .MuiMenuItem-root": {
                     px: 2,
                     py: 1.5,
                   },
@@ -391,7 +421,14 @@ const Layout = ({ children }) => {
               }}
             >
               {/* User info header */}
-              <Box sx={{ px: 2, py: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Box
+                sx={{
+                  px: 2,
+                  py: 2,
+                  borderBottom: "1px solid",
+                  borderColor: "divider",
+                }}
+              >
                 <Typography variant="subtitle2" fontWeight={600}>
                   {user?.first_name} {user?.last_name}
                 </Typography>
@@ -399,26 +436,36 @@ const Layout = ({ children }) => {
                   {user?.email}
                 </Typography>
               </Box>
-              
-              <MenuItem onClick={() => { handleNavigation('/profile'); handleProfileMenuClose(); }}>
+
+              <MenuItem
+                onClick={() => {
+                  handleNavigation("/profile");
+                  handleProfileMenuClose();
+                }}
+              >
                 <ListItemIcon>
                   <AccountCircle fontSize="small" />
                 </ListItemIcon>
                 <ListItemText>Hồ sơ cá nhân</ListItemText>
               </MenuItem>
-              
-              <MenuItem onClick={() => { handleNavigation('/settings'); handleProfileMenuClose(); }}>
+
+              <MenuItem
+                onClick={() => {
+                  handleNavigation("/settings");
+                  handleProfileMenuClose();
+                }}
+              >
                 <ListItemIcon>
                   <Settings fontSize="small" />
                 </ListItemIcon>
                 <ListItemText>Cài đặt</ListItemText>
               </MenuItem>
-              
+
               <Divider />
-              
-              <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+
+              <MenuItem onClick={handleLogout} sx={{ color: "error.main" }}>
                 <ListItemIcon>
-                  <Logout fontSize="small" sx={{ color: 'error.main' }} />
+                  <Logout fontSize="small" sx={{ color: "error.main" }} />
                 </ListItemIcon>
                 <ListItemText>Đăng xuất</ListItemText>
               </MenuItem>
@@ -441,11 +488,11 @@ const Layout = ({ children }) => {
             keepMounted: true,
           }}
           sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
+            display: { xs: "block", md: "none" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
               width: drawerWidth,
-              border: 'none',
+              border: "none",
             },
           }}
         >
@@ -454,13 +501,13 @@ const Layout = ({ children }) => {
         <Drawer
           variant="permanent"
           sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': { 
-              boxSizing: 'border-box', 
+            display: { xs: "none", md: "block" },
+            "& .MuiDrawer-paper": {
+              boxSizing: "border-box",
               width: drawerWidth,
-              borderRight: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper',
+              borderRight: "1px solid",
+              borderColor: "divider",
+              bgcolor: "background.paper",
             },
           }}
           open
@@ -475,8 +522,8 @@ const Layout = ({ children }) => {
         sx={{
           flexGrow: 1,
           width: { md: `calc(100% - ${drawerWidth}px)` },
-          minHeight: '100vh',
-          bgcolor: 'background.default',
+          minHeight: "100vh",
+          bgcolor: "background.default",
         }}
       >
         <Toolbar />
@@ -495,7 +542,7 @@ const Layout = ({ children }) => {
         </Box>
       </Box>
     </Box>
-  )
-}
+  );
+};
 
-export default Layout
+export default Layout;
