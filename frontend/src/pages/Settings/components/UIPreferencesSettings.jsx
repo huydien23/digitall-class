@@ -48,12 +48,14 @@ import { useSelector, useDispatch } from 'react-redux'
 import { updateSetting, saveSettings } from '../../../store/slices/teacherSettingsSlice'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTheme } from '../../../contexts/ThemeContext'
+import { useTranslation } from 'react-i18next'
 
 const UIPreferencesSettings = () => {
   const dispatch = useDispatch()
   const { settings, hasChanges } = useSelector(state => state.teacherSettings)
   const uiSettings = settings?.ui || {}
   const theme = useTheme()
+  const { t, i18n } = useTranslation()
   
   // Local state
   const [showSuccessMsg, setShowSuccessMsg] = useState(false)
@@ -120,6 +122,7 @@ const UIPreferencesSettings = () => {
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('lang', lang)
     }
+    if (i18n && i18n.changeLanguage) i18n.changeLanguage(lang)
     setShowSuccessMsg(true)
     setTimeout(() => setShowSuccessMsg(false), 1500)
   }
@@ -142,11 +145,11 @@ const UIPreferencesSettings = () => {
   
   // Dashboard widgets
   const dashboardWidgets = [
-    { key: 'todaySessions', label: 'Phiên học hôm nay', icon: <Dashboard /> },
-    { key: 'myClasses', label: 'Lớp của tôi', icon: <Dashboard /> },
-    { key: 'attendanceStats', label: 'Thống kê điểm danh', icon: <Dashboard /> },
-    { key: 'recentActivities', label: 'Hoạt động gần đây', icon: <Dashboard /> },
-    { key: 'quickActions', label: 'Thao tác nhanh', icon: <Dashboard /> }
+    { key: 'attendance_today', label: t('settings:widgets.attendance_today'), icon: <Dashboard /> },
+    { key: 'class_schedule', label: t('settings:widgets.class_schedule'), icon: <Dashboard /> },
+    { key: 'weekly_report', label: t('settings:widgets.weekly_report'), icon: <Dashboard /> },
+    { key: 'recent_activities', label: t('settings:widgets.recent_activities'), icon: <Dashboard /> },
+    { key: 'notifications', label: t('settings:widgets.notifications'), icon: <Dashboard /> }
   ]
 
   return (
@@ -158,13 +161,13 @@ const UIPreferencesSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Palette sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Chủ đề giao diện
+                {t('teacher_settings')} - {t('settings:tabs.interface')}
               </Typography>
               
               {/* Theme Mode */}
               <Box mb={3}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Chế độ giao diện
+                  {t('settings:tabs.interface')}
                 </Typography>
                 <RadioGroup
                   value={uiSettings.theme?.mode || 'light'}
@@ -177,7 +180,7 @@ const UIPreferencesSettings = () => {
                       label={
                         <Box display="flex" alignItems="center" gap={1}>
                           <LightMode />
-                          <span>Sáng</span>
+                          <span>{t('light')}</span>
                         </Box>
                       }
                     />
@@ -189,7 +192,7 @@ const UIPreferencesSettings = () => {
                       label={
                         <Box display="flex" alignItems="center" gap={1}>
                           <DarkMode />
-                          <span>Tối</span>
+                          <span>{t('dark')}</span>
                         </Box>
                       }
                     />
@@ -198,7 +201,7 @@ const UIPreferencesSettings = () => {
                     <FormControlLabel
                       value="auto"
                       control={<Radio />}
-                      label="Tự động (theo hệ thống)"
+                      label={t('auto')}
                     />
                   </motion.div>
                 </RadioGroup>
@@ -209,7 +212,7 @@ const UIPreferencesSettings = () => {
               {/* Primary Color */}
               <Box mb={3}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Màu chủ đạo
+                  {t('primary_color')}
                 </Typography>
                 <Box display="flex" gap={1} flexWrap="wrap">
                   {themeColors.map((color) => (
@@ -251,7 +254,7 @@ const UIPreferencesSettings = () => {
               {/* Font Size */}
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Kích thước chữ
+                  {t('font_size')}
                 </Typography>
                 <Box display="flex" alignItems="center" gap={2}>
                   <FormatSize fontSize="small" />
@@ -268,9 +271,9 @@ const UIPreferencesSettings = () => {
                     max={2}
                     step={1}
                     marks={[
-                      { value: 0, label: 'Nhỏ' },
-                      { value: 1, label: 'Vừa' },
-                      { value: 2, label: 'Lớn' }
+                      { value: 0, label: t('small') },
+                      { value: 1, label: t('medium') },
+                      { value: 2, label: t('large') }
                     ]}
                     sx={{ flex: 1 }}
                   />
@@ -287,13 +290,13 @@ const UIPreferencesSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <ViewCompact sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Bố cục giao diện
+                {t('density')}
               </Typography>
               
               {/* Density */}
               <Box mb={3}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Mật độ hiển thị
+                  {t('density')}
                 </Typography>
                 <RadioGroup
                   value={uiSettings.theme?.density || 'comfortable'}
@@ -304,9 +307,9 @@ const UIPreferencesSettings = () => {
                     control={<Radio />}
                     label={
                       <Box>
-                        <Typography variant="body2">Thoải mái</Typography>
+<Typography variant="body2">{t('comfortable')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Khoảng cách lớn, dễ đọc
+                          {t('comfortable_desc')}
                         </Typography>
                       </Box>
                     }
@@ -316,9 +319,9 @@ const UIPreferencesSettings = () => {
                     control={<Radio />}
                     label={
                       <Box>
-                        <Typography variant="body2">Compact</Typography>
+<Typography variant="body2">{t('compact')}</Typography>
                         <Typography variant="caption" color="text.secondary">
-                          Hiển thị nhiều thông tin hơn
+                          {t('compact_desc')}
                         </Typography>
                       </Box>
                     }
@@ -331,13 +334,13 @@ const UIPreferencesSettings = () => {
               {/* Sidebar Settings */}
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Thanh bên (Sidebar)
+                  {t('sidebar')}
                 </Typography>
                 <List>
                   <ListItem>
                     <ListItemText
-                      primary="Thu gọn mặc định"
-                      secondary="Sidebar sẽ thu gọn khi mở trang"
+                      primary={t('collapse_default')}
+                      secondary={t('collapse_default_desc')}
                     />
                     <ListItemSecondaryAction>
                       <Switch
@@ -348,8 +351,8 @@ const UIPreferencesSettings = () => {
                   </ListItem>
                   <ListItem>
                     <ListItemText
-                      primary="Hiển thị nhãn"
-                      secondary="Hiển thị tên bên cạnh icon"
+                      primary={t('show_labels')}
+                      secondary={t('show_labels_desc')}
                     />
                     <ListItemSecondaryAction>
                       <Switch
@@ -370,16 +373,16 @@ const UIPreferencesSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Dashboard sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Tùy chỉnh Dashboard
+                {t('dashboard_customization')}
               </Typography>
               
               {/* Widgets Toggle */}
               <Box mb={3}>
                 <Typography variant="subtitle2" gutterBottom>
-                  Hiển thị widget
+                  {t('show_widgets')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary" gutterBottom>
-                  Chọn các widget sẽ hiển thị trên Dashboard
+                  {t('widgets_desc')}
                 </Typography>
                 
                 <Grid container spacing={2} sx={{ mt: 1 }}>
@@ -420,17 +423,17 @@ const UIPreferencesSettings = () => {
               {/* Default Time Range */}
               <Box>
                 <Typography variant="subtitle2" gutterBottom>
-                  Phạm vi thời gian mặc định
+                  {t('default_time_range')}
                 </Typography>
                 <FormControl size="small" sx={{ minWidth: 200 }}>
                   <Select
                     value={uiSettings.dashboard?.defaultTimeRange || 'week'}
                     onChange={(e) => handleDashboardChange('defaultTimeRange', e.target.value)}
                   >
-                    <MenuItem value="today">Hôm nay</MenuItem>
-                    <MenuItem value="week">Tuần này</MenuItem>
-                    <MenuItem value="month">Tháng này</MenuItem>
-                    <MenuItem value="quarter">Quý này</MenuItem>
+                    <MenuItem value="today">{t('today')}</MenuItem>
+                    <MenuItem value="week">{t('week')}</MenuItem>
+                    <MenuItem value="month">{t('month')}</MenuItem>
+                    <MenuItem value="quarter">{t('quarter')}</MenuItem>
                   </Select>
                 </FormControl>
               </Box>
@@ -444,32 +447,24 @@ const UIPreferencesSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Language sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Ngôn ngữ
+                {t('language')}
               </Typography>
               
               <FormControl fullWidth size="small">
-                <InputLabel>Ngôn ngữ hiển thị</InputLabel>
+                <InputLabel>{t('language_display')}</InputLabel>
                 <Select
                   value={uiSettings.language || 'vi'}
-                  label="Ngôn ngữ hiển thị"
+                  label={t('language_display')}
                   onChange={(e) => handleLanguageChange(e.target.value)}
                 >
-                  <MenuItem value="vi">Tiếng Việt</MenuItem>
-                  <MenuItem value="en">English</MenuItem>
-                  <MenuItem value="fr">Français</MenuItem>
-                  <MenuItem value="de">Deutsch</MenuItem>
-                  <MenuItem value="es">Español</MenuItem>
-                  <MenuItem value="ja">日本語</MenuItem>
-                  <MenuItem value="ko">한국어</MenuItem>
-                  <MenuItem value="zh-CN">简体中文</MenuItem>
-                  <MenuItem value="th">ไทย</MenuItem>
-                  <MenuItem value="id">Bahasa Indonesia</MenuItem>
+                  <MenuItem value="vi">{t('vietnamese')}</MenuItem>
+                  <MenuItem value="en">{t('english')}</MenuItem>
                 </Select>
               </FormControl>
               
               <Alert severity="info" sx={{ mt: 2 }}>
                 <Typography variant="caption">
-                  Ngôn ngữ hiển thị sẽ được áp dụng dần (một số phần có thể chưa dịch hoàn toàn).
+                  {t('language_note')}
                 </Typography>
               </Alert>
             </CardContent>
@@ -482,7 +477,7 @@ const UIPreferencesSettings = () => {
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={3}>
                 <Visibility sx={{ verticalAlign: 'middle', mr: 1 }} />
-                Xem trước
+                {t('preview')}
               </Typography>
               
               <Paper
@@ -494,21 +489,21 @@ const UIPreferencesSettings = () => {
                 }}
               >
                 <Typography variant="subtitle1" gutterBottom>
-                  Giao diện {theme.mode === 'dark' ? 'tối' : 'sáng'}
+                  {t('interface')}: {theme.mode === 'dark' ? t('dark') : t('light')}
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  Đây là ví dụ về giao diện với các cài đặt hiện tại của bạn.
+                  {t('preview_desc')}
                 </Typography>
                 <Box display="flex" gap={1}>
-                  <Chip label="Chíp mẫu" color="primary" size="small" />
-                  <Chip label="Thành công" color="success" size="small" />
-                  <Chip label="Cảnh báo" color="warning" size="small" />
+                  <Chip label={t('sample_chip')} color="primary" size="small" />
+                  <Chip label={t('success')} color="success" size="small" />
+                  <Chip label={t('warning')} color="warning" size="small" />
                 </Box>
               </Paper>
               
               {showSuccessMsg && (
                 <Alert severity="success" sx={{ mt: 2 }}>
-                  Giao diện đã được cập nhật!
+                  {t('interface_updated')}
                 </Alert>
               )}
             </CardContent>
@@ -519,8 +514,7 @@ const UIPreferencesSettings = () => {
       {/* Info */}
       <Alert severity="info" sx={{ mt: 3 }} icon={<Info />}>
         <Typography variant="body2">
-          <strong>Lưu ý:</strong> Một số thay đổi giao diện sẽ được áp dụng ngay lập tức, 
-          một số khác cần tải lại trang để hiệu lực hoàn toàn.
+          <strong>{t('note')}:</strong> {t('note_theme')}
         </Typography>
       </Alert>
     </Box>

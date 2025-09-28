@@ -29,6 +29,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Helmet } from 'react-helmet-async'
+import { useTranslation } from 'react-i18next'
 
 // Import setting components
 import AccountSecuritySettings from './components/AccountSecuritySettings'
@@ -74,43 +75,44 @@ function TabPanel({ children, value, index, ...other }) {
   )
 }
 
-// Tab configuration
+// Tab configuration (use translation keys)
 const SETTINGS_TABS = [
   {
-    label: 'Tài khoản & Bảo mật',
+    labelKey: 'settings.tabs.account',
     icon: <SecurityIcon />,
     component: AccountSecuritySettings,
-    description: 'Quản lý thông tin cá nhân, mật khẩu và bảo mật'
+    descKey: 'settings.desc.account'
   },
   {
-    label: 'QR & Điểm danh',
+    labelKey: 'settings.tabs.qr',
     icon: <QrIcon />,
     component: QRAttendanceSettings,
-    description: 'Cài đặt chính sách QR Code và quy tắc điểm danh'
+    descKey: 'settings.desc.qr'
   },
   {
-    label: 'Thông báo',
+    labelKey: 'settings.tabs.notifications',
     icon: <NotificationsIcon />,
     component: NotificationSettings,
-    description: 'Quản lý thông báo và nhắc nhở tự động'
+    descKey: 'settings.desc.notifications'
   },
   {
-    label: 'Giao diện',
+    labelKey: 'settings.tabs.interface',
     icon: <ThemeIcon />,
     component: UIPreferencesSettings,
-    description: 'Tùy chỉnh giao diện và bảng điều khiển'
+    descKey: 'settings.desc.interface'
   },
   {
-    label: 'Dữ liệu & Báo cáo',
+    labelKey: 'settings.tabs.data',
     icon: <ReportsIcon />,
     component: DataReportsSettings,
-    description: 'Cấu hình xuất dữ liệu và báo cáo tự động'
+    descKey: 'settings.desc.data'
   }
 ]
 
 const TeacherSettings = () => {
   const dispatch = useDispatch()
   const navigate = useNavigate()
+  const { t } = useTranslation()
   const { user } = useSelector(state => state.auth)
   const {
     settings,
@@ -139,7 +141,7 @@ const TeacherSettings = () => {
     const handleBeforeUnload = (e) => {
       if (hasChanges) {
         e.preventDefault()
-        e.returnValue = 'Bạn có thay đổi chưa lưu. Bạn có chắc muốn rời khỏi trang?'
+        e.returnValue = t('unsaved_changes_warning')
       }
     }
 
@@ -156,13 +158,13 @@ const TeacherSettings = () => {
       await dispatch(saveSettings(settings)).unwrap()
       setSnackbar({
         open: true,
-        message: 'Cài đặt đã được lưu thành công!',
+        message: t('settings_saved'),
         severity: 'success'
       })
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Lỗi khi lưu cài đặt: ' + error.message,
+        message: t('error_saving') + ': ' + error.message,
         severity: 'error'
       })
     }
@@ -175,13 +177,13 @@ const TeacherSettings = () => {
       setShowResetConfirm(false)
       setSnackbar({
         open: true,
-        message: 'Đã khôi phục cài đặt mặc định!',
+        message: t('settings_restored'),
         severity: 'info'
       })
     } catch (error) {
       setSnackbar({
         open: true,
-        message: 'Lỗi khi khôi phục: ' + error.message,
+        message: t('error_restoring') + ': ' + error.message,
         severity: 'error'
       })
     }
@@ -204,7 +206,7 @@ const TeacherSettings = () => {
   return (
     <>
       <Helmet>
-        <title>Cài đặt - Digital Classroom</title>
+        <title>{t('settings')} - Digital Classroom</title>
       </Helmet>
 
       <Box>
@@ -213,21 +215,21 @@ const TeacherSettings = () => {
           <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
             <Box>
               <Typography variant="h4" fontWeight={700} gutterBottom>
-                Cài đặt
+                {t('settings')}
               </Typography>
               <Typography variant="body1" color="text.secondary">
-                Quản lý cài đặt tài khoản và tùy chỉnh hệ thống
+                {t(SETTINGS_TABS[activeTab].descKey)}
               </Typography>
             </Box>
             <Box display="flex" gap={2} alignItems="center">
               {lastSaved && (
                 <Typography variant="caption" color="text.secondary">
-                  Lưu lần cuối: {new Date(lastSaved).toLocaleString('vi-VN')}
+                  {t('last_saved')}: {new Date(lastSaved).toLocaleString()}
                 </Typography>
               )}
               {hasChanges && (
                 <Chip 
-                  label="Có thay đổi chưa lưu" 
+                  label={t('has_unsaved_changes')} 
                   color="warning" 
                   size="small"
                   icon={<InfoIcon />}
@@ -254,7 +256,7 @@ const TeacherSettings = () => {
                   label={
                     <Box display="flex" alignItems="center" gap={1}>
                       {tab.icon}
-                      <span>{tab.label}</span>
+                      <span>{t(`settings:${tab.labelKey}`)}</span>
                       {index === 0 && hasChanges && (
                         <Badge variant="dot" color="warning" />
                       )}
@@ -270,7 +272,7 @@ const TeacherSettings = () => {
           {/* Tab Description */}
           <Box sx={{ px: 3, py: 2, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="body2" color="text.secondary">
-              {SETTINGS_TABS[activeTab].description}
+{t(`settings:${SETTINGS_TABS[activeTab].descKey}`)}
             </Typography>
           </Box>
 
@@ -291,8 +293,8 @@ const TeacherSettings = () => {
               startIcon={<ResetIcon />}
               onClick={() => setShowResetConfirm(true)}
               disabled={isLoading}
-            >
-              Khôi phục mặc định
+>
+              {t('restore')}
             </Button>
             <Box display="flex" gap={2}>
               <Button
@@ -300,7 +302,7 @@ const TeacherSettings = () => {
                 onClick={() => dispatch(clearChanges())}
                 disabled={!hasChanges || isLoading}
               >
-                Hủy thay đổi
+                {t('cancel')}
               </Button>
               <Button
                 variant="contained"
@@ -308,7 +310,7 @@ const TeacherSettings = () => {
                 onClick={handleSaveSettings}
                 disabled={!hasChanges || isLoading}
               >
-                {isLoading ? 'Đang lưu...' : 'Lưu cài đặt'}
+                {isLoading ? t('saving') : t('save')}
               </Button>
             </Box>
           </Box>
@@ -355,22 +357,21 @@ const TeacherSettings = () => {
               onClick={(e) => e.stopPropagation()}
             >
               <Typography variant="h6" gutterBottom>
-                Xác nhận khôi phục
+                {t('restore_confirmation')}
               </Typography>
               <Typography variant="body2" color="text.secondary" paragraph>
-                Bạn có chắc muốn khôi phục cài đặt "{SETTINGS_TABS[activeTab].label}" về mặc định?
-                Hành động này không thể hoàn tác.
+                {t('restore_confirm_message', { section: t(`settings:${SETTINGS_TABS[activeTab].labelKey}`) })}
               </Typography>
               <Box display="flex" justifyContent="flex-end" gap={2} mt={3}>
                 <Button onClick={() => setShowResetConfirm(false)}>
-                  Hủy
+                  {t('cancel')}
                 </Button>
                 <Button 
                   variant="contained" 
                   color="warning"
                   onClick={handleResetSection}
                 >
-                  Khôi phục
+                  {t('restore')}
                 </Button>
               </Box>
             </Paper>

@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useSelector, useDispatch } from 'react-redux'
 import { SnackbarProvider } from 'notistack'
 import { ThemeProvider } from './contexts/ThemeContext'
+import './i18n'
 
 // Layout
 import Layout from './components/Layout/Layout'
