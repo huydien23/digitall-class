@@ -122,10 +122,19 @@ const StudentClassDetailPage = () => {
         )
         setAttendanceMap(map)
 
-        // 5) Tài liệu lớp
+        // 5) Tài liệu lớp: ưu tiên tài liệu công bố từ kho của giảng viên
         try {
-          const mRes = await materialService.getMaterials({ class_id: classId, page_size: 200 })
-          setMaterials(mRes.data?.results || mRes.data || [])
+          const libRes = await (await import('../../services/materialLibraryService')).default.listPublishedForClass(classId)
+          const arr = libRes.data?.results || libRes.data || []
+          setMaterials(arr)
+        } catch (e) {
+          // Fallback: tài liệu legacy theo lớp nếu endpoint mới chưa có
+          try {
+            const mRes = await materialService.getMaterials({ class_id: classId, page_size: 200 })
+            setMaterials(mRes.data?.results || mRes.data || [])
+          } catch {
+            setMaterials([])
+          }
         } finally {
           setMaterialsLoading(false)
         }
@@ -390,11 +399,11 @@ const StudentClassDetailPage = () => {
                       <TableRow key={m.id}>
                         <TableCell>{m.title}</TableCell>
                         <TableCell>{m.description || '-'}</TableCell>
-                        <TableCell>{new Date(m.created_at).toLocaleString()}</TableCell>
+                        <TableCell>{new Date(m.updated_at || m.created_at).toLocaleString()}</TableCell>
                         <TableCell>
                           {(() => { 
                             try { 
-                              const src = m?.file || m?.file_url || m?.link || m?.title || ''; 
+                              const src = m?.latest_version?.file_url || m?.file_url || m?.file || m?.link || m?.title || ''; 
                               const clean = String(src).split('?')[0].split('#')[0]; 
                               const base = clean.split('/').pop(); 
                               const parts = base.split('.'); 
@@ -410,7 +419,7 @@ const StudentClassDetailPage = () => {
                                 if (low === 'link') return <LinkIcon sx={{ color: 'primary.main' }} />
                                 return <FileIcon sx={{ color: 'text.disabled' }} />
                               })()
-                              return <Box display="flex" alignItems="center" gap={1}>{icon}{up}</Box>
+return <Box display="flex" alignItems="center" gap={1}>{icon}{up}</Box>
                             } catch { 
                               return '—' 
                             } 
@@ -418,10 +427,10 @@ const StudentClassDetailPage = () => {
                         </TableCell>
                         <TableCell>{m.file_size ? (() => { const n = Number(m.file_size); if (!n || n <= 0) return '—'; const units=['B','KB','MB','GB','TB']; const i=Math.floor(Math.log(n)/Math.log(1024)); const v=n/Math.pow(1024,i); return `${v.toFixed(v>=100?0:v>=10?1:2)} ${units[i]}` })() : '—'}</TableCell>
                         <TableCell align="right">
-                          {m.file_url ? (
-                            <Button size="small" variant="outlined" href={m.file_url} target="_blank" rel="noopener">Tải xuống</Button>
+                          {m?.latest_version?.file_url ? (
+<Button size="small" variant="outlined" href={m.latest_version.file_url} target="_blank" rel="noopener">{m.allow_download === false ? 'Mở' : 'Tải xuống'}</Button>
                           ) : m.link ? (
-                            <Button size="small" variant="outlined" href={m.link} target="_blank" rel="noopener">Mở liên kết</Button>
+<Button size="small" variant="outlined" href={m.link} target="_blank" rel="noopener">Mở liên kết</Button>
                           ) : '—'}
                         </TableCell>
                       </TableRow>

@@ -83,6 +83,11 @@ const getNavigationItems = (userRole) => {
         path: "/classes",
       },
       {
+        text: "Kho tài liệu",
+        icon: <Assignment />,
+        path: "/materials",
+      },
+      {
         text: "Quản lý điểm số",
         icon: <Assessment />,
         path: "/grades",
@@ -118,6 +123,11 @@ const getNavigationItems = (userRole) => {
         text: "Lớp của tôi",
         icon: <School />,
         path: "/classes",
+      },
+      {
+        text: "Kho tài liệu",
+        icon: <Assignment />,
+        path: "/materials",
       },
       {
         text: "Cài đặt",

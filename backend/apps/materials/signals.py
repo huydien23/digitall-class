@@ -1,6 +1,6 @@
 from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
-from .models import ClassMaterial
+from .models import ClassMaterial, MaterialVersion
 
 
 @receiver(post_delete, sender=ClassMaterial)
@@ -21,3 +21,9 @@ def delete_old_file_on_change(sender, instance, **kwargs):
     new_file = instance.file
     if old_file and old_file != new_file:
         old_file.delete(save=False)
+
+
+@receiver(post_delete, sender=MaterialVersion)
+def delete_material_version_file(sender, instance, **kwargs):
+    if instance.file:
+        instance.file.delete(save=False)

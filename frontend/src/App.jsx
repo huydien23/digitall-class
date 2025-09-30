@@ -38,6 +38,7 @@ import AttendanceManagement from "./pages/Attendance/AttendanceManagement";
 import GradeManagement from "./pages/Grades/GradeManagement";
 import Profile from "./pages/Profile/Profile";
 import Settings from "./pages/Settings/Settings";
+import Materials from "./pages/Materials/Materials";
 import NotFound from "./pages/NotFound/NotFound";
 
 // Debug Components - Removed
@@ -297,6 +298,18 @@ const App = () => {
               <ProtectedRoute requiredRole={["admin"]}>
                 <Layout>
                   <Rooms />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Materials Library for Teacher/Admin */}
+          <Route
+            path="/materials"
+            element={
+              <ProtectedRoute requiredRole={["admin", "teacher"]}>
+                <Layout>
+                  <Materials />
                 </Layout>
               </ProtectedRoute>
             }
