@@ -371,7 +371,7 @@ QLSV_APP/
 ## 📝 Ghi chú quan trọng
 
 - 🚀 **Performance**: Sử dụng Vite thay vì Create React App để build nhanh hơn
-- 🗄️ **Database**: Backend sử dụng PostgreSQL, có thể thay đổi sang SQLite cho development
+- 🗄️ **Database**: Backend sử dụng MySQL cho production
 - 🔐 **Security**: Tất cả API đều có authentication JWT
 - 🔄 **Proxy**: Frontend tự động proxy API requests đến backend
 - 📱 **Mobile**: Giao diện responsive, tối ưu cho mobile
