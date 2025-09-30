@@ -3,6 +3,60 @@ from apps.accounts.models import User
 from apps.students.models import Student
 
 
+class AcademicYear(models.Model):
+    """Năm học, ví dụ: 2024-2025"""
+    code = models.CharField(max_length=16, unique=True)
+    name = models.CharField(max_length=32)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'academic_years'
+        ordering = ['-code']
+
+    def __str__(self):
+        return self.name or self.code
+
+
+class Term(models.Model):
+    """Học kỳ thuộc một năm học. Trường có 3 kỳ: HK1, HK2, HK3"""
+    class Season(models.TextChoices):
+        HK1 = 'hk1', 'HK1'
+        HK2 = 'hk2', 'HK2'
+        HK3 = 'hk3', 'HK3'
+
+    year = models.ForeignKey(AcademicYear, on_delete=models.CASCADE, related_name='terms')
+    season = models.CharField(max_length=8, choices=Season.choices)
+    name = models.CharField(max_length=64)
+    is_current = models.BooleanField(default=False)
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'terms'
+        unique_together = [('year', 'season')]
+        indexes = [models.Index(fields=['year', 'season', 'is_current'])]
+
+    def __str__(self):
+        return self.name
+
+
+class Subject(models.Model):
+    """Môn học chuẩn hóa để tránh trùng lặp giữa các lớp và năm học"""
+    code = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=128)
+    credits = models.PositiveSmallIntegerField(default=3)
+    description = models.TextField(blank=True, null=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        db_table = 'subjects'
+        ordering = ['code']
+
+    def __str__(self):
+        return f"{self.code} - {self.name}"
+
+
 class Class(models.Model):
     """Class model"""
     class ClassMode(models.TextChoices):
@@ -14,6 +68,8 @@ class Class(models.Model):
     class_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     teacher = models.ForeignKey(User, on_delete=models.CASCADE, related_name='classes')
+    subject = models.ForeignKey(Subject, on_delete=models.PROTECT, related_name='classes', null=True, blank=True)
+    term = models.ForeignKey(Term, on_delete=models.PROTECT, related_name='classes', null=True, blank=True)
     max_students = models.PositiveIntegerField(default=50)
     class_mode = models.CharField(
         max_length=32,
@@ -37,6 +93,8 @@ class Class(models.Model):
         indexes = [
             models.Index(fields=['class_id']),
             models.Index(fields=['teacher']),
+            models.Index(fields=['teacher', 'term']),
+            models.Index(fields=['subject', 'term']),
             models.Index(fields=['is_active']),
             models.Index(fields=['created_at']),
             models.Index(fields=['class_mode']),

@@ -115,8 +115,13 @@ const getNavigationItems = (userRole) => {
     return [
       ...baseItems,
       {
-        text: "Lớp của tôi",
+        text: "Quản lý giảng dạy",
         icon: <School />,
+        path: "/teaching-management",
+      },
+      {
+        text: "Lớp học",
+        icon: <People />,
         path: "/classes",
       },
       {

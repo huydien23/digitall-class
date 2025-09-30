@@ -11,6 +11,21 @@ urlpatterns = [
     path('<int:class_id>/detail/', views.class_detail_with_students, name='class_detail_with_students'),
     path('statistics/', views.class_statistics, name='class_statistics'),
 
+    # Aggregations for teacher by year/term
+    path('years/my/', views.my_years, name='my_years'),
+    path('terms/my/', views.my_terms, name='my_terms'),
+
+    # Global management for academic years and terms (teacher can create)
+    path('years/', views.AcademicYearListCreateView.as_view(), name='years'),
+    path('terms/', views.TermListCreateView.as_view(), name='terms'),
+
+    # Subjects management (teacher-level)
+    path('subjects/', views.SubjectListCreateView.as_view(), name='subjects'),
+
+    # Copy class between terms and import roster
+    path('copy/', views.copy_class, name='copy_class'),
+    path('import-roster/', views.import_roster, name='import_roster'),
+
     # Join tokens & Join class
     path('my-classes/', views.my_classes, name='my_classes'),
     path('<int:class_id>/join-tokens/', views.create_join_token, name='create_join_token'),

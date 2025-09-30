@@ -69,10 +69,13 @@ const Classes = () => {
     )
   }
 
-  // For teachers, show ImprovedClassManagement component
+  // For teachers, show TeachingManagement (new hierarchy + roster import)
   if (userRole === 'teacher') {
+    const TeachingManagement = React.lazy(() => import('../../components/Teaching/TeachingManagement'))
     return (
-      <ImprovedClassManagement />
+      <React.Suspense fallback={<Container maxWidth="xl" sx={{ py: 4 }}><CircularProgress /></Container>}>
+        <TeachingManagement />
+      </React.Suspense>
     )
   }
 

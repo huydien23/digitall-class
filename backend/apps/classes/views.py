@@ -1,9 +1,11 @@
-from rest_framework import generics, status, permissions
+from rest_framework import generics, status, permissions, serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.db.models import Q, Count
 from django.utils import timezone
 from django.utils.crypto import get_random_string
+from django.db import transaction
+from django.core.files.base import ContentFile
 
 from apps.accounts.models import User
 from apps.students.models import Student
@@ -11,7 +13,7 @@ from apps.students.serializers import StudentSerializer
 from apps.attendance.models import AttendanceSession, Attendance
 from apps.grades.models import Grade, GradeSummary
 
-from .models import Class, ClassStudent, ClassJoinToken
+from .models import Class, ClassStudent, ClassJoinToken, AcademicYear, Term, Subject
 from .serializers import (
     ClassSerializer, ClassCreateSerializer, ClassDetailSerializer, ClassStudentSerializer
 )
@@ -29,9 +31,8 @@ class ClassListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = Class.objects.all()
         
-        # Filter by teacher if not admin
-        if self.request.user.role != 'admin':
-            queryset = queryset.filter(teacher=self.request.user)
+        # Luôn lọc theo giảng viên hiện tại (không dùng admin)
+        queryset = queryset.filter(teacher=self.request.user)
         
         # Apply search filter
         search = self.request.query_params.get('search', None)
@@ -42,6 +43,20 @@ class ClassListCreateView(generics.ListCreateAPIView):
                 Q(description__icontains=search)
             )
         
+        # Filter theo kỳ/môn/năm học nếu có
+        term_id = self.request.query_params.get('term_id')
+        if term_id:
+            queryset = queryset.filter(term_id=term_id)
+        subject_id = self.request.query_params.get('subject_id')
+        if subject_id:
+            queryset = queryset.filter(subject_id=subject_id)
+        year_code = self.request.query_params.get('year_code')
+        if year_code:
+            queryset = queryset.filter(term__year__code=year_code)
+        season = self.request.query_params.get('season')
+        if season:
+            queryset = queryset.filter(term__season=season)
+        
         # Apply active filter
         is_active = self.request.query_params.get('is_active', None)
         if is_active is not None:
@@ -51,6 +66,64 @@ class ClassListCreateView(generics.ListCreateAPIView):
     
     def perform_create(self, serializer):
         serializer.save(teacher=self.request.user)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def my_years(request):
+    """Danh sách năm học mà giảng viên hiện tại có lớp, kèm số lớp và số kỳ."""
+    try:
+        qs = Class.objects.filter(teacher=request.user).select_related('term__year')
+        agg = (
+            qs.values('term__year_id', 'term__year__code')
+              .annotate(class_count=Count('id'), term_count=Count('term', distinct=True))
+              .order_by('-term__year__code')
+        )
+        data = [
+            {
+                'year_id': r['term__year_id'],
+                'code': r['term__year__code'],
+                'name': f"Năm học {r['term__year__code']}",
+                'class_count': r['class_count'],
+                'term_count': r['term_count'],
+            }
+            for r in agg
+        ]
+        return Response(data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def my_terms(request):
+    """Danh sách học kỳ (HK1/HK2/HK3) theo năm học lựa chọn của giảng viên, kèm số lớp."""
+    try:
+        year_id = request.query_params.get('year_id')
+        year_code = request.query_params.get('year_code')
+        qs = Class.objects.filter(teacher=request.user).select_related('term__year')
+        if year_id:
+            qs = qs.filter(term__year_id=year_id)
+        if year_code:
+            qs = qs.filter(term__year__code=year_code)
+        agg = (
+            qs.values('term_id', 'term__name', 'term__season', 'term__year__code')
+              .annotate(class_count=Count('id'))
+              .order_by('-term__year__code', 'term__season')
+        )
+        data = [
+            {
+                'term_id': r['term_id'],
+                'year_code': r['term__year__code'],
+                'season': r['term__season'],
+                'name': r['term__name'],
+                'class_count': r['class_count'],
+            }
+            for r in agg
+        ]
+        return Response(data)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
@@ -529,3 +602,318 @@ def class_detail_with_students(request, class_id):
             {'error': str(e)}, 
             status=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
+
+
+class SubjectListCreateView(generics.ListCreateAPIView):
+    queryset = Subject.objects.all().order_by('code')
+    permission_classes = [permissions.IsAuthenticated]
+
+    class SubjectSerializer(serializers.Serializer):
+        id = serializers.IntegerField(read_only=True)
+        code = serializers.CharField()
+        name = serializers.CharField()
+        credits = serializers.IntegerField(required=False, default=3)
+        description = serializers.CharField(required=False, allow_blank=True)
+
+        def validate_code(self, value):
+            if Subject.objects.filter(code=value).exists():
+                raise serializers.ValidationError('Mã môn học đã tồn tại')
+            return value
+
+    def get(self, request, *args, **kwargs):
+        search = request.query_params.get('search')
+        qs = self.get_queryset()
+        if search:
+            qs = qs.filter(Q(code__icontains=search) | Q(name__icontains=search))
+        data = [
+            {
+                'id': s.id,
+                'code': s.code,
+                'name': s.name,
+                'credits': s.credits,
+                'description': s.description,
+            } for s in qs[:200]
+        ]
+        return Response(data)
+
+    def post(self, request, *args, **kwargs):
+        ser = self.SubjectSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        s = Subject.objects.create(
+            code=ser.validated_data['code'],
+            name=ser.validated_data['name'],
+            credits=ser.validated_data.get('credits', 3),
+            description=ser.validated_data.get('description', ''),
+            created_by=request.user
+        )
+        return Response({
+            'id': s.id,
+            'code': s.code,
+            'name': s.name,
+            'credits': s.credits,
+            'description': s.description,
+        }, status=status.HTTP_201_CREATED)
+
+
+class AcademicYearListCreateView(generics.ListCreateAPIView):
+    queryset = AcademicYear.objects.all().order_by('-code')
+    permission_classes = [permissions.IsAuthenticated]
+
+    class YearSerializer(serializers.Serializer):
+        id = serializers.IntegerField(read_only=True)
+        code = serializers.CharField()
+        name = serializers.CharField(required=False)
+        start_date = serializers.DateField(required=False, allow_null=True)
+        end_date = serializers.DateField(required=False, allow_null=True)
+
+        def validate_code(self, value):
+            if AcademicYear.objects.filter(code=value).exists():
+                raise serializers.ValidationError('Năm học đã tồn tại')
+            return value
+
+    def get(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        data = [
+            {
+                'id': y.id,
+                'code': y.code,
+                'name': y.name,
+                'start_date': y.start_date,
+                'end_date': y.end_date,
+            } for y in qs[:200]
+        ]
+        return Response(data)
+
+    def post(self, request, *args, **kwargs):
+        ser = self.YearSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        y = AcademicYear.objects.create(
+            code=ser.validated_data['code'],
+            name=ser.validated_data.get('name') or f"Năm học {ser.validated_data['code']}",
+            start_date=ser.validated_data.get('start_date'),
+            end_date=ser.validated_data.get('end_date'),
+        )
+        return Response({
+            'id': y.id,
+            'code': y.code,
+            'name': y.name,
+            'start_date': y.start_date,
+            'end_date': y.end_date,
+        }, status=status.HTTP_201_CREATED)
+
+
+class TermListCreateView(generics.ListCreateAPIView):
+    queryset = Term.objects.select_related('year').all().order_by('-year__code', 'season')
+    permission_classes = [permissions.IsAuthenticated]
+
+    class TermSerializer(serializers.Serializer):
+        id = serializers.IntegerField(read_only=True)
+        year_id = serializers.IntegerField(required=False)
+        year_code = serializers.CharField(required=False)
+        season = serializers.ChoiceField(choices=Term.Season.choices)
+        name = serializers.CharField(required=False)
+        is_current = serializers.BooleanField(required=False)
+        start_date = serializers.DateField(required=False, allow_null=True)
+        end_date = serializers.DateField(required=False, allow_null=True)
+
+    def get(self, request, *args, **kwargs):
+        qs = self.get_queryset()
+        year_id = request.query_params.get('year_id')
+        year_code = request.query_params.get('year_code')
+        if year_id:
+            qs = qs.filter(year_id=year_id)
+        if year_code:
+            qs = qs.filter(year__code=year_code)
+        data = [
+            {
+                'id': t.id,
+                'name': t.name,
+                'season': t.season,
+                'is_current': t.is_current,
+                'year': {'id': t.year.id, 'code': t.year.code}
+            } for t in qs[:300]
+        ]
+        return Response(data)
+
+    def post(self, request, *args, **kwargs):
+        ser = self.TermSerializer(data=request.data)
+        ser.is_valid(raise_exception=True)
+        year = None
+        if ser.validated_data.get('year_id'):
+            year = AcademicYear.objects.get(id=ser.validated_data['year_id'])
+        elif ser.validated_data.get('year_code'):
+            year, _ = AcademicYear.objects.get_or_create(
+                code=ser.validated_data['year_code'],
+                defaults={'name': f"Năm học {ser.validated_data['year_code']}"}
+            )
+        else:
+            return Response({'error': 'Cần cung cấp year_id hoặc year_code'}, status=status.HTTP_400_BAD_REQUEST)
+        season = ser.validated_data['season']
+        name = ser.validated_data.get('name') or f"{dict(Term.Season.choices)[season]} {year.code}"
+        is_current = ser.validated_data.get('is_current', False)
+        t, created = Term.objects.get_or_create(
+            year=year,
+            season=season,
+            defaults={
+                'name': name,
+                'is_current': is_current,
+                'start_date': ser.validated_data.get('start_date'),
+                'end_date': ser.validated_data.get('end_date'),
+            }
+        )
+        if not created:
+            # Update basic fields if already exists
+            t.name = name
+            t.is_current = is_current
+            if 'start_date' in ser.validated_data:
+                t.start_date = ser.validated_data.get('start_date')
+            if 'end_date' in ser.validated_data:
+                t.end_date = ser.validated_data.get('end_date')
+            t.save()
+        return Response({
+            'id': t.id,
+            'name': t.name,
+            'season': t.season,
+            'is_current': t.is_current,
+            'year': {'id': t.year.id, 'code': t.year.code}
+        }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def copy_class(request):
+    """Sao chép lớp từ kỳ này sang kỳ khác. Không copy roster/điểm/điểm danh.
+    Body: {source_class_id, target_term_id, new_class_name?, options?: {copy_materials: true}}
+    """
+    try:
+        source_id = request.data.get('source_class_id')
+        target_term_id = request.data.get('target_term_id')
+        new_name = request.data.get('new_class_name')
+        options = request.data.get('options', {}) or {}
+        if not source_id or not target_term_id:
+            return Response({'error': 'Thiếu source_class_id hoặc target_term_id'}, status=status.HTTP_400_BAD_REQUEST)
+        source = Class.objects.get(id=source_id)
+        if source.teacher != request.user:
+            return Response({'error': 'Bạn không có quyền sao chép lớp này'}, status=status.HTTP_403_FORBIDDEN)
+        target_term = Term.objects.get(id=target_term_id)
+
+        with transaction.atomic():
+            # Tạo lớp mới
+            prefix = '0101000'
+            suffix_len = 12 - len(prefix)
+            new_class_id = None
+            for _ in range(25):
+                candidate = prefix + ''.join('0123456789'[int(x)] for x in str(int(timezone.now().timestamp()*1000))[-suffix_len:])
+                if not Class.objects.filter(class_id=candidate).exists():
+                    new_class_id = candidate
+                    break
+            if not new_class_id:
+                new_class_id = f"{prefix}{get_random_string(suffix_len, '0123456789')}"
+
+            new_class = Class.objects.create(
+                class_id=new_class_id,
+                class_name=new_name or source.class_name,
+                description=source.description,
+                teacher=request.user,
+                subject=source.subject,
+                term=target_term,
+                max_students=source.max_students,
+                class_mode=source.class_mode,
+                is_active=True,
+            )
+
+            # Sao chép tài liệu nếu chọn
+            if options.get('copy_materials', True):
+                from apps.materials.models import ClassMaterial
+                for m in ClassMaterial.objects.filter(class_obj=source):
+                    new_file = None
+                    if m.file:
+                        with m.file.open('rb') as f:
+                            content = f.read()
+                        filename = m.file.name.split('/')[-1]
+                        new_file = ContentFile(content, name=f"copy_{get_random_string(6)}_{filename}")
+                    ClassMaterial.objects.create(
+                        class_obj=new_class,
+                        title=m.title,
+                        description=m.description,
+                        file=new_file,
+                        link=m.link,
+                        created_by=request.user,
+                    )
+
+        return Response(ClassSerializer(new_class).data, status=status.HTTP_201_CREATED)
+    except Class.DoesNotExist:
+        return Response({'error': 'Không tìm thấy lớp nguồn'}, status=status.HTTP_404_NOT_FOUND)
+    except Term.DoesNotExist:
+        return Response({'error': 'Không tìm thấy học kỳ đích'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def import_roster(request):
+    """Sao chép danh sách sinh viên từ lớp cũ sang lớp mới (cùng giảng viên).
+    Body: {source_class_id, target_class_id, dry_run?}
+    Nếu dry_run=true, chỉ trả về thống kê (created/reactivated/skipped) mà không ghi dữ liệu.
+    """
+    try:
+        source_id = request.data.get('source_class_id')
+        target_id = request.data.get('target_class_id')
+        dry_run = bool(request.data.get('dry_run', False))
+        if not source_id or not target_id:
+            return Response({'error': 'Thiếu source_class_id hoặc target_class_id'}, status=status.HTTP_400_BAD_REQUEST)
+        source = Class.objects.get(id=source_id)
+        target = Class.objects.get(id=target_id)
+        # Quyền: phải là lớp của giảng viên hiện tại
+        if source.teacher != request.user or target.teacher != request.user:
+            return Response({'error': 'Bạn chỉ có thể sao chép sinh viên giữa các lớp của bạn'}, status=status.HTTP_403_FORBIDDEN)
+
+        # Build index of existing students in target for quick checks
+        target_map = {
+            cs.student_id: (cs.id, cs.is_active)
+            for cs in ClassStudent.objects.filter(class_obj=target).only('id', 'student_id', 'is_active')
+        }
+
+        created_count = 0
+        reactivated_count = 0
+        skipped_count = 0
+        for rel in ClassStudent.objects.filter(class_obj=source, is_active=True).select_related('student'):
+            key = rel.student_id
+            if key not in target_map:
+                created_count += 1
+                if not dry_run:
+                    ClassStudent.objects.create(
+                        class_obj=target,
+                        student=rel.student,
+                        status=rel.status,
+                        is_active=True,
+                        joined_at=timezone.now(),
+                        source=ClassStudent.Source.ADMIN,
+                    )
+            else:
+                _, is_active = target_map[key]
+                if not is_active:
+                    reactivated_count += 1
+                    if not dry_run:
+                        cs = ClassStudent.objects.get(class_obj=target, student=rel.student)
+                        cs.is_active = True
+                        cs.status = rel.status
+                        cs.joined_at = cs.joined_at or timezone.now()
+                        cs.source = cs.source or ClassStudent.Source.ADMIN
+                        cs.save(update_fields=['is_active', 'status', 'joined_at', 'source'])
+                else:
+                    skipped_count += 1
+
+        return Response({
+            'message': 'Xem trước' if dry_run else 'Đã sao chép danh sách sinh viên',
+            'created': created_count,
+            'reactivated': reactivated_count,
+            'skipped': skipped_count,
+            'target_class_id': target.id,
+            'dry_run': dry_run,
+        }, status=status.HTTP_200_OK)
+    except Class.DoesNotExist:
+        return Response({'error': 'Không tìm thấy lớp'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

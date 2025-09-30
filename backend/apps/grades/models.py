@@ -6,7 +6,7 @@ from apps.classes.models import Class
 
 
 class Subject(models.Model):
-    """Subject model"""
+    """Subject model for grades app"""
     subject_id = models.CharField(max_length=20, unique=True)
     subject_name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
@@ -16,9 +16,9 @@ class Subject(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        db_table = 'subjects'
-        verbose_name = 'Môn học'
-        verbose_name_plural = 'Môn học'
+        db_table = 'grades_subjects'  # Different table name to avoid conflict
+        verbose_name = 'Môn học (Grades)'
+        verbose_name_plural = 'Môn học (Grades)'
         ordering = ['subject_id']
     
     def __str__(self):
