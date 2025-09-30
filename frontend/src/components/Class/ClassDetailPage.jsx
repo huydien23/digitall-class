@@ -77,6 +77,7 @@ import groupingService from '../../services/groupingService'
 import ManualAttendance from '../Attendance/ManualAttendance'
 import CreateSession from '../Session/CreateSession'
 import StudentForm from '../Form/StudentForm'
+import apiService from '../../services/apiService'
 // New optimized session creation components
 import QuickCreateSession from '../Session/QuickCreateSession'
 import BulkCreateSessions from '../Session/BulkCreateSessions'
@@ -1026,19 +1027,23 @@ const handleEditGrade = (student) => {
               </Typography>
               <TableContainer>
                 <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>STT</TableCell>
-                      <TableCell>Mã SV</TableCell>
-                      <TableCell>Họ tên</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell align="center">Tỷ lệ điểm danh</TableCell>
-                      <TableCell align="center">Điểm TB</TableCell>
-                      <TableCell align="center">Trạng thái</TableCell>
-                      <TableCell align="center">Thao tác</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
+              <TableHead>
+                <TableRow>
+                  <TableCell>STT</TableCell>
+                  <TableCell>Mã SV</TableCell>
+                  <TableCell>Họ tên</TableCell>
+                  {isTeacher && <TableCell>Email</TableCell>}
+                  {isTeacher && <TableCell>Xác minh</TableCell>}
+                  {isTeacher && <TableCell>Lần gửi kích hoạt</TableCell>}
+                  {isTeacher && <TableCell>Đã tạo TK</TableCell>}
+                  <TableCell align="right">Tỷ lệ điểm danh</TableCell>
+                  <TableCell>Trạng thái</TableCell>
+                  {isTeacher && (
+                    <TableCell align="center">Thao tác</TableCell>
+                  )}
+                </TableRow>
+              </TableHead>
+              <TableBody>
                     {students.map((student, index) => {
                       const attendanceRate = calculateAttendanceRate(student)
                       const finalGrade = calculateFinalGrade(student)
@@ -1233,8 +1238,46 @@ const handleEditGrade = (student) => {
                         <TableRow key={student.id}>
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{student.student_id}</TableCell>
-                          <TableCell>{fullName}</TableCell>
-                          <TableCell align="center">
+                    <TableCell>{student.name}</TableCell>
+                    {isTeacher && <TableCell>{student.email || '-'}</TableCell>}
+                    {isTeacher && (
+                      <TableCell>
+                        <Chip
+                          label={student.email_verified || student.email ? 'Đã xác minh' : 'Chưa xác minh'}
+                          color={(student.email_verified || student.email) ? 'success' : 'warning'}
+                          size="small"
+                          sx={{ mr: 1 }}
+                        />
+                        <Button size="small" onClick={async () => {
+                          try {
+                            let email = student.email
+                            if (!email) {
+                              email = window.prompt('Nhập email @student.nctu.edu.vn cho MSSV ' + student.student_id)
+                            }
+                            if (!email) return
+                            if (!email.toLowerCase().endsWith('@student.nctu.edu.vn')) {
+                              alert('Email phải có dạng *@student.nctu.edu.vn')
+                              return
+                            }
+                            await apiService.requestActivation(student.student_id, email)
+                            alert('Đã gửi email kích hoạt (nếu hợp lệ)')
+                          } catch (e) {
+                            alert('Gửi kích hoạt thất bại: ' + (e?.response?.data?.message || e.message))
+                          }
+                        }}>Gửi kích hoạt</Button>
+                      </TableCell>
+                    )}
+                    {isTeacher && (
+                      <TableCell>
+                        {student.last_activation_sent_at ? new Date(student.last_activation_sent_at).toLocaleString() : '—'}
+                      </TableCell>
+                    )}
+                    {isTeacher && (
+                      <TableCell>
+                        <Chip label={student.has_account ? 'Có' : 'Chưa'} size="small" color={student.has_account ? 'success' : 'default'} />
+                      </TableCell>
+                    )}
+                    <TableCell align="right">
                             <Typography variant="body2" fontWeight={600}>
                               {student.grades.regular}
                             </Typography>

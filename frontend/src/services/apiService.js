@@ -173,15 +173,15 @@ class APIService {
 
   async login(credentials) {
     try {
-      // credentials: { identifier, password } | { studentId, password } | { email, password }
+      // Backend expects either { identifier, password } or { email, password }.
+      // Always send identifier when available; backend will resolve MSSV/teacherId vs email.
       const payload = {};
       if (credentials?.identifier) {
-        if (String(credentials.identifier).includes("@")) payload.email = credentials.identifier;
-        else payload.student_id = credentials.identifier;
-      } else if (credentials?.studentId) {
-        payload.student_id = credentials.studentId;
+        payload.identifier = String(credentials.identifier).trim();
       } else if (credentials?.email) {
-        payload.email = credentials.email;
+        payload.email = String(credentials.email).trim();
+      } else if (credentials?.studentId) {
+        payload.identifier = String(credentials.studentId).trim();
       }
       payload.password = credentials?.password;
 
@@ -324,6 +324,30 @@ class APIService {
         success: false,
         error: error.response?.data || { message: "Upload ảnh thất bại" },
       };
+    }
+  }
+
+  async requestActivation(studentId, email) {
+    try {
+      const response = await this.axiosInstance.post('/auth/activate/request/', {
+        student_id: studentId,
+        email,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || { message: 'Không thể gửi email kích hoạt' } };
+    }
+  }
+
+  async confirmActivation(token, password) {
+    try {
+      const response = await this.axiosInstance.post('/auth/activate/confirm/', {
+        token,
+        password,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      return { success: false, error: error.response?.data || { message: 'Kích hoạt thất bại' } };
     }
   }
 
