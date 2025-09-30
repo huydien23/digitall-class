@@ -126,27 +126,63 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        user = serializer.validated_data['user']
+        # Fetch the user again but restrict columns to those that surely exist in DB
+        base_qs = User.objects.only(
+            'id', 'email', 'first_name', 'last_name', 'role', 'account_status',
+            'phone', 'avatar', 'student_id', 'teacher_id', 'department',
+            'is_active', 'created_at', 'updated_at', 'last_login_at'
+        )
+        user = base_qs.get(id=serializer.validated_data['user'].id)
         
         # Update last login
         user.last_login_at = timezone.now()
-        user.save(update_fields=['last_login_at'])
+        try:
+            user.save(update_fields=['last_login_at'])
+        except Exception:
+            # If DB mismatch occurs, ignore updating last_login_at to allow login
+            pass
         
-        # Generate tokens, embed auth version
+        # Generate tokens, embed auth version (fallback to 1 if field is unavailable)
         refresh = RefreshToken.for_user(user)
         try:
             refresh['auth_v'] = getattr(user, 'auth_version', 1)
         except Exception:
             refresh['auth_v'] = 1
         
+        # Build user payload without triggering deferred fields that may not exist in DB
+        user_data = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'full_name': (getattr(user, 'full_name', None) or f"{user.first_name} {user.last_name}" ).strip(),
+            'role': user.role,
+            'account_status': user.account_status,
+            'phone': user.phone,
+            'avatar': user.avatar.url if getattr(user, 'avatar', None) else None,
+            'student_id': user.student_id,
+            'teacher_id': getattr(user, 'teacher_id', None),
+            'department': user.department,
+            'is_active': user.is_active,
+            'created_at': user.created_at,
+            'updated_at': user.updated_at,
+            'last_login_at': user.last_login_at,
+        }
+        
+        needs_setup = False
+        try:
+            needs_setup = (getattr(user, 'role', None) == User.Role.STUDENT and (not bool(user.email) or getattr(user, 'must_change_password', False)))
+        except Exception:
+            needs_setup = (getattr(user, 'role', None) == User.Role.STUDENT and (not bool(user.email)))
+        
         return Response({
             'message': 'Đăng nhập thành công!',
-            'user': UserSerializer(user).data,
+            'user': user_data,
             'tokens': {
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
             },
-            'needs_setup': (getattr(user, 'role', None) == User.Role.STUDENT and (not bool(user.email) or getattr(user, 'must_change_password', False))),
+            'needs_setup': needs_setup,
             'email_present': bool(user.email),
         }, status=status.HTTP_200_OK)
 
