@@ -102,8 +102,10 @@ const result = await dispatch(login({
       
       setMessage('Đăng nhập thành công!');
       
-      // Redirect based on user role and approval status
-      if (result.user?.account_status === 'pending') {
+      // Redirect based on setup flags and role
+      if (result.needs_setup) {
+        navigate('/activate-request');
+      } else if (result.user?.account_status === 'pending') {
         navigate('/pending-approval');
       } else {
         const from = location.state?.from?.pathname || getDashboardPath(result.user.role);
@@ -342,7 +344,19 @@ placeholder="VD: 2012345 hoặc sv@student.nctu.edu.vn / gv@nctu.edu.vn"
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Box sx={{ textAlign: 'center', mt: 2, display: 'flex', justifyContent: 'center', gap: 2, flexWrap: 'wrap' }}>
+                    <Link
+                      to="/activate-request"
+                      style={{
+                        color: '#6366f1',
+                        textDecoration: 'none',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      Kích hoạt tài khoản sinh viên
+                    </Link>
+                    <span style={{ color: 'rgba(0,0,0,0.4)' }}>·</span>
                     <Link
                       to="/forgot-password"
                       style={{

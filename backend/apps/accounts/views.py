@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate
 from django.core import signing
 from django.conf import settings
 from .models import User
+from .models import User as UserModel
 from .serializers import (
     UserSerializer, 
     UserProfileSerializer,
@@ -117,6 +118,9 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(APIView):
     """User Login API"""
     permission_classes = [permissions.AllowAny]
+    from rest_framework.throttling import ScopedRateThrottle
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'login'
     
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -128,8 +132,12 @@ class LoginView(APIView):
         user.last_login_at = timezone.now()
         user.save(update_fields=['last_login_at'])
         
-        # Generate tokens
+        # Generate tokens, embed auth version
         refresh = RefreshToken.for_user(user)
+        try:
+            refresh['auth_v'] = getattr(user, 'auth_version', 1)
+        except Exception:
+            refresh['auth_v'] = 1
         
         return Response({
             'message': 'Đăng nhập thành công!',
@@ -137,7 +145,9 @@ class LoginView(APIView):
             'tokens': {
                 'refresh': str(refresh),
                 'access': str(refresh.access_token),
-            }
+            },
+            'needs_setup': (getattr(user, 'role', None) == User.Role.STUDENT and (not bool(user.email) or getattr(user, 'must_change_password', False))),
+            'email_present': bool(user.email),
         }, status=status.HTTP_200_OK)
 
 
@@ -200,9 +210,13 @@ class ChangePasswordView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         
-        # Change password
+        # Change password + rotate auth_version
         user = request.user
         user.set_password(serializer.validated_data['new_password'])
+        try:
+            user.auth_version = (user.auth_version or 1) + 1
+        except Exception:
+            pass
         user.save()
         
         return Response({
@@ -267,8 +281,13 @@ def health_check(request):
 
 
 # Activation via HTTP Email
+import uuid
+
 class ActivationRequestView(APIView):
     permission_classes = [permissions.AllowAny]
+    from rest_framework.throttling import ScopedRateThrottle
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'activation_request'
 
     def post(self, request):
         student_id = request.data.get('student_id')
@@ -296,11 +315,31 @@ class ActivationRequestView(APIView):
         elif user.email.lower() != email_lc:
             return Response({'message': 'Email không khớp với hồ sơ.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Create activation token (24h)
-        payload = {'user_id': user.id, 'purpose': 'activate'}
+        # Create activation token (30 minutes) with token id for single-use tracking
+        token_id = uuid.uuid4().hex
+        payload = {'user_id': user.id, 'purpose': 'activate', 'tid': token_id}
         token = signing.dumps(payload, salt='activate')
         frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
         activate_link = f"{frontend_url}/activate?token={token}"
+
+        # Optionally: persist token id to detect replay (lightweight via status_note)
+        try:
+            if not user.status_note:
+                user.status_note = f"last_activation_tid={token_id}"
+            else:
+                if 'last_activation_tid=' in user.status_note:
+                    # replace
+                    parts = []
+                    for line in user.status_note.split('\n'):
+                        if not line.startswith('last_activation_tid='):
+                            parts.append(line)
+                    parts.append(f"last_activation_tid={token_id}")
+                    user.status_note = '\n'.join([p for p in parts if p])
+                else:
+                    user.status_note += f"\nlast_activation_tid={token_id}"
+            user.save(update_fields=['status_note', 'updated_at'])
+        except Exception:
+            pass
 
         subject = 'Xác thực tài khoản sinh viên - EduAttend'
         html = f"""
@@ -310,12 +349,22 @@ class ActivationRequestView(APIView):
         <p>Liên kết có hiệu lực trong 24 giờ.</p>
         """
         sent_ok = send_http_email(user.email, subject, html)
+        # Update send stats
+        try:
+            user.last_activation_sent_at = timezone.now()
+            user.activation_send_count = (user.activation_send_count or 0) + 1
+            user.save(update_fields=['last_activation_sent_at', 'activation_send_count'])
+        except Exception:
+            pass
         # Even if sending fails, don't reveal specifics to user
         return Response({'message': 'Đã gửi liên kết xác thực (nếu email hợp lệ).'}, status=status.HTTP_200_OK)
 
 
 class ActivationConfirmView(APIView):
     permission_classes = [permissions.AllowAny]
+    from rest_framework.throttling import ScopedRateThrottle
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'activation_confirm'
 
     def post(self, request):
         token = request.data.get('token')
@@ -323,26 +372,46 @@ class ActivationConfirmView(APIView):
         if not token or not password:
             return Response({'message': 'Thiếu token hoặc mật khẩu.'}, status=status.HTTP_400_BAD_REQUEST)
         try:
-            data = signing.loads(token, salt='activate', max_age=86400)
+            data = signing.loads(token, salt='activate', max_age=1800)
         except signing.SignatureExpired:
             return Response({'message': 'Liên kết đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
         except signing.BadSignature:
             return Response({'message': 'Liên kết không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
 
         user_id = data.get('user_id')
+        tid = data.get('tid')
         try:
             user = User.objects.get(id=user_id)
         except User.DoesNotExist:
             return Response({'message': 'Không tìm thấy người dùng.'}, status=status.HTTP_404_NOT_FOUND)
 
+        # Single-use protection (compare token id)
+        try:
+            if 'last_activation_tid=' in (user.status_note or ''):
+                note_tid = None
+                for line in (user.status_note or '').split('\n'):
+                    if line.startswith('last_activation_tid='):
+                        note_tid = line.split('=',1)[1].strip()
+                        break
+                if note_tid and tid and note_tid != tid:
+                    return Response({'message': 'Liên kết đã được thay thế bởi liên kết mới hơn.'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            pass
+
         user.set_password(password)
-        # Mark active if needed (students are active by default). We can note timestamp into status_note.
-        ts = timezone.now().isoformat()
+        # Mark verified + clear must_change_password and rotate auth_version
+        ts_now = timezone.now()
+        user.auth_version = (user.auth_version or 1) + 1
+        user.email_verified = True
+        user.email_verified_at = ts_now
+        user.must_change_password = False
+        # Optional: keep status_note textual trail
+        ts = ts_now.isoformat()
         if not user.status_note:
             user.status_note = f"email_verified_at={ts}"
         elif 'email_verified_at=' not in (user.status_note or ''):
             user.status_note += f"\nemail_verified_at={ts}"
-        user.save(update_fields=['password', 'status_note', 'updated_at'])
+        user.save(update_fields=['password', 'email_verified', 'email_verified_at', 'must_change_password', 'status_note', 'updated_at'])
 
         return Response({'message': 'Kích hoạt và đặt mật khẩu thành công.'}, status=status.HTTP_200_OK)
 
