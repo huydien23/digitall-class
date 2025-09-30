@@ -1,11 +1,44 @@
-# Email utilities for password reset
+
+
+def send_http_email(to_email: str, subject: str, html: str, text: str = "") -> bool:
+    """Send email via HTTP Email Gateway if configured.
+    Falls back to False if not configured; caller can then use SMTP or skip.
+    """
+    endpoint = getattr(settings, 'EMAIL_HTTP_ENDPOINT', '')
+    api_key = getattr(settings, 'EMAIL_HTTP_API_KEY', '')
+    if not endpoint:
+        logger.warning("EMAIL_HTTP_ENDPOINT not configured, skipping HTTP email")
+        return False
+    try:
+        payload = {
+            'to': to_email,
+            'subject': subject,
+            'html': html,
+            'text': text or strip_tags(html),
+        }
+        data = json.dumps(payload).encode('utf-8')
+        req = http_request.Request(endpoint, data=data, method='POST')
+        req.add_header('Content-Type', 'application/json')
+        if api_key:
+            req.add_header('Authorization', f'Bearer {api_key}')
+        with http_request.urlopen(req, timeout=10) as resp:
+            ok = 200 <= resp.getcode() < 300
+            if not ok:
+                logger.error(f"HTTP Email gateway returned status {resp.getcode()}")
+            return ok
+    except Exception as e:
+        logger.error(f"Failed to send HTTP email: {e}")
+        return False
+
+# Email utilities for password reset and activation
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from django.conf import settings
-from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 import logging
+import json
+from urllib import request as http_request
 
 logger = logging.getLogger(__name__)
 

@@ -6,10 +6,7 @@ export const login = createAsyncThunk(
   "auth/login",
   async (credentials, { rejectWithValue }) => {
     try {
-      const response = await apiService.login(
-        credentials.email,
-        credentials.password
-      );
+      const response = await apiService.login(credentials);
 
       if (response.success) {
         // Store tokens

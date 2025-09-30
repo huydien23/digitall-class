@@ -31,8 +31,8 @@ const Login = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
-  const [formData, setFormData] = useState({
-    email: '',
+const [formData, setFormData] = useState({
+    identifier: '',
     password: '',
   });
   const [errors, setErrors] = useState({});
@@ -72,10 +72,8 @@ const Login = () => {
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.email) {
-      newErrors.email = 'Email là bắt buộc';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email không hợp lệ';
+if (!formData.identifier) {
+      newErrors.identifier = 'MSSV hoặc Email là bắt buộc';
     }
 
     if (!formData.password) {
@@ -97,8 +95,8 @@ const Login = () => {
     setMessage('');
 
     try {
-      const result = await dispatch(login({
-        email: formData.email,
+const result = await dispatch(login({
+        identifier: formData.identifier,
         password: formData.password
       })).unwrap();
       
@@ -226,38 +224,24 @@ const Login = () => {
                 Đăng nhập
               </Typography>
               
-              <Typography variant="body2" color="text.secondary">
-                Chưa có tài khoản?{' '}
-                <Link
-                  to="/register"
-                  style={{
-                    color: '#6366f1',
-                    textDecoration: 'none',
-                    fontWeight: 600,
-                  }}
-                >
-                  Đăng ký tại đây
-                </Link>
-              </Typography>
             </Box>
             
             <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
               <Grid container spacing={2}>
                 <Grid item xs={12}>
-                  <TextField
+<TextField
                     required
                     fullWidth
-                    id="email"
-                    name="email"
-                    label="Địa chỉ email"
-                    type="email"
-                    value={formData.email}
+                    id="identifier"
+                    name="identifier"
+                    label="MSSV hoặc Email"
+                    value={formData.identifier}
                     onChange={handleChange}
-                    error={!!errors.email}
-                    helperText={errors.email}
+                    error={!!errors.identifier}
+                    helperText={errors.identifier}
                     disabled={loading}
-                    autoComplete="email"
-                    placeholder="example@email.com"
+                    autoComplete="username"
+placeholder="VD: 2012345 hoặc sv@student.nctu.edu.vn / gv@nctu.edu.vn"
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 3,

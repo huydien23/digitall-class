@@ -138,20 +138,36 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
+    # Unified identifier: email or student_id/teacher_id
+    identifier = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.EmailField(required=False, allow_blank=True)
     password = serializers.CharField()
     
     def validate(self, attrs):
-        email = attrs.get('email', '').lower()
+        identifier = (attrs.get('identifier') or attrs.get('email') or '').strip()
         password = attrs.get('password')
         
-        if not email or not password:
-            raise serializers.ValidationError("Email và mật khẩu là bắt buộc.")
+        if not identifier or not password:
+            raise serializers.ValidationError("Tài khoản (MSSV/Email) và mật khẩu là bắt buộc.")
         
-        user = authenticate(username=email, password=password)
+        # Determine lookup method
+        user = None
+        try:
+            if '@' in identifier:
+                # Email login
+                user = User.objects.get(email__iexact=identifier)
+            else:
+                # Try student_id first, then teacher_id
+                try:
+                    user = User.objects.get(student_id=identifier)
+                except User.DoesNotExist:
+                    user = User.objects.get(teacher_id=identifier)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Tài khoản hoặc mật khẩu không chính xác.")
         
-        if not user:
-            raise serializers.ValidationError("Email hoặc mật khẩu không chính xác.")
+        # Validate password
+        if not user.check_password(password):
+            raise serializers.ValidationError("Tài khoản hoặc mật khẩu không chính xác.")
         
         if not user.is_active:
             raise serializers.ValidationError("Tài khoản đã bị vô hiệu hóa.")

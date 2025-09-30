@@ -171,12 +171,24 @@ class APIService {
     }
   }
 
-  async login(email, password) {
+  async login(credentials) {
     try {
-      const response = await this.axiosInstance.post(AUTH_ENDPOINTS.LOGIN, {
-        email,
-        password,
-      });
+      // credentials: { identifier, password } | { studentId, password } | { email, password }
+      const payload = {};
+      if (credentials?.identifier) {
+        if (String(credentials.identifier).includes("@")) payload.email = credentials.identifier;
+        else payload.student_id = credentials.identifier;
+      } else if (credentials?.studentId) {
+        payload.student_id = credentials.studentId;
+      } else if (credentials?.email) {
+        payload.email = credentials.email;
+      }
+      payload.password = credentials?.password;
+
+      const response = await this.axiosInstance.post(
+        AUTH_ENDPOINTS.LOGIN,
+        payload
+      );
 
       if (response.data.tokens) {
         this.setTokens(

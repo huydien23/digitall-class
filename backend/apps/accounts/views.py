@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
+from django.core import signing
+from django.conf import settings
 from .models import User
 from .serializers import (
     UserSerializer, 
@@ -16,6 +18,7 @@ from .serializers import (
     # ForgotPasswordSerializer,
     # ResetPasswordSerializer
 )
+from .email_utils import send_http_email
 
 # -----------------------
 # Admin Teacher Approval APIs
@@ -261,6 +264,87 @@ def health_check(request):
         'message': 'Student Management API is running!',
         'timestamp': timezone.now()
     }, status=status.HTTP_200_OK)
+
+
+# Activation via HTTP Email
+class ActivationRequestView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        student_id = request.data.get('student_id')
+        email = request.data.get('email')
+        if not student_id or not email:
+            return Response({'message': 'student_id và email là bắt buộc.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(student_id=student_id)
+        except User.DoesNotExist:
+            return Response({'message': 'Không tìm thấy sinh viên với MSSV cung cấp.'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Allow only students to request activation via this endpoint
+        if user.role != User.Role.STUDENT:
+            return Response({'message': 'Chỉ áp dụng xác thực qua email cho tài khoản sinh viên.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Enforce student email domain
+        email_lc = email.lower()
+        if not email_lc.endswith('@student.nctu.edu.vn'):
+            return Response({'message': 'Email sinh viên phải có dạng *@student.nctu.edu.vn.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # If user.email is empty, set it; if set, must match
+        if not user.email:
+            user.email = email_lc
+            user.save(update_fields=['email'])
+        elif user.email.lower() != email_lc:
+            return Response({'message': 'Email không khớp với hồ sơ.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create activation token (24h)
+        payload = {'user_id': user.id, 'purpose': 'activate'}
+        token = signing.dumps(payload, salt='activate')
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173')
+        activate_link = f"{frontend_url}/activate?token={token}"
+
+        subject = 'Xác thực tài khoản sinh viên - EduAttend'
+        html = f"""
+        <p>Xin chào {user.first_name or ''} {user.last_name or ''},</p>
+        <p>Vui lòng nhấn vào liên kết sau để xác thực tài khoản và đặt mật khẩu lần đầu:</p>
+        <p><a href="{activate_link}">Xác thực tài khoản</a></p>
+        <p>Liên kết có hiệu lực trong 24 giờ.</p>
+        """
+        sent_ok = send_http_email(user.email, subject, html)
+        # Even if sending fails, don't reveal specifics to user
+        return Response({'message': 'Đã gửi liên kết xác thực (nếu email hợp lệ).'}, status=status.HTTP_200_OK)
+
+
+class ActivationConfirmView(APIView):
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        token = request.data.get('token')
+        password = request.data.get('password')
+        if not token or not password:
+            return Response({'message': 'Thiếu token hoặc mật khẩu.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            data = signing.loads(token, salt='activate', max_age=86400)
+        except signing.SignatureExpired:
+            return Response({'message': 'Liên kết đã hết hạn.'}, status=status.HTTP_400_BAD_REQUEST)
+        except signing.BadSignature:
+            return Response({'message': 'Liên kết không hợp lệ.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user_id = data.get('user_id')
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'message': 'Không tìm thấy người dùng.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user.set_password(password)
+        # Mark active if needed (students are active by default). We can note timestamp into status_note.
+        ts = timezone.now().isoformat()
+        if not user.status_note:
+            user.status_note = f"email_verified_at={ts}"
+        elif 'email_verified_at=' not in (user.status_note or ''):
+            user.status_note += f"\nemail_verified_at={ts}"
+        user.save(update_fields=['password', 'status_note', 'updated_at'])
+
+        return Response({'message': 'Kích hoạt và đặt mật khẩu thành công.'}, status=status.HTTP_200_OK)
 
 
 # Temporarily commented out for superuser creation

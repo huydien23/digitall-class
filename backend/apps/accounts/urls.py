@@ -6,10 +6,14 @@ app_name = 'accounts'
 
 urlpatterns = [
     # Authentication
-    path('register/', views.RegisterView.as_view(), name='register'),
+    # Registration removed per product decision
     path('login/', views.LoginView.as_view(), name='login'),
     path('logout/', views.LogoutView.as_view(), name='logout'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    # Activation (HTTP Email flow)
+    path('activate/request/', views.ActivationRequestView.as_view(), name='activate_request'),
+    path('activate/confirm/', views.ActivationConfirmView.as_view(), name='activate_confirm'),
     
     # Profile Management
     path('profile/', views.ProfileView.as_view(), name='profile'),

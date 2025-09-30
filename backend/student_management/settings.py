@@ -221,13 +221,20 @@ CORS_ALLOW_CREDENTIALS = True
 # Allow all origins for development (remove in production)
 # CORS_ALLOW_ALL_ORIGINS = True  # Disabled for security
 
-# Email settings
+# Email settings (SMTP defaults)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
+
+# Optional HTTP Email Gateway
+EMAIL_HTTP_ENDPOINT = config('EMAIL_HTTP_ENDPOINT', default='')  # e.g., https://email-gateway.example.com/send
+EMAIL_HTTP_API_KEY = config('EMAIL_HTTP_API_KEY', default='')
+
+# Frontend URL for activation links
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
 
 # Celery settings
 CELERY_BROKER_URL = config('CELERY_BROKER_URL', default='redis://localhost:6379/0')
