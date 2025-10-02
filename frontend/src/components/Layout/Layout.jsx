@@ -40,6 +40,12 @@ import {
   BarChart,
   Person as PersonIcon,
   Room as RoomIcon,
+  CheckCircle,
+  Grading,
+  Folder,
+  Groups,
+  CalendarToday,
+  AssignmentTurnedIn,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -48,7 +54,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const drawerWidth = 280;
 
-// Navigation items based on user role
+// Navigation items based on user role - with grouping
 const getNavigationItems = (userRole) => {
   const baseItems = [
     {
@@ -116,62 +122,173 @@ const getNavigationItems = (userRole) => {
   }
 
   if (userRole === "teacher") {
-    // Teacher-first mode: tập trung vào quản lý lớp; ẩn các trang quản trị tổng hợp
     return [
-      ...baseItems,
       {
-        text: "Quản lý giảng dạy",
-        icon: <School />,
-        path: "/teaching-management",
+        groupTitle: "TỔNG QUAN",
+        items: [
+          {
+            text: "Trang chủ",
+            icon: <Home />,
+            path: "/home",
+          },
+          {
+            text: "Tổng quan",
+            icon: <Dashboard />,
+            path: "/dashboard",
+          },
+        ],
       },
       {
-        text: "Lớp học",
-        icon: <People />,
-        path: "/classes",
+        groupTitle: "GIẢNG DẠY",
+        items: [
+          {
+            text: "Quản lý giảng dạy",
+            icon: <School />,
+            path: "/teaching-management",
+          },
+          {
+            text: "Lớp học",
+            icon: <People />,
+            path: "/classes",
+          },
+          {
+            text: "Thời khóa biểu",
+            icon: <CalendarToday />,
+            path: "/schedule",
+          },
+        ],
       },
       {
-        text: "Kho tài liệu",
-        icon: <Assignment />,
-        path: "/materials",
+        groupTitle: "HỌC TẬP",
+        items: [
+          {
+            text: "Bài tập",
+            icon: <AssignmentTurnedIn />,
+            path: "/assignments",
+            badge: 0, // Will be dynamic later
+          },
+          {
+            text: "Điểm danh",
+            icon: <CheckCircle />,
+            path: "/attendance",
+            badge: 0,
+          },
+          {
+            text: "Điểm số",
+            icon: <Grading />,
+            path: "/grades",
+          },
+          {
+            text: "Kho tài liệu",
+            icon: <Folder />,
+            path: "/materials",
+          },
+          {
+            text: "Nhóm học tập",
+            icon: <Groups />,
+            path: "/groups",
+          },
+        ],
       },
       {
-        text: "Cài đặt",
-        icon: <Settings />,
-        path: "/settings",
+        groupTitle: "PHÂN TÍCH",
+        items: [
+          {
+            text: "Báo cáo",
+            icon: <Assessment />,
+            path: "/reports",
+          },
+          {
+            text: "Thống kê",
+            icon: <BarChart />,
+            path: "/analytics",
+          },
+        ],
       },
-      // Điểm và điểm danh sẽ thao tác trong trang lớp/phiên học
+      {
+        groupTitle: "KHÁC",
+        items: [
+          {
+            text: "Cài đặt",
+            icon: <Settings />,
+            path: "/settings",
+          },
+        ],
+      },
     ];
   }
 
   // Default to student
   return [
-    ...baseItems,
     {
-      text: "Lớp học",
-      icon: <School />,
-      path: "/classes",
+      groupTitle: "TỔNG QUAN",
+      items: [
+        {
+          text: "Trang chủ",
+          icon: <Home />,
+          path: "/home",
+        },
+        {
+          text: "Tổng quan",
+          icon: <Dashboard />,
+          path: "/dashboard",
+        },
+      ],
     },
     {
-      text: "Điểm số",
-      icon: <Assessment />,
-      path: "/grades",
+      groupTitle: "HỌC TẬP",
+      items: [
+        {
+          text: "Lớp học",
+          icon: <School />,
+          path: "/classes",
+        },
+        {
+          text: "Điểm số",
+          icon: <Assessment />,
+          path: "/grades",
+        },
+        {
+          text: "Thời khóa biểu",
+          icon: <Schedule />,
+          path: "/schedule",
+        },
+        {
+          text: "Điểm danh",
+          icon: <CheckCircle />,
+          path: "/attendance",
+        },
+      ],
     },
     {
-      text: "Thời khóa biểu",
-      icon: <Schedule />,
-      path: "/schedule",
-    },
-    {
-      text: "Điểm danh",
-      icon: <Assignment />,
-      path: "/attendance",
-    },
-    {
-      text: "Cài đặt",
-      icon: <Settings />,
-      path: "/settings",
+      groupTitle: "KHÁC",
+      items: [
+        {
+          text: "Cài đặt",
+          icon: <Settings />,
+          path: "/settings",
+        },
+      ],
     },
   ];
+};
+
+// Flatten navigation items for backward compatibility
+const flattenNavigationItems = (groupedItems) => {
+  if (!groupedItems || groupedItems.length === 0) return [];
+  
+  // Check if items are already flat (for admin role)
+  if (groupedItems[0]?.text) {
+    return groupedItems;
+  }
+  
+  // Flatten grouped items
+  return groupedItems.reduce((acc, group) => {
+    if (group.items) {
+      return [...acc, ...group.items];
+    }
+    return acc;
+  }, []);
 };
 
 const Layout = ({ children }) => {
@@ -186,7 +303,8 @@ const Layout = ({ children }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [notifications] = useState(3); // Mock notifications
 
-  const navigationItems = getNavigationItems(user?.role);
+  const navigationGroups = getNavigationItems(user?.role);
+  const navigationItems = flattenNavigationItems(navigationGroups);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -272,40 +390,109 @@ const Layout = ({ children }) => {
       {/* Navigation Menu */}
       <Box sx={{ flex: 1, overflow: "auto" }}>
         <List sx={{ px: 1, py: 2 }}>
-          {navigationItems.map((item, index) => (
-            <motion.div
-              key={item.text}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <ListItem disablePadding sx={{ mb: 0.5 }}>
-                <ListItemButton
-                  selected={location.pathname === item.path}
-                  onClick={() => handleNavigation(item.path)}
-                  sx={{
-                    borderRadius: 2,
-                    mx: 1,
-                    "&.Mui-selected": {
-                      bgcolor: alpha(theme.palette.primary.main, 0.12),
-                      "&:hover": {
-                        bgcolor: alpha(theme.palette.primary.main, 0.2),
+          {user?.role === 'admin' ? (
+            // Admin: flat list (unchanged)
+            navigationItems.map((item, index) => (
+              <motion.div
+                key={item.text}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <ListItem disablePadding sx={{ mb: 0.5 }}>
+                  <ListItemButton
+                    selected={location.pathname === item.path}
+                    onClick={() => handleNavigation(item.path)}
+                    sx={{
+                      borderRadius: 2,
+                      mx: 1,
+                      "&.Mui-selected": {
+                        bgcolor: alpha(theme.palette.primary.main, 0.12),
+                        "&:hover": {
+                          bgcolor: alpha(theme.palette.primary.main, 0.2),
+                        },
                       },
-                    },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                    <ListItemText
+                      primary={item.text}
+                      primaryTypographyProps={{
+                        fontSize: "0.9rem",
+                        fontWeight: location.pathname === item.path ? 600 : 400,
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              </motion.div>
+            ))
+          ) : (
+            // Teacher/Student: grouped navigation
+            navigationGroups.map((group, groupIndex) => (
+              <Box key={group.groupTitle} sx={{ mb: 2 }}>
+                {/* Group Title */}
+                <Typography
+                  variant="caption"
+                  sx={{
+                    px: 2,
+                    py: 1,
+                    display: "block",
+                    color: "text.secondary",
+                    fontWeight: 700,
+                    fontSize: "0.75rem",
+                    letterSpacing: "0.5px",
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                  <ListItemText
-                    primary={item.text}
-                    primaryTypographyProps={{
-                      fontSize: "0.9rem",
-                      fontWeight: location.pathname === item.path ? 600 : 400,
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            </motion.div>
-          ))}
+                  {group.groupTitle}
+                </Typography>
+                
+                {/* Group Items */}
+                {group.items.map((item, itemIndex) => (
+                  <motion.div
+                    key={item.text}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: (groupIndex * 0.1) + (itemIndex * 0.05) }}
+                  >
+                    <ListItem disablePadding sx={{ mb: 0.5 }}>
+                      <ListItemButton
+                        selected={location.pathname === item.path}
+                        onClick={() => handleNavigation(item.path)}
+                        sx={{
+                          borderRadius: 2,
+                          mx: 1,
+                          "&.Mui-selected": {
+                            bgcolor: alpha(theme.palette.primary.main, 0.12),
+                            "&:hover": {
+                              bgcolor: alpha(theme.palette.primary.main, 0.2),
+                            },
+                          },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                        <ListItemText
+                          primary={item.text}
+                          primaryTypographyProps={{
+                            fontSize: "0.9rem",
+                            fontWeight: location.pathname === item.path ? 600 : 400,
+                          }}
+                        />
+                        {/* Badge for notifications */}
+                        {item.badge > 0 && (
+                          <Chip
+                            label={item.badge}
+                            size="small"
+                            color="error"
+                            sx={{ height: 20, fontSize: "0.75rem" }}
+                          />
+                        )}
+                      </ListItemButton>
+                    </ListItem>
+                  </motion.div>
+                ))}
+              </Box>
+            ))
+          )}
         </List>
       </Box>
     </Box>
