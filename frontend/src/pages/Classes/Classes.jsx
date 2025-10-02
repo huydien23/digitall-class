@@ -14,7 +14,6 @@ import { useSelector } from 'react-redux'
 import classService from '../../services/classService'
 import StudentClassList from '../../components/Class/StudentClassList'
 import ImprovedClassManagement from '../../components/Class/ImprovedClassManagementComplete'
-import { TeacherMockDataProvider } from '../../components/Dashboard/TeacherMockDataProvider'
 
 const Classes = () => {
   const { user } = useSelector((state) => state.auth)

@@ -9,6 +9,7 @@ class AcademicYear(models.Model):
     name = models.CharField(max_length=32)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
+    is_current = models.BooleanField(default=False, help_text='Năm học hiện tại')
 
     class Meta:
         db_table = 'academic_years'
@@ -16,6 +17,108 @@ class AcademicYear(models.Model):
 
     def __str__(self):
         return self.name or self.code
+    
+    @classmethod
+    def get_current_year(cls):
+        """Lấy năm học hiện tại hoặc tự động tạo nếu chưa có"""
+        current = cls.objects.filter(is_current=True).first()
+        if current:
+            return current
+        
+        # Tự động tạo năm học hiện tại dựa vào ngày hiện tại
+        from datetime import date
+        today = date.today()
+        if today.month >= 9:  # Tháng 9+ = năm học mới
+            start_year = today.year
+        else:  # Tháng 1-8 = năm học cũ
+            start_year = today.year - 1
+        
+        end_year = start_year + 1
+        code = f"{start_year}-{end_year}"
+        name = f"Năm học {code}"
+        
+        # Tạo năm học mới và đánh dấu current
+        current_year = cls.objects.create(
+            code=code,
+            name=name,
+            start_date=date(start_year, 9, 1),
+            end_date=date(end_year, 8, 31),
+            is_current=True
+        )
+        
+        # Tự động tạo 3 học kỳ cho năm học mới
+        Term.objects.get_or_create(
+            year=current_year,
+            season=Term.Season.HK1,
+            defaults={
+                'name': f'HK1 {code}',
+                'start_date': date(start_year, 9, 1),
+                'end_date': date(start_year, 12, 31),
+                'is_current': True
+            }
+        )
+        Term.objects.get_or_create(
+            year=current_year,
+            season=Term.Season.HK2,
+            defaults={
+                'name': f'HK2 {code}',
+                'start_date': date(end_year, 1, 1),
+                'end_date': date(end_year, 5, 31),
+            }
+        )
+        Term.objects.get_or_create(
+            year=current_year,
+            season=Term.Season.HK3,
+            defaults={
+                'name': f'HK3 {code}',
+                'start_date': date(end_year, 6, 1),
+                'end_date': date(end_year, 8, 31),
+            }
+        )
+        
+        return current_year
+    
+    @classmethod
+    def create_next_year(cls):
+        """Tạo năm học tiếp theo"""
+        current = cls.get_current_year()
+        current_parts = current.code.split('-')
+        start_year = int(current_parts[0]) + 1
+        end_year = int(current_parts[1]) + 1
+        
+        next_code = f"{start_year}-{end_year}"
+        next_name = f"Năm học {next_code}"
+        
+        from datetime import date
+        next_year, created = cls.objects.get_or_create(
+            code=next_code,
+            defaults={
+                'name': next_name,
+                'start_date': date(start_year, 9, 1),
+                'end_date': date(end_year, 8, 31),
+                'is_current': False
+            }
+        )
+        
+        if created:
+            # Tự động tạo 3 học kỳ cho năm học mới
+            Term.objects.get_or_create(
+                year=next_year,
+                season=Term.Season.HK1,
+                defaults={'name': f'HK1 {next_code}'}
+            )
+            Term.objects.get_or_create(
+                year=next_year,
+                season=Term.Season.HK2,
+                defaults={'name': f'HK2 {next_code}'}
+            )
+            Term.objects.get_or_create(
+                year=next_year,
+                season=Term.Season.HK3,
+                defaults={'name': f'HK3 {next_code}'}
+            )
+        
+        return next_year
 
 
 class Term(models.Model):

@@ -113,28 +113,28 @@ def bulk_create_students(request):
     errors = []
     
     try:
-        with transaction.atomic():
-            for i, student_data in enumerate(students_data):
-                try:
-                    serializer = StudentCreateSerializer(data=student_data)
-                    if serializer.is_valid():
-                        student = serializer.save()
-                        created_students.append(StudentSerializer(student).data)
-                        logger.info(f'Successfully created student: {student.student_id}')
-                    else:
-                        errors.append({
-                            'index': i,
-                            'data': student_data,
-                            'errors': serializer.errors
-                        })
-                        logger.warning(f'Validation failed for student at index {i}: {serializer.errors}')
-                except Exception as e:
+        # Process each student independently (no transaction)
+        for i, student_data in enumerate(students_data):
+            try:
+                serializer = StudentCreateSerializer(data=student_data)
+                if serializer.is_valid():
+                    student = serializer.save()
+                    created_students.append(StudentSerializer(student).data)
+                    logger.info(f'Successfully created student: {student.student_id}')
+                else:
                     errors.append({
                         'index': i,
                         'data': student_data,
-                        'error': str(e)
+                        'errors': serializer.errors
                     })
-                    logger.error(f'Error creating student at index {i}: {str(e)}')
+                    logger.warning(f'Validation failed for student at index {i}: {serializer.errors}')
+            except Exception as e:
+                errors.append({
+                    'index': i,
+                    'data': student_data,
+                    'error': str(e)
+                })
+                logger.error(f'Error creating student at index {i}: {str(e)}')
         
         return Response({
             'success': len(created_students) > 0,
@@ -144,10 +144,22 @@ def bulk_create_students(request):
             'errors': errors
         })
     except Exception as e:
-        logger.error(f'Bulk create transaction failed: {str(e)}')
+        # Log the full error for debugging
+        import traceback
+        logger.error(f'Bulk create failed with exception: {str(e)}')
+        logger.error(f'Full traceback: {traceback.format_exc()}')
+        
         return Response({
             'success': False,
-            'error': 'Transaction failed: ' + str(e)
+            'error': f'Bulk create failed: {str(e)}',
+            'created_count': len(created_students),
+            'error_count': len(errors),
+            'created_students': created_students,
+            'errors': errors,
+            'details': {
+                'error_type': type(e).__name__,
+                'error_message': str(e)
+            }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -164,16 +176,49 @@ def import_excel(request):
         
         excel_file = request.FILES['file']
         
-        # Check file extension
-        if not excel_file.name.lower().endswith(('.xlsx', '.xls')):
-            return Response({
-                'success': False,
-                'message': 'Only Excel files (.xlsx, .xls) are supported'
-            }, status=status.HTTP_400_BAD_REQUEST)
+        # Validate file type
+        try:
+            from apps.core.validators import validate_document_upload
+            validate_document_upload(excel_file, allowed_extensions={'xls', 'xlsx'})
+        except Exception:
+            # Fallback to extension check
+            if not excel_file.name.lower().endswith(('.xlsx', '.xls')):
+                return Response({
+                    'success': False,
+                    'message': 'Only Excel files (.xlsx, .xls) are supported'
+                }, status=status.HTTP_400_BAD_REQUEST)
         
         # Parse Excel file with openpyxl
         from openpyxl import load_workbook
         import io
+        import unicodedata
+        from datetime import datetime, timedelta
+        
+        def _normalize_header(value):
+            if value is None:
+                return ''
+            s = str(value).replace('\u00A0', ' ').strip().lower()
+            s = ''.join(ch for ch in unicodedata.normalize('NFD', s) if unicodedata.category(ch) != 'Mn')
+            s = ' '.join(s.split())
+            return s.replace(' ', '_')
+        
+        def _parse_date(value):
+            if value in (None, ''):
+                return '2000-01-01'
+            # Excel serial
+            try:
+                serial = float(value)
+                base = datetime(1899, 12, 30)
+                return (base + timedelta(days=serial)).strftime('%Y-%m-%d')
+            except Exception:
+                pass
+            s = str(value).strip()
+            for fmt in ('%d/%m/%Y', '%d-%m-%Y', '%Y-%m-%d'):
+                try:
+                    return datetime.strptime(s, fmt).strftime('%Y-%m-%d')
+                except Exception:
+                    continue
+            return '2000-01-01'
         
         # Load workbook from uploaded file
         workbook = load_workbook(io.BytesIO(excel_file.read()))
@@ -182,26 +227,29 @@ def import_excel(request):
         # Get headers from second row (row 2) - Vietnamese Excel format
         headers = []
         for cell in worksheet[2]:  # Row 2 instead of row 1
-            headers.append(cell.value.lower().replace(' ', '_') if cell.value else '')
+            headers.append(_normalize_header(cell.value))
         
         # Expected columns mapping for Vietnamese Excel
         column_mapping = {
-            'student_id': ['student_id', 'mssv', 'id', 'mã_sinh_viên'],
-            'first_name': ['first_name', 'ten', 'ho_ten', 'name', 'tên'],
-            'last_name': ['last_name', 'ho', 'surname', 'họ_đệm'],
+            'student_id': ['student_id', 'mssv', 'id', 'mã_sinh_viên', 'mã sinh viên', 'ma_sinh_vien', 'masv'],
+            'full_name': ['ho_ten', 'họ_tên', 'họ tên', 'họ và tên', 'ho_va_ten', 'fullname', 'full_name', 'full name'],
+            'last_name': ['họ_đệm', 'họ đệm', 'ho_dem', 'ho', 'họ', 'last_name', 'surname', 'ho dem'],
+            'first_name': ['tên', 'ten', 'first_name', 'name', 'firstname'],
             'email': ['email', 'mail'],
-            'phone': ['phone', 'sdt', 'telephone'],
-            'gender': ['gender', 'gioi_tinh', 'sex', 'giới_tính'],
-            'date_of_birth': ['date_of_birth', 'ngay_sinh', 'birthday', 'ngày_sinh'],
-            'address': ['address', 'dia_chi', 'location']
+            'phone': ['phone', 'sdt', 'telephone', 'điện_thoại', 'điện thoại', 'so dien thoai'],
+            'gender': ['giới_tính', 'giới tính', 'gioi_tinh', 'gender', 'sex', 'gt'],
+            'date_of_birth': ['ngày_sinh', 'ngày sinh', 'ngay_sinh', 'date_of_birth', 'birthday', 'dob'],
+            'address': ['address', 'dia_chi', 'địa_chỉ', 'địa chỉ', 'location'],
+            'class_name': ['lớp_học', 'lớp học', 'lop_hoc', 'class_name', 'lớp', 'lop']
         }
         
-        # Map headers to expected fields
+        # Map headers to expected fields (normalize both sides)
         field_mapping = {}
         for field, possible_names in column_mapping.items():
-            for header in headers:
-                if header in possible_names:
-                    field_mapping[field] = headers.index(header)
+            normalized_possible = {_normalize_header(n) for n in possible_names}
+            for idx, header in enumerate(headers):
+                if header and header in normalized_possible:
+                    field_mapping[field] = idx
                     break
         
         # Debug: Print headers and field mapping
@@ -217,16 +265,48 @@ def import_excel(request):
                 row_data = {}
                 for field, col_index in field_mapping.items():
                     cell_value = worksheet.cell(row=row_num, column=col_index + 1).value
-                    # Better handling of empty/null values
+                    # Better handling of empty/null values + normalization
                     if cell_value is None or str(cell_value).strip() == '':
                         row_data[field] = ''
                     else:
-                        row_data[field] = str(cell_value).strip()
-                
+                        if field == 'student_id':
+                            row_data[field] = str(cell_value).strip().upper()
+                        elif field == 'date_of_birth':
+                            row_data[field] = _parse_date(cell_value)
+                        else:
+                            row_data[field] = str(cell_value).strip()
+
                 # Debug: Print first few rows
                 if row_num <= 5:
                     print(f"DEBUG: Row {row_num} data: {row_data}")
-                
+
+                # Handle name splitting based on available data
+                # Case 1: We have full_name column
+                if row_data.get('full_name'):
+                    parts = row_data['full_name'].split()
+                    if len(parts) == 1:
+                        # Only one word - use as first name
+                        row_data['first_name'] = parts[0]
+                        row_data['last_name'] = ''
+                    elif len(parts) == 2:
+                        # Two words - first is last name, second is first name
+                        row_data['last_name'] = parts[0]
+                        row_data['first_name'] = parts[1]
+                    else:
+                        # Three or more words - last word is first name, rest are last name
+                        row_data['first_name'] = parts[-1]
+                        row_data['last_name'] = ' '.join(parts[:-1])
+
+                # Case 2: We have separate last_name and first_name columns
+                elif row_data.get('last_name') and row_data.get('first_name'):
+                    first_parts = row_data.get('first_name', '').split()
+                    if len(first_parts) > 1:
+                        actual_first_name = first_parts[0]
+                        additional_middle = ' '.join(first_parts[1:])
+                        row_data['first_name'] = actual_first_name
+                        if additional_middle:
+                            row_data['last_name'] = row_data['last_name'] + ' ' + additional_middle
+
                 # Set defaults for missing fields
                 if not row_data.get('gender'):
                     row_data['gender'] = 'male'
@@ -242,29 +322,23 @@ def import_excel(request):
                 
                 # Convert Vietnamese gender to English
                 if row_data.get('gender'):
+                    gender = row_data['gender'].lower().strip()
                     gender_map = {
                         'nam': 'male',
                         'nữ': 'female',
+                        'nu': 'female',
                         'male': 'male',
-                        'female': 'female'
+                        'female': 'female',
+                        'm': 'male',
+                        'f': 'female',
+                        '1': 'male',  # Sometimes 1 for male
+                        '0': 'female'  # Sometimes 0 for female
                     }
-                    row_data['gender'] = gender_map.get(row_data['gender'].lower(), 'male')
-                
-                # Convert date format from DD/MM/YYYY to YYYY-MM-DD
-                if row_data.get('date_of_birth') and row_data['date_of_birth'] != '2000-01-01':
-                    try:
-                        from datetime import datetime
-                        # Try to parse DD/MM/YYYY format
-                        if '/' in row_data['date_of_birth']:
-                            date_obj = datetime.strptime(row_data['date_of_birth'], '%d/%m/%Y')
-                            row_data['date_of_birth'] = date_obj.strftime('%Y-%m-%d')
-                    except ValueError:
-                        # If parsing fails, keep original or set default
-                        row_data['date_of_birth'] = '2000-01-01'
+                    row_data['gender'] = gender_map.get(gender, 'male')
                 
                 # Validate required fields
-                if not row_data.get('student_id') or not row_data.get('first_name'):
-                    error_msg = f'Missing required fields: student_id={row_data.get("student_id")}, first_name={row_data.get("first_name")}'
+                if not row_data.get('student_id') or not (row_data.get('first_name') or row_data.get('full_name') or row_data.get('last_name')):
+                    error_msg = f'Missing required fields: student_id={row_data.get("student_id")}, name={row_data.get("first_name") or row_data.get("full_name") or row_data.get("last_name")}'
                     print(f"DEBUG: Row {row_num} validation failed: {error_msg}")
                     errors.append({
                         'row': row_num,
@@ -273,7 +347,7 @@ def import_excel(request):
                     })
                     continue
                 
-                # Check if student already exists
+                # Check if student already exists (by student_id)
                 if Student.objects.filter(student_id=row_data['student_id']).exists():
                     errors.append({
                         'row': row_num,
@@ -282,7 +356,7 @@ def import_excel(request):
                     })
                     continue
                 
-                # Create student
+                # Create student via serializer (ensures proper validation)
                 serializer = StudentCreateSerializer(data=row_data)
                 if serializer.is_valid():
                     student = serializer.save()
@@ -320,9 +394,18 @@ def import_excel(request):
         })
         
     except Exception as e:
+        # Log the full error for debugging
+        import traceback
+        print(f"ERROR: Excel import failed with exception: {str(e)}")
+        print(f"ERROR: Full traceback: {traceback.format_exc()}")
+        
         return Response({
             'success': False,
-            'error': str(e)
+            'error': f'Import failed: {str(e)}',
+            'details': {
+                'error_type': type(e).__name__,
+                'error_message': str(e)
+            }
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

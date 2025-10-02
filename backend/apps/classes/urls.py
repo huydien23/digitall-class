@@ -7,6 +7,7 @@ urlpatterns = [
     path('<int:pk>/', views.ClassDetailView.as_view(), name='class_detail'),
     path('<int:class_id>/students/', views.ClassStudentListCreateView.as_view(), name='class_students'),
     path('<int:class_id>/students/<str:student_id>/remove/', views.remove_student_from_class, name='remove_student_from_class'),
+    path('<int:class_id>/import-excel/', views.import_students_from_excel, name='import_students_from_excel'),
     path('<int:class_id>/available-students/', views.available_students, name='available_students'),
     path('<int:class_id>/detail/', views.class_detail_with_students, name='class_detail_with_students'),
     path('statistics/', views.class_statistics, name='class_statistics'),
@@ -30,4 +31,8 @@ urlpatterns = [
     path('my-classes/', views.my_classes, name='my_classes'),
     path('<int:class_id>/join-tokens/', views.create_join_token, name='create_join_token'),
     path('join/', views.join_class, name='join_class'),
+    
+    # Academic year and term management (admin only)
+    path('advance-year/', views.advance_to_next_year, name='advance_to_next_year'),
+    path('switch-term/', views.switch_current_term, name='switch_current_term'),
 ]

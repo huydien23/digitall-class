@@ -1,18 +1,18 @@
 import React from 'react';
 import { useSelector } from 'react-redux';
 import Classes from '../../pages/Classes/Classes';
-import ClassesDetail from '../teacher/ClassesDetail';
+import TeacherMyClasses from './TeacherMyClasses';
 
-function RoleAwareClasses() {
+const RoleAwareClasses = () => {
   const { user } = useSelector((state) => state.auth);
 
-  // Teachers see the new ClassesDetail component
+  // Teachers see the TeacherMyClasses component (cards with actions)
   if (user?.role === 'teacher') {
-    return <ClassesDetail />;
+    return <TeacherMyClasses />;
   }
 
   // Admin and students see the traditional Classes component
   return <Classes />;
-}
+};
 
 export default RoleAwareClasses;

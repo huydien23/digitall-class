@@ -37,6 +37,8 @@ import {
   CloudUpload as CloudUploadIcon
 } from '@mui/icons-material'
 import * as XLSX from 'xlsx'
+import studentService from '../../services/studentService'
+import classService from '../../services/classService'
 
 const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => {
   const [activeStep, setActiveStep] = useState(0)
@@ -45,9 +47,120 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
   const [studentData, setStudentData] = useState([])
   const [importResult, setImportResult] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [fileClassCodes, setFileClassCodes] = useState([])
   const fileInputRef = useRef(null)
 
   const steps = ['Chọn file Excel', 'Xem trước dữ liệu', 'Kết quả import']
+
+  // Remove Vietnamese diacritics for robust matching
+  const strip = (s = '') => s
+    .toString()
+    // convert non-breaking spaces to normal spaces
+    .replace(/\u00A0/g, ' ')
+    // remove vietnamese diacritics
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    // collapse multiple spaces
+    .replace(/\s+/g, ' ')
+
+  const normalizeHeader = (header) => {
+    const h = strip(header)
+    const dict = {
+      // ignore / order
+      'stt': 'ignore',
+
+      // student id
+      'mssv': 'student_id',
+      'ma sv': 'student_id',
+      'ma sinh vien': 'student_id',
+      'ma so sinh vien': 'student_id',
+      'student id': 'student_id',
+      'student_id': 'student_id',
+
+      // names
+      'ho': 'last_name',
+      'ho dem': 'last_name',
+      'ho đem': 'last_name',
+      'ho va ten dem': 'last_name',
+      'ho va ten lot': 'last_name',
+      'ho lot': 'last_name',
+      'last_name': 'last_name',
+      'lastname': 'last_name',
+      'surname': 'last_name',
+      'ten': 'first_name',
+      'first_name': 'first_name',
+      'firstname': 'first_name',
+      'given_name': 'first_name',
+      'ho ten': 'full_name',
+      'ho va ten': 'full_name',
+      'full name': 'full_name',
+      'fullname': 'full_name',
+
+      // gender
+      'gioi tinh': 'gender',
+      'gt': 'gender',
+      'sex': 'gender',
+      'gender': 'gender',
+
+      // dob
+      'ngay sinh': 'date_of_birth',
+      'ngaysinh': 'date_of_birth',
+      'dob': 'date_of_birth',
+      'date_of_birth': 'date_of_birth',
+
+      // optional class code in file
+      'lop': 'class_code',
+      'lop hoc': 'class_code',
+      'lophoc': 'class_code',
+      'ma lop': 'class_code',
+      'class': 'class_code',
+    }
+    return dict[h] || h
+  }
+
+  const normalizeGender = (v = '') => {
+    const s = strip(v)
+    if (['nam', 'm', 'male'].includes(s)) return 'male'
+    if (['nu', 'nữ', 'female', 'f'].includes(s)) return 'female'
+    return 'other'
+  }
+
+  const excelSerialToISO = (num) => {
+    const jsDate = new Date(Math.round((Number(num) - 25569) * 86400 * 1000))
+    const y = jsDate.getFullYear()
+    const m = String(jsDate.getMonth() + 1).padStart(2, '0')
+    const d = String(jsDate.getDate()).padStart(2, '0')
+    return `${y}-${m}-${d}`
+  }
+
+  const normalizeDOB = (v) => {
+    if (v == null || v === '') return ''
+    if (typeof v === 'number') return excelSerialToISO(v)
+    const s = String(v).trim()
+    const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/)
+    if (m) {
+      const [, d, mo, y] = m
+      return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+    }
+    // fallback assume already ISO
+    return s
+  }
+
+  // Helper: choose provided first/last if available; otherwise split full_name
+  const splitName = (student) => {
+    const hasDirect = (student.first_name && String(student.first_name).trim()) || (student.last_name && String(student.last_name).trim())
+    if (hasDirect) {
+      return { first_name: String(student.first_name || '').trim(), last_name: String(student.last_name || '').trim() }
+    }
+    const full = (student.full_name || '').trim()
+    if (!full) return { first_name: '', last_name: '' }
+    const parts = full.split(/\s+/)
+    if (parts.length === 1) return { first_name: parts[0], last_name: '' }
+    const last_name = parts.slice(0, parts.length - 1).join(' ')
+    const first_name = parts[parts.length - 1]
+    return { first_name, last_name }
+  }
 
   const handleReset = () => {
     setActiveStep(0)
@@ -121,18 +234,49 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
           return
         }
 
-        // Lấy header và data
-        const headers = jsonData[0]
-        const rows = jsonData.slice(1)
+        // Tìm dòng header thực sự (file trường có thể có nhiều dòng tiêu đề)
+        const recognizeSet = new Set(['student_id','first_name','last_name','full_name','gender','date_of_birth','class_code'])
+        let bestRow = 0, bestScore = -1
+        const maxScan = Math.min(15, jsonData.length)
+        for (let i = 0; i < maxScan; i++) {
+          const row = jsonData[i] || []
+          let score = 0
+          row.forEach(cell => {
+            const k = normalizeHeader(cell || '')
+            if (recognizeSet.has(k)) score += 1
+          })
+          if (score > bestScore) { bestScore = score; bestRow = i }
+        }
+
+        const headers = jsonData[bestRow]
+        const rows = jsonData.slice(bestRow + 1)
+
+        // Debug: Log headers to see what we're working with
+        console.log('🔍 Excel Headers (raw):', headers)
+        console.log('🔍 Excel Headers (normalized):', headers.map(h => `${h} → ${normalizeHeader(h)}`))
 
         // Map dữ liệu với format mong muốn
+        const classSet = new Set()
         const students = rows
           .filter(row => row.some(cell => cell)) // Loại bỏ dòng trống
           .map((row, index) => {
             const student = {}
             headers.forEach((header, headerIndex) => {
-              if (header && row[headerIndex]) {
-                student[normalizeHeader(header)] = row[headerIndex]
+              const key = normalizeHeader(header)
+              const cell = row[headerIndex]
+              if (!key || key === 'ignore') return
+              if (key === 'gender') {
+                student.gender = normalizeGender(cell)
+              } else if (key === 'date_of_birth') {
+                student.date_of_birth = normalizeDOB(cell)
+              } else if (key === 'class_code') {
+                const code = String(cell || '').trim()
+                if (code) {
+                  student.class_code = code
+                  classSet.add(code)
+                }
+              } else if (cell !== undefined && cell !== null && String(cell).trim() !== '') {
+                student[key] = cell
               }
             })
             
@@ -144,7 +288,11 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
             return student
           })
 
+        // Debug: Log first few students to check parsing
+        console.log('👨‍🎓 First 3 parsed students:', students.slice(0, 3))
+
         setStudentData(students)
+        setFileClassCodes(Array.from(classSet))
         setActiveStep(1)
       } catch (error) {
         console.error('Error parsing Excel file:', error)
@@ -155,34 +303,9 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
     reader.readAsArrayBuffer(file)
   }
 
-  const normalizeHeader = (header) => {
-    const headerMappings = {
-      'mssv': 'student_id',
-      'mã sinh viên': 'student_id',
-      'student_id': 'student_id',
-      'họ': 'first_name',
-      'first_name': 'first_name',
-      'họ tên': 'full_name',
-      'tên': 'last_name',
-      'last_name': 'last_name',
-      'email': 'email',
-      'điện thoại': 'phone',
-      'số điện thoại': 'phone',
-      'phone': 'phone',
-      'giới tính': 'gender',
-      'gender': 'gender',
-      'ngày sinh': 'date_of_birth',
-      'date_of_birth': 'date_of_birth',
-      'địa chỉ': 'address',
-      'address': 'address'
-    }
-    
-    const normalizedKey = header.toString().toLowerCase().trim()
-    return headerMappings[normalizedKey] || normalizedKey
-  }
 
   const validateStudentData = (student) => {
-    // Email không bắt buộc ở FE (BE sẽ tự sinh từ MSSV nếu thiếu)
+    // Email không bắt buộc ở FE
     return !!(student.student_id && (student.first_name || student.full_name || student.last_name))
   }
 
@@ -202,25 +325,86 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
 
   const handleImport = async () => {
     setLoading(true)
-    
     try {
-      // Filter valid students
+      // Filter valid rows prepared from Excel
       const validStudents = studentData.filter(s => s.isValid)
-      
-      // Simulate API call - replace with actual API
-      const response = await mockImportAPI(validStudents)
-      
+
+      // Prepare payload for create/enroll
+      const studentsPayload = validStudents.map(s => {
+        const { first_name, last_name } = splitName(s)
+        const email = s.email || `${String(s.student_id).toLowerCase()}@student.local`
+        return {
+          student_id: String(s.student_id).trim().toUpperCase(),  // Convert to UPPERCASE for backend validation
+          first_name: first_name || '-',
+          last_name: last_name || '-',
+          email,
+          phone: s.phone || '',
+          gender: s.gender || 'male',
+          date_of_birth: s.date_of_birth || '2000-01-01',
+          address: s.address || ''
+        }
+      })
+
+      // Attempt bulk create (ignore failures, we will fall back per-student)
+      try {
+        await studentService.bulkCreateStudents(studentsPayload)
+      } catch (e) {
+        console.warn('bulkCreateStudents failed, will try per-student fallback:', e?.response?.data || e?.message)
+      }
+
+      // Enroll: ensure student exists first to avoid 500
+      let successCount = 0
+      const errors = []
+
+      for (const s of studentsPayload) {
+        const code = s.student_id
+        try {
+          // Step 1: ensure student account exists (create or update)
+          try {
+            await studentService.createStudent({
+              student_id: code,
+              first_name: s.first_name,
+              last_name: s.last_name,
+              email: s.email,
+              phone: s.phone,
+              gender: s.gender,
+              date_of_birth: s.date_of_birth,
+              address: s.address,
+              is_active: true,
+            })
+          } catch (createErr) {
+            // If already exists (409 or 400), ignore and proceed to enroll
+            if (![400, 409].includes(createErr?.response?.status)) {
+              throw createErr
+            }
+          }
+
+          // Step 2: enroll into class
+          await classService.addStudentToClass(classData.id, code)
+          successCount += 1
+        } catch (err) {
+          const detail = err?.response?.data?.error || err?.message || 'Không rõ lỗi'
+          errors.push({ student_id: code, error: detail })
+        }
+      }
+
+      const response = {
+        success: successCount > 0 && errors.length === 0,
+        created_count: successCount,
+        errors,
+        message: errors.length === 0
+          ? `Đã thêm ${successCount}/${studentsPayload.length} sinh viên vào lớp ${classData?.class_name}`
+          : `Đã thêm ${successCount}/${studentsPayload.length}; ${errors.length} lỗi (có thể do sinh viên chưa tồn tại hoặc API lớp trả về 500).`
+      }
+
       setImportResult(response)
       setActiveStep(2)
-      
-      if (onImportComplete) {
-        onImportComplete(response)
-      }
+      onImportComplete?.(response)
     } catch (error) {
       console.error('Import error:', error)
       setImportResult({
         success: false,
-        error: 'Lỗi khi import sinh viên',
+        error: error?.response?.data?.error || error.message || 'Lỗi khi import sinh viên',
         created_count: 0,
         errors: [{ error: error.message }]
       })
@@ -230,24 +414,11 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
     }
   }
 
-  const mockImportAPI = async (students) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
-    return {
-      success: true,
-      created_count: students.length,
-      errors: [],
-      message: `Đã import thành công ${students.length} sinh viên vào lớp ${classData?.class_name}`
-    }
-  }
-
   const downloadTemplate = () => {
     const template = [
-      ['MSSV', 'Họ', 'Tên', 'Email', 'Số điện thoại', 'Giới tính', 'Ngày sinh', 'Địa chỉ'],
-      ['DH2200001', 'Nguyễn Văn', 'An', 'nguyenvanan@student.edu.vn', '0123456789', 'male', '2002-05-15', 'TP.HCM'],
-      ['DH2200002', 'Trần Thị', 'Bình', 'tranthibinh@student.edu.vn', '0987654321', 'female', '2002-08-20', 'TP.HCM'],
-      ['DH2200003', 'Lê Hoàng', 'Cường', 'lehoangcuong@student.edu.vn', '0369852147', 'male', '2002-03-10', 'TP.HCM']
+      ['STT', 'Mã sinh viên', 'Họ đệm', 'Tên', 'Giới tính', 'Ngày sinh', 'Lớp học'],
+      [1, '221222', 'Lê Văn', 'Nhựt Anh', 'Nam', '30/10/2004', 'DH22TIN06'],
+      [2, '222803', 'Trần Nguyễn Phương', 'Anh', 'Nữ', '07/11/2004', 'DH22TIN06']
     ]
     
     const wb = XLSX.utils.book_new()
@@ -313,7 +484,7 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
               <Typography variant="body2">
                 <strong>Yêu cầu:</strong>
                 <br />• File Excel (.xlsx hoặc .xls)
-                <br />• Cột bắt buộc: MSSV, Email, Họ tên
+                <br />• Cột bắt buộc: MSSV, Họ tên (Email không bắt buộc)
                 <br />• Dòng đầu tiên là tiêu đề
               </Typography>
             </Alert>
@@ -379,28 +550,40 @@ const StudentImportDialog = ({ open, onClose, classData, onImportComplete }) => 
               </Box>
             </Box>
 
-            <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+            {/* Optional class check from file */}
+            {fileClassCodes.length > 0 && (
+              <Alert severity={(fileClassCodes.includes(classData?.class_id) || fileClassCodes.includes(classData?.class_name)) ? 'info' : 'warning'} sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  Lớp trong file: <strong>{fileClassCodes.join(', ')}</strong>. Lớp đang import: <strong>{classData?.class_name} ({classData?.class_id})</strong>.
+                  {!(fileClassCodes.includes(classData?.class_id) || fileClassCodes.includes(classData?.class_name)) && ' Không khớp — vẫn cho phép import, chỉ cảnh báo để bạn kiểm tra đúng file.'}
+                </Typography>
+              </Alert>
+            )}
+
+            <TableContainer component={Paper} sx={{ maxHeight: 420 }}>
               <Table stickyHeader>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Dòng</TableCell>
-                    <TableCell>MSSV</TableCell>
-                    <TableCell>Họ tên</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>SĐT</TableCell>
+                    <TableCell>STT</TableCell>
+                    <TableCell>Mã sinh viên</TableCell>
+                    <TableCell>Họ đệm</TableCell>
+                    <TableCell>Tên</TableCell>
+                    <TableCell>Giới tính</TableCell>
+                    <TableCell>Ngày sinh</TableCell>
+                    <TableCell>Lớp học</TableCell>
                     <TableCell>Trạng thái</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {studentData.map((student, index) => (
                     <TableRow key={index}>
-                      <TableCell>{student.rowNumber}</TableCell>
+                      <TableCell>{index + 1}</TableCell>
                       <TableCell>{student.student_id}</TableCell>
-                      <TableCell>
-                        {student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim()}
-                      </TableCell>
-                      <TableCell>{student.email}</TableCell>
-                      <TableCell>{student.phone || '-'}</TableCell>
+                      <TableCell>{student.last_name || ''}</TableCell>
+                      <TableCell>{student.first_name || ''}</TableCell>
+                      <TableCell>{student.gender || '-'}</TableCell>
+                      <TableCell>{student.date_of_birth || '-'}</TableCell>
+                      <TableCell>{student.class_code || '-'}</TableCell>
                       <TableCell>
                         {student.isValid ? (
                           <Chip label="Hợp lệ" color="success" size="small" />

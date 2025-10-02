@@ -1,8 +1,21 @@
 from rest_framework import serializers
 from apps.accounts.serializers import UserSerializer
 from apps.students.serializers import StudentSerializer
+from apps.students.models import Student
 from .models import Class, ClassStudent, Subject, Term, AcademicYear
 import random
+
+
+class SubjectSerializer(serializers.ModelSerializer):
+    """Serializer for Subject model"""
+
+    class Meta:
+        model = Subject
+        fields = [
+            'id', 'code', 'name', 'credits', 'description',
+            'created_by', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
 
 class ClassSerializer(serializers.ModelSerializer):

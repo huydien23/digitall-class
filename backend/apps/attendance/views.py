@@ -28,7 +28,9 @@ class AttendanceListCreateView(generics.ListCreateAPIView):
         return AttendanceSerializer
     
     def get_queryset(self):
-        queryset = Attendance.objects.all()
+        queryset = Attendance.objects.select_related(
+            'session', 'student'
+        )
         session_id = self.request.query_params.get('session_id')
         student_id = self.request.query_params.get('student_id')
         
@@ -115,7 +117,9 @@ class AttendanceSessionListCreateView(generics.ListCreateAPIView):
         return AttendanceSessionSerializer
 
     def get_queryset(self):
-        queryset = AttendanceSession.objects.all()
+        queryset = AttendanceSession.objects.select_related(
+            'class_obj', 'created_by'
+        ).prefetch_related('attendances')
         class_id = self.request.query_params.get('class_id', None)
         session_type = self.request.query_params.get('session_type', None)
         group_name = self.request.query_params.get('group_name', None)

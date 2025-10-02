@@ -25,16 +25,9 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### Bước 4: Cấu hình database
+### Bước 4: Cấu hình database MySQL với XAMPP
 
-#### Tùy chọn A: SQLite (Đơn giản)
-```bash
-# Không cần cài gì thêm, chỉ cần:
-python manage.py migrate
-python manage.py runserver
-```
-
-#### Tùy chọn B: MySQL với XAMPP
+#### Yêu cầu: MySQL Database
 1. Tải và cài XAMPP: https://www.apachefriends.org/
 2. Khởi động MySQL trong XAMPP Control Panel
 3. Mở phpMyAdmin: http://localhost/phpmyadmin

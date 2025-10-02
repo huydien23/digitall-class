@@ -46,7 +46,7 @@ import classService from '../../services/classService';
 import attendanceService from '../../services/attendanceService';
 import gradeService from '../../services/gradeService';
 
-function TabPanel({ children, value, index, ...other }) {
+const TabPanel = ({ children, value, index, ...other }) => {
   return (
     <div
       role="tabpanel"
@@ -58,9 +58,9 @@ function TabPanel({ children, value, index, ...other }) {
       {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
     </div>
   );
-}
+};
 
-function ClassesDetail() {
+const ClassesDetail = () => {
   const [classes, setClasses] = useState([]);
   const [filteredClasses, setFilteredClasses] = useState([]);
   const [years, setYears] = useState([]);
@@ -71,6 +71,8 @@ function ClassesDetail() {
   const [tabValue, setTabValue] = useState(0);
   const [classStudents, setClassStudents] = useState([]);
   const [classStats, setClassStats] = useState(null);
+  const [addStudentInput, setAddStudentInput] = useState('');
+  const [addingStudent, setAddingStudent] = useState(false);
   const [filters, setFilters] = useState({
     year_id: '',
     subject_id: '',
@@ -91,14 +93,24 @@ function ClassesDetail() {
     try {
       setLoading(true);
       const [classesResponse, yearsResponse, subjectsResponse] = await Promise.all([
-        classService.getMyClasses(),
+        classService.getClasses(),
         classService.getYears(),
         classService.getSubjects()
       ]);
       
-      setClasses(classesResponse.data.results || classesResponse.data || []);
-      setYears(yearsResponse.data || []);
-      setSubjects(subjectsResponse.data || []);
+      const allClasses = classesResponse.data.results || classesResponse.data || [];
+      const allYears = yearsResponse.data || [];
+      const allSubjects = subjectsResponse.data || [];
+      setClasses(allClasses);
+      setYears(allYears);
+      setSubjects(allSubjects);
+
+      // Chọn mặc định năm học hiện tại (ưu tiên match theo năm hiện tại, nếu không có thì chọn năm mới nhất)
+      const nowYear = new Date().getFullYear().toString();
+      const preferredYear = allYears.find(y => String(y.code).includes(nowYear)) || allYears[0];
+      if (preferredYear) {
+        setFilters(prev => ({ ...prev, year_id: String(preferredYear.id) }));
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -144,7 +156,8 @@ function ClassesDetail() {
         getClassStats(classItem.id)
       ]);
       
-      setClassStudents(studentsResponse.data || []);
+      const students = studentsResponse.data?.results || studentsResponse.data || [];
+      setClassStudents(students);
       setClassStats(statsResponse);
     } catch (error) {
       console.error('Error loading class details:', error);
@@ -317,12 +330,17 @@ function ClassesDetail() {
                     </Typography>
                   )}
                 </CardContent>
-                <Box sx={{ p: 2, pt: 0 }}>
+                <Box sx={{ p: 2, pt: 0, display: 'flex', gap: 1 }}>
                   <Button
-                    fullWidth
-                    variant="contained"
+                    variant="outlined"
                     startIcon={<Visibility />}
                     onClick={() => handleViewClass(classItem)}
+                  >
+                    Xem nhanh
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => window.location.assign(`/classes/${classItem.id}`)}
                   >
                     Xem chi tiết
                   </Button>
@@ -458,6 +476,35 @@ function ClassesDetail() {
 
               {/* Students Tab */}
               <TabPanel value={tabValue} index={1}>
+                <Box display="flex" alignItems="center" gap={2} mb={2}>
+                  <TextField
+                    label="Thêm SV bằng mã số (student_id)"
+                    size="small"
+                    value={addStudentInput}
+                    onChange={(e) => setAddStudentInput(e.target.value)}
+                  />
+                  <Button
+                    variant="contained"
+                    disabled={!addStudentInput || addingStudent || !selectedClass}
+                    onClick={async () => {
+                      try {
+                        setAddingStudent(true);
+                        await classService.addStudentToClass(selectedClass.id, addStudentInput);
+                        const res = await classService.getClassStudents(selectedClass.id);
+                        const students = res.data?.results || res.data || [];
+                        setClassStudents(students);
+                        setAddStudentInput('');
+                      } catch (e) {
+                        console.error(e);
+                      } finally {
+                        setAddingStudent(false);
+                      }
+                    }}
+                  >
+                    Thêm SV
+                  </Button>
+                  <Button variant="outlined" onClick={() => window.location.assign(`/classes/${selectedClass?.id}`)}>Mở trang chi tiết</Button>
+                </Box>
                 <Typography variant="h6" gutterBottom>
                   Danh sách học sinh ({classStudents.length})
                 </Typography>
@@ -478,28 +525,31 @@ function ClassesDetail() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {classStudents.map((student, index) => (
-                          <TableRow key={student.id}>
-                            <TableCell>{index + 1}</TableCell>
-                            <TableCell>{student.student_id}</TableCell>
-                            <TableCell>
-                              <Box display="flex" alignItems="center" gap={1}>
-                                <Avatar sx={{ width: 32, height: 32 }}>
-                                  {student.full_name?.charAt(0)}
-                                </Avatar>
-                                {student.full_name}
-                              </Box>
-                            </TableCell>
-                            <TableCell>{student.user?.email}</TableCell>
-                            <TableCell>
-                              <Chip 
-                                label="Đang học" 
-                                color="success" 
-                                size="small"
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {classStudents.map((item, index) => {
+                          const s = item.student || item; // hỗ trợ cả 2 dạng: {student: {...}} hoặc {...}
+                          return (
+                            <TableRow key={item.id || s.id || index}>
+                              <TableCell>{index + 1}</TableCell>
+                              <TableCell>{s.student_id}</TableCell>
+                              <TableCell>
+                                <Box display=\"flex\" alignItems=\"center\" gap={1}>
+                                  <Avatar sx={{ width: 32, height: 32 }}>
+                                    {(s.full_name || '').charAt(0)}
+                                  </Avatar>
+                                  {s.full_name}
+                                </Box>
+                              </TableCell>
+                              <TableCell>{s.user?.email}</TableCell>
+                              <TableCell>
+                                <Chip 
+                                  label=\"Đang học\" 
+                                  color=\"success\" 
+                                  size=\"small\"
+                                />
+                              </TableCell>
+                            </TableRow>
+                          )
+                        })}
                       </TableBody>
                     </Table>
                   </TableContainer>

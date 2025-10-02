@@ -58,8 +58,10 @@ import {
   MoreVert as MoreVertIcon,
   Assignment as AssignmentIcon,
   Visibility as VisibilityIcon,
-  Email as EmailIcon
+  Email as EmailIcon,
+  PersonAdd as PersonAddIcon
 } from '@mui/icons-material'
+import Checkbox from '@mui/material/Checkbox'
 import { motion } from 'framer-motion'
 import { CloudUpload as CloudUploadIcon } from '@mui/icons-material'
 import { PictureAsPdf as PdfIcon, Description as DocIcon, Slideshow as PptIcon, TableChart as XlsIcon, Archive as ZipIcon, Link as LinkIcon, InsertDriveFile as FileIcon } from '@mui/icons-material'
@@ -72,11 +74,13 @@ import studentService from '../../services/studentService'
 import materialService from '../../services/materialService'
 import submissionService from '../../services/submissionService'
 import * as XLSX from 'xlsx'
+import ClassJoinQRCode from './ClassJoinQRCode'
 import AttendanceQRGenerator from '../QRCode/AttendanceQRGenerator'
 import groupingService from '../../services/groupingService'
 import ManualAttendance from '../Attendance/ManualAttendance'
 import CreateSession from '../Session/CreateSession'
 import StudentForm from '../Form/StudentForm'
+import StudentImportDialog from './StudentImportDialog'
 // New optimized session creation components
 import QuickCreateSession from '../Session/QuickCreateSession'
 import BulkCreateSessions from '../Session/BulkCreateSessions'
@@ -149,6 +153,14 @@ const ClassDetailPage = () => {
   const [submissionsError, setSubmissionsError] = useState('')
   const [deletingSubmissionId, setDeletingSubmissionId] = useState(null)
   const [submissionsFilterStudentId, setSubmissionsFilterStudentId] = useState('')
+  
+  // Import students dialog
+  const [importStudentsOpen, setImportStudentsOpen] = useState(false)
+  const [joinClassQROpen, setJoinClassQROpen] = useState(false)
+  
+  // Bulk selection for students
+  const [selectedStudents, setSelectedStudents] = useState([])
+  const [selectAll, setSelectAll] = useState(false)
 
   // Sessions ascending for attendance table (Buổi 1 -> ...)
   const sessionsAsc = useMemo(() => {
@@ -169,99 +181,11 @@ const ClassDetailPage = () => {
     }
   }, [attendanceSessions])
 
-  // Mock data for demo
-  const mockAttendanceSessions = [
-    { id: 1, session_name: 'Buổi 1', session_date: '2024-09-02', start_time: '07:00', end_time: '11:00' },
-    { id: 2, session_name: 'Buổi 2', session_date: '2024-09-09', start_time: '07:00', end_time: '11:00' },
-    { id: 3, session_name: 'Buổi 3', session_date: '2024-09-16', start_time: '07:00', end_time: '11:00' },
-    { id: 4, session_name: 'Buổi 4', session_date: '2024-09-23', start_time: '07:00', end_time: '11:00' },
-    { id: 5, session_name: 'Buổi 5', session_date: '2024-09-30', start_time: '07:00', end_time: '11:00' },
-    { id: 6, session_name: 'Buổi 6', session_date: '2024-10-07', start_time: '07:00', end_time: '11:00' },
-    { id: 7, session_name: 'Buổi 7', session_date: '2024-10-14', start_time: '07:00', end_time: '11:00' },
-    { id: 8, session_name: 'Buổi 8', session_date: '2024-10-21', start_time: '07:00', end_time: '11:00' },
-  ]
-
-  const mockStudentsWithData = [
-    {
-      id: 1, student_id: '221222', name: 'Lê Văn Nhựt Anh', email: 'anh.le@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: false, 4: true, 5: true, 6: true, 7: false, 8: true },
-      grades: { regular: 8.5, midterm: 7.5, final: 8.0 }
-    },
-    {
-      id: 2, student_id: '222803', name: 'Trần Nguyễn Phương Anh', email: 'phuonganh.tran@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: false, 5: true, 6: true, 7: true, 8: true },
-      grades: { regular: 9.0, midterm: 8.5, final: 8.5 }
-    },
-    {
-      id: 3, student_id: '226969', name: 'Nguyễn Xuân Bách', email: 'bach.nguyen@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: true, 5: false, 6: true, 7: true, 8: true },
-      grades: { regular: 7.5, midterm: 8.0, final: 7.8 }
-    },
-    {
-      id: 4, student_id: '221605', name: 'Huỳnh Thương Bảo', email: 'bao.huynh@student.edu.vn',
-      attendance: { 1: false, 2: true, 3: true, 4: true, 5: true, 6: false, 7: true, 8: true },
-      grades: { regular: 8.0, midterm: 7.0, final: 7.5 }
-    },
-    {
-      id: 5, student_id: '221330', name: 'Thạch Văn Bảo', email: 'baothach@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: false },
-      grades: { regular: 9.5, midterm: 9.0, final: 9.2 }
-    },
-    {
-      id: 6, student_id: '222560', name: 'Nguyễn Tiến Chức', email: 'chuc.nguyen@student.edu.vn',
-      attendance: { 1: true, 2: false, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
-      grades: { regular: 7.0, midterm: 7.5, final: 7.2 }
-    },
-    {
-      id: 7, student_id: '223463', name: 'Đặng Thiên Chương', email: 'chuong.dang@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: false, 8: true },
-      grades: { regular: 8.8, midterm: 8.2, final: 8.5 }
-    },
-    {
-      id: 8, student_id: '220237', name: 'Nguyễn Đặng Hải Đăng', email: 'dang.nguyen@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: false, 4: false, 5: true, 6: true, 7: true, 8: true },
-      grades: { regular: 6.5, midterm: 7.0, final: 6.8 }
-    },
-    {
-      id: 9, student_id: '221761', name: 'Trần Tấn Đạt', email: 'dat.tran@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: false, 7: true, 8: true },
-      grades: { regular: 8.2, midterm: 8.5, final: 8.3 }
-    },
-    {
-      id: 10, student_id: '223319', name: 'Nguyễn Thị Ngọc Diễm', email: 'diem.nguyen@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
-      grades: { regular: 9.2, midterm: 9.5, final: 9.3 }
-    },
-    {
-      id: 11, student_id: '226514', name: 'Nguyễn Huy Điền', email: 'dien.nguyen@student.edu.vn',
-      attendance: { 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true },
-      grades: { regular: 9.8, midterm: 9.5, final: 9.7 }
-    },
-    {
-      id: 12, student_id: '220947', name: 'Trần Huỳnh Đức', email: 'duc.tran@student.edu.vn',
-      attendance: { 1: false, 2: true, 3: true, 4: true, 5: false, 6: true, 7: true, 8: true },
-      grades: { regular: 7.8, midterm: 8.0, final: 7.9 }
-    }
-  ]
-
-  const mockClassData = {
-    id: 1,
-    class_id: '110101101010',
-    class_name: 'Lập trình Python - DH22TIN06',
-    description: 'Môn học lập trình Python cơ bản cho sinh viên năm 2',
-    teacher: 'Đặng Mạnh Huy',
-    max_students: 42,
-    current_students: 56,
-    is_active: true,
-    schedule: 'Thứ 2: 07:00-11:00',
-    location: 'Phòng 14-02 (Phòng máy 8)',
-    subject: 'Lập trình Python',
-    semester: 'Học kỳ 1 - 2024'
-  }
 
   useEffect(() => {
     loadClassData()
   }, [classId])
+
 
   const loadClassData = async () => {
     try {
@@ -269,36 +193,24 @@ const ClassDetailPage = () => {
       setError(null)
       setMaterialsError('')
 
-      // Try to load real data from API first
+      // Load real data from API
+      const response = await classService.getClassDetail(classId)
+      const data = response.data
+      
+      console.log('Class detail API response:', data) // Debug log
+      
+      setClassData(data.class || data)
+      setStudents(data.students || [])
+      
+      // Tải sessions từ API
       try {
-        const response = await classService.getClassDetail(classId)
-        const data = response.data
-        
-        setClassData(data.class || data)
-        setStudents(data.students || [])
-        
-        // Luôn cố gắng tải sessions trực tiếp từ API chuyên trách
-        try {
-          const sessionsRes = await attendanceService.getSessions({ class_id: classId })
-          const sessions = sessionsRes?.data?.results || sessionsRes?.data || data.attendance_sessions || []
-          setAttendanceSessions(sessions)
-        } catch (e) {
-          setAttendanceSessions(data.attendance_sessions || [])
-        }
-        
-      } catch (apiError) {
-        console.warn('API call failed, using fallback data:', apiError)
-        // Hạn chế mock: chỉ dùng dữ liệu mẫu khi phát triển
-        setClassData(mockClassData)
-        setStudents(mockStudentsWithData)
-        
-        try {
-          const sessionsRes = await attendanceService.getSessions({ class_id: classId })
-          const sessions = sessionsRes?.data?.results || sessionsRes?.data || []
-          setAttendanceSessions(sessions)
-        } catch (e2) {
-          setAttendanceSessions(mockAttendanceSessions)
-        }
+        const sessionsRes = await attendanceService.getSessions({ class_id: classId })
+        const sessions = sessionsRes?.data?.results || sessionsRes?.data || data.attendance_sessions || []
+        setAttendanceSessions(sessions)
+        console.log('Attendance sessions loaded:', sessions.length)
+      } catch (e) {
+        console.warn('Failed to load sessions:', e)
+        setAttendanceSessions(data.attendance_sessions || [])
       }
 
       // Load materials (view-only for students)
@@ -330,22 +242,44 @@ const ClassDetailPage = () => {
     return (regular * 0.1 + midterm * 0.3 + final * 0.6).toFixed(1)
   }
 
+  // Helper: split full name into Ho dem + Ten for display/export
+  const splitName = (student) => {
+    // Prefer explicit fields if present
+    const explicitFirst = (student.first_name || '').trim()
+    const explicitLast = (student.last_name || '').trim()
+    if (explicitFirst || explicitLast) {
+      return { hoDem: explicitLast, ten: explicitFirst }
+    }
+    // Fallback to a combined string (order unknown). Assume last token is first name.
+    const full = (student.name || student.full_name || '').trim()
+    if (!full) return { hoDem: '', ten: '' }
+    const parts = full.split(/\s+/)
+    if (parts.length === 1) return { hoDem: '', ten: parts[0] }
+    const ten = parts.pop()
+    const hoDem = parts.join(' ')
+    return { hoDem, ten }
+  }
+
   const handleExportExcel = () => {
     // Create workbook
     const wb = XLSX.utils.book_new()
     
-    // Student list sheet
-    const studentData = students.map((student, index) => ({
-      'STT': index + 1,
-      'Mã SV': student.student_id,
-      'Họ tên': student.name,
-      'Email': student.email,
-      'Tỷ lệ điểm danh': `${calculateAttendanceRate(student)}%`,
-      'Điểm thường xuyên': student.grades.regular,
-      'Điểm giữa kỳ': student.grades.midterm,
-      'Điểm cuối kỳ': student.grades.final,
-      'Điểm tổng kết': calculateFinalGrade(student)
-    }))
+    // Student list sheet (format theo mẫu trường)
+    const studentData = students.map((student, index) => {
+      const { hoDem, ten } = splitName(student)
+      const gender = student.gender || ''
+      const dob = student.date_of_birth || ''
+      const lop = classData?.class_id || classData?.class_name || ''
+      return ({
+        'STT': index + 1,
+        'Mã sinh viên': student.student_id,
+        'Họ đệm': hoDem,
+        'Tên': ten,
+        'Giới tính': gender,
+        'Ngày sinh': dob,
+        'Lớp học': lop,
+      })
+    })
     
     const ws1 = XLSX.utils.json_to_sheet(studentData)
     XLSX.utils.book_append_sheet(wb, ws1, 'Danh sách sinh viên')
@@ -556,10 +490,12 @@ const handleEditGrade = (student) => {
     }
     if (!window.confirm(`Xóa ${student.name || student.full_name || student.email} khỏi lớp?`)) return
     try {
+      console.log(`Removing student ${code} from class ${classId}...`)
       await classService.removeStudentFromClass(classId, code)
-      setStudents(prev => prev.filter(s => (s.student_id) !== code))
-      // optionally update class count
-      setClassData(prev => prev ? { ...prev, current_students: Math.max(0, (prev.current_students || 0) - 1) } : prev)
+      console.log(`Successfully removed student ${code}`)
+      
+      // Reload data from server to ensure consistency
+      await loadClassData()
       alert('Đã xóa sinh viên khỏi lớp')
     } catch (e) {
       console.error('Failed to remove student from class:', e)
@@ -712,6 +648,73 @@ const handleEditGrade = (student) => {
       throw error
     }
   }
+
+  // (handleImportFile đã được thay thế bằng StudentImportDialog component)
+
+  // Bulk selection handlers
+  const handleSelectAll = (event) => {
+    if (event.target.checked) {
+      setSelectedStudents(students.map(s => s.id))
+      setSelectAll(true)
+    } else {
+      setSelectedStudents([])
+      setSelectAll(false)
+    }
+  }
+
+  const handleSelectStudent = (studentId) => {
+    const currentIndex = selectedStudents.indexOf(studentId)
+    const newSelected = [...selectedStudents]
+
+    if (currentIndex === -1) {
+      newSelected.push(studentId)
+    } else {
+      newSelected.splice(currentIndex, 1)
+    }
+
+    setSelectedStudents(newSelected)
+    setSelectAll(newSelected.length === students.length)
+  }
+
+  const handleBulkDeleteStudents = async () => {
+    if (selectedStudents.length === 0) {
+      alert('Vui lòng chọn ít nhất một sinh viên để xóa')
+      return
+    }
+
+    const confirmMsg = `Bạn có chắc chắn muốn xóa ${selectedStudents.length} sinh viên khỏi lớp?`
+    if (!window.confirm(confirmMsg)) return
+
+    try {
+      let successCount = 0
+      let failCount = 0
+
+      for (const studentId of selectedStudents) {
+        try {
+          const student = students.find(s => s.id === studentId)
+          if (student) {
+            await classService.removeStudentFromClass(classId, student.student_id)
+            successCount++
+          }
+        } catch (error) {
+          console.error('Failed to remove student:', error)
+          failCount++
+        }
+      }
+
+      alert(`Xóa hoàn tất!\n✅ Thành công: ${successCount}\n❌ Thất bại: ${failCount}`)
+      
+      // Clear selection and reload
+      setSelectedStudents([])
+      setSelectAll(false)
+      await loadClassData()
+    } catch (error) {
+      console.error('Bulk delete error:', error)
+      alert('Có lỗi xảy ra khi xóa sinh viên')
+    }
+  }
+
+  // (handleDownloadTemplate đã được tích hợp trong StudentImportDialog component)
 
   if (loading) {
     return (
@@ -1021,30 +1024,108 @@ const handleEditGrade = (student) => {
         >
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Danh sách sinh viên ({students.length})
-              </Typography>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Box display="flex" alignItems="center" gap={2}>
+                  <Typography variant="h6" fontWeight={600}>
+                    Danh sách sinh viên ({students.length})
+                  </Typography>
+                  {selectedStudents.length > 0 && (
+                    <Chip 
+                      label={`Đã chọn: ${selectedStudents.length}`}
+                      color="primary"
+                      size="small"
+                      onDelete={() => {
+                        setSelectedStudents([])
+                        setSelectAll(false)
+                      }}
+                    />
+                  )}
+                </Box>
+                {user?.role !== 'student' && (
+                  <Box display="flex" gap={1}>
+                    {selectedStudents.length > 0 && (
+                      <Button 
+                        variant="contained" 
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        size="small"
+                        onClick={handleBulkDeleteStudents}
+                      >
+                        Xóa ({selectedStudents.length})
+                      </Button>
+                    )}
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<CloudUploadIcon />}
+                      size="small"
+                      onClick={() => setImportStudentsOpen(true)}
+                    >
+                      Import danh sách
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<QrCodeIcon />}
+                      size="small"
+                      onClick={() => setJoinClassQROpen(true)}
+                      color="success"
+                    >
+                      QR tham gia lớp
+                    </Button>
+                  </Box>
+                )}
+              </Box>
               <TableContainer>
                 <Table>
                   <TableHead>
                     <TableRow>
+                      <TableCell padding="checkbox">
+                        <Checkbox
+                          color="primary"
+                          indeterminate={selectedStudents.length > 0 && selectedStudents.length < students.length}
+                          checked={selectAll && students.length > 0}
+                          onChange={handleSelectAll}
+                          disabled={students.length === 0}
+                        />
+                      </TableCell>
                       <TableCell>STT</TableCell>
-                      <TableCell>Mã SV</TableCell>
-                      <TableCell>Họ tên</TableCell>
-                      <TableCell>Email</TableCell>
-                      <TableCell align="center">Tỷ lệ điểm danh</TableCell>
-                      <TableCell align="center">Điểm TB</TableCell>
-                      <TableCell align="center">Trạng thái</TableCell>
+                      <TableCell>Mã sinh viên</TableCell>
+                      <TableCell>Họ đệm</TableCell>
+                      <TableCell>Tên</TableCell>
+                      <TableCell>Giới tính</TableCell>
+                      <TableCell>Ngày sinh</TableCell>
+                      <TableCell>Lớp học</TableCell>
                       <TableCell align="center">Thao tác</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {students.map((student, index) => {
-                      const attendanceRate = calculateAttendanceRate(student)
-                      const finalGrade = calculateFinalGrade(student)
+                      const { hoDem, ten } = splitName(student)
+                      // Map gender từ backend (male/female/other) sang tiếng Việt
+                      const genderMap = {
+                        'male': 'Nam',
+                        'female': 'Nữ',
+                        'other': 'Khác'
+                      }
+                      const gender = student.gender ? (genderMap[student.gender] || student.gender) : '—'
+                      const dob = student.date_of_birth || '—'
+                      const lop = classData?.class_id || classData?.class_name || '—'
                       const fullName = (student.name || student.full_name || `${student.first_name || ''} ${student.last_name || ''}`).trim()
+                      const isSelected = selectedStudents.indexOf(student.id) !== -1
                       return (
-                        <TableRow key={student.id}>
+                        <TableRow 
+                          key={student.id}
+                          hover
+                          selected={isSelected}
+                          onClick={() => handleSelectStudent(student.id)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              color="primary"
+                              checked={isSelected}
+                              onChange={() => handleSelectStudent(student.id)}
+                            />
+                          </TableCell>
                           <TableCell>{index + 1}</TableCell>
                           <TableCell>{student.student_id}</TableCell>
                           <TableCell>
@@ -1052,56 +1133,35 @@ const handleEditGrade = (student) => {
                               <Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>
                                 {(fullName.split(' ').pop() || '').charAt(0)}
                               </Avatar>
-                              {fullName}
+                              {hoDem}
                             </Box>
                           </TableCell>
-                          <TableCell>{student.email}</TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              variant="body2"
-                              color={
-                                attendanceRate >= 90 ? 'success.main' :
-                                attendanceRate >= 80 ? 'warning.main' : 'error.main'
-                              }
-                              fontWeight={600}
-                            >
-                              {attendanceRate}%
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Typography
-                              variant="body2"
-                              color={
-                                finalGrade >= 8.5 ? 'success.main' :
-                                finalGrade >= 7.0 ? 'warning.main' : 'error.main'
-                              }
-                              fontWeight={600}
-                            >
-                              {finalGrade}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={
-                                attendanceRate >= 90 ? 'Xuất sắc' :
-                                attendanceRate >= 80 ? 'Tốt' : 'Cần cải thiện'
-                              }
-                              color={
-                                attendanceRate >= 90 ? 'success' :
-                                attendanceRate >= 80 ? 'warning' : 'error'
-                              }
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell align="center">
+                          <TableCell>{ten}</TableCell>
+                          <TableCell>{gender}</TableCell>
+                          <TableCell>{dob}</TableCell>
+                          <TableCell>{lop}</TableCell>
+                          <TableCell align="center" onClick={(e) => e.stopPropagation()}>
                             <Box display="flex" alignItems="center" justifyContent="center" gap={1}>
                               <Tooltip title="Chỉnh sửa sinh viên">
-                                <IconButton size="small" onClick={() => handleEditStudentInfo(student)}>
+                                <IconButton 
+                                  size="small" 
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleEditStudentInfo(student)
+                                  }}
+                                >
                                   <EditIcon />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Xóa khỏi lớp">
-                                <IconButton size="small" color="error" onClick={() => handleRemoveStudentFromClass(student)}>
+                                <IconButton 
+                                  size="small" 
+                                  color="error" 
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleRemoveStudentFromClass(student)
+                                  }}
+                                >
                                   <DeleteIcon />
                                 </IconButton>
                               </Tooltip>
@@ -2092,6 +2152,28 @@ const handleEditGrade = (student) => {
           <Button variant="contained" onClick={handleUploadMaterial} disabled={uploadSaving}>Tải lên</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Import Students Dialog - Sử dụng component có sẵn */}
+      <StudentImportDialog
+        open={importStudentsOpen}
+        onClose={() => setImportStudentsOpen(false)}
+        classData={{
+          id: classId,
+          class_name: classData?.class_name,
+          class_id: classData?.class_id
+        }}
+        onImportComplete={async () => {
+          await loadClassData()
+          setImportStudentsOpen(false)
+        }}
+      />
+      
+      {/* Join Class QR Dialog - Sử dụng component có sẵn */}
+      <ClassJoinQRCode 
+        open={joinClassQROpen}
+        onClose={() => setJoinClassQROpen(false)}
+        classData={classData}
+      />
 
       {/* Floating Action Button */}
       <SpeedDial
