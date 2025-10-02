@@ -41,6 +41,9 @@ import GradeManagement from "./pages/Grades/GradeManagement";
 import Profile from "./pages/Profile/Profile";
 import Settings from "./pages/Settings/Settings";
 import Materials from "./pages/Materials/Materials";
+import Assignments from "./pages/Assignments/Assignments";
+import Groups from "./pages/Groups/Groups";
+import Analytics from "./pages/Analytics/Analytics";
 import NotFound from "./pages/NotFound/NotFound";
 
 // Debug Components - Removed
@@ -182,6 +185,40 @@ const App = () => {
               <ProtectedRoute requiredRole={["teacher"]}>
                 <Layout>
                   <TeachingManagementPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Teacher-specific management pages */}
+          <Route
+            path="/assignments"
+            element={
+              <ProtectedRoute requiredRole={["admin", "teacher"]}>
+                <Layout>
+                  <Assignments />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/groups"
+            element={
+              <ProtectedRoute requiredRole={["admin", "teacher"]}>
+                <Layout>
+                  <Groups />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/analytics"
+            element={
+              <ProtectedRoute requiredRole={["admin", "teacher"]}>
+                <Layout>
+                  <Analytics />
                 </Layout>
               </ProtectedRoute>
             }
@@ -330,7 +367,7 @@ const App = () => {
           <Route
             path="/reports"
             element={
-              <ProtectedRoute requiredRole={["admin"]}>
+              <ProtectedRoute requiredRole={["admin", "teacher"]}>
                 <Layout>
                   <SystemReports />
                 </Layout>
