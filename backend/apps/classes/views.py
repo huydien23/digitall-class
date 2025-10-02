@@ -337,7 +337,9 @@ def create_student_accounts_for_class(request, class_id):
         for cs in qs:
             st = cs.student
             try:
-                user, was_created = create_user_for_student(st, default_password=password, force=force)
+                # If forcing update and no explicit password provided, default to MSSV (student_id)
+                effective_password = (password or st.student_id) if force else password
+                user, was_created = create_user_for_student(st, default_password=effective_password, force=force)
                 if was_created:
                     created += 1
                     details.append({'student_id': st.student_id, 'email': st.email, 'action': 'created'})
