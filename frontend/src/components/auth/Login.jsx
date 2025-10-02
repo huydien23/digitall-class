@@ -32,7 +32,7 @@ const Login = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',  // Changed from 'email' to accept both email and MSSV
     password: '',
   });
   const [errors, setErrors] = useState({});
@@ -69,36 +69,27 @@ const Login = () => {
     }
   };
 
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.email) {
-      newErrors.email = 'Email là bắt buộc';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = 'Email không hợp lệ';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Mật khẩu là bắt buộc';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
+    // Basic validation
+    if (!formData.username?.trim()) {
+      setErrors({ username: 'Email hoặc MSSV là bắt buộc' });
+      return;
+    }
+    if (!formData.password) {
+      setErrors({ password: 'Mật khẩu là bắt buộc' });
       return;
     }
 
     setLoading(true);
     setMessage('');
+    setErrors({});
 
     try {
       const result = await dispatch(login({
-        email: formData.email,
+        username: formData.username,  // Send username (can be email or MSSV)
         password: formData.password
       })).unwrap();
       
@@ -247,17 +238,17 @@ const Login = () => {
                   <TextField
                     required
                     fullWidth
-                    id="email"
-                    name="email"
-                    label="Địa chỉ email"
-                    type="email"
-                    value={formData.email}
+                    id="username"
+                    name="username"
+                    label="Email hoặc MSSV"
+                    type="text"
+                    value={formData.username}
                     onChange={handleChange}
-                    error={!!errors.email}
-                    helperText={errors.email}
+                    error={!!errors.username}
+                    helperText={errors.username || "Bạn có thể đăng nhập bằng email hoặc mã sinh viên (MSSV)"}
                     disabled={loading}
-                    autoComplete="email"
-                    placeholder="example@email.com"
+                    autoComplete="username"
+                    placeholder="VD: hung223277 hoặc hung223277@student.nctu.edu.vn"
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         borderRadius: 3,

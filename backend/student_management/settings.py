@@ -102,7 +102,8 @@ WSGI_APPLICATION = 'student_management.wsgi.application'
 # MySQL Configuration
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.mysql',
+        # Use custom backend to bypass MariaDB 10.4 version check (development only)
+        'ENGINE': 'student_management.db_backend',
         'NAME': config('DB_NAME'),
         'USER': config('DB_USER'),
         'PASSWORD': config('DB_PASSWORD', default=''),
@@ -149,6 +150,12 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Custom User Model
 AUTH_USER_MODEL = 'accounts.User'
+
+# Authentication backends
+AUTHENTICATION_BACKENDS = [
+    'apps.accounts.authentication.EmailOrStudentIdBackend',  # Custom: email or student_id
+    'django.contrib.auth.backends.ModelBackend',  # Fallback
+]
 
 # Django REST Framework
 REST_FRAMEWORK = {

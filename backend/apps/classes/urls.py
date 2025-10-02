@@ -15,6 +15,9 @@ urlpatterns = [
     path('<int:class_id>/import-excel/', views.import_students_from_excel, name='import_students_from_excel'),
     path('<int:class_id>/available-students/', views.available_students, name='available_students'),
     path('<int:class_id>/detail/', views.class_detail_with_students, name='class_detail_with_students'),
+    path('<int:class_id>/create-student-accounts/', views.create_student_accounts_for_class, name='create_student_accounts_for_class'),
+    # Backward/alternate alias to avoid 404 from FE variants
+    path('<int:class_id>/create-accounts/', views.create_student_accounts_for_class, name='create_accounts_alias'),
     path('statistics/', views.class_statistics, name='class_statistics'),
 
     # Aggregations for teacher by year/term

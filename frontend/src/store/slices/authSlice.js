@@ -7,7 +7,7 @@ export const login = createAsyncThunk(
   async (credentials, { rejectWithValue }) => {
     try {
       const response = await apiService.login(
-        credentials.email,
+        credentials.username,  // Changed from email to username (supports email or MSSV)
         credentials.password
       );
 

@@ -138,33 +138,55 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    password = serializers.CharField()
+    # Changed from 'email' to 'username' to accept email, MSSV, or username
+    username = serializers.CharField(
+        help_text="Email, MSSV (student_id), or username"
+    )
+    password = serializers.CharField(write_only=True)
     
     def validate(self, attrs):
-        email = attrs.get('email', '').lower()
+        username = attrs.get('username', '').strip()
         password = attrs.get('password')
         
-        if not email or not password:
-            raise serializers.ValidationError("Email và mật khẩu là bắt buộc.")
+        if not username or not password:
+            raise serializers.ValidationError(
+                "Email/MSSV và mật khẩu là bắt buộc."
+            )
         
-        user = authenticate(username=email, password=password)
+        # Use custom authentication backend that supports email, MSSV, or username
+        user = authenticate(
+            request=self.context.get('request'),
+            username=username,
+            password=password
+        )
         
         if not user:
-            raise serializers.ValidationError("Email hoặc mật khẩu không chính xác.")
+            raise serializers.ValidationError(
+                "Email/MSSV hoặc mật khẩu không chính xác."
+            )
         
         if not user.is_active:
-            raise serializers.ValidationError("Tài khoản đã bị vô hiệu hóa.")
+            raise serializers.ValidationError(
+                "Tài khoản đã bị vô hiệu hóa."
+            )
         
         if not user.can_login():
             if user.account_status == User.AccountStatus.PENDING:
-                raise serializers.ValidationError("Tài khoản đang chờ phê duyệt từ quản trị viên.")
+                raise serializers.ValidationError(
+                    "Tài khoản đang chờ phê duyệt từ quản trị viên."
+                )
             elif user.account_status == User.AccountStatus.SUSPENDED:
-                raise serializers.ValidationError("Tài khoản đã bị tạm khóa.")
+                raise serializers.ValidationError(
+                    "Tài khoản đã bị tạm khóa."
+                )
             elif user.account_status == User.AccountStatus.REJECTED:
-                raise serializers.ValidationError("Tài khoản đã bị từ chối.")
+                raise serializers.ValidationError(
+                    "Tài khoản đã bị từ chối."
+                )
             else:
-                raise serializers.ValidationError("Không thể đăng nhập vào lúc này.")
+                raise serializers.ValidationError(
+                    "Không thể đăng nhập vào lúc này."
+                )
         
         attrs['user'] = user
         return attrs

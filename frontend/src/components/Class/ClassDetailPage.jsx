@@ -116,6 +116,7 @@ const ClassDetailPage = () => {
   const [editSessionOpen, setEditSessionOpen] = useState(false)
   const [sessionBeingEdited, setSessionBeingEdited] = useState(null)
   const [selectedStudent, setSelectedStudent] = useState(null)
+  const [creatingAccounts, setCreatingAccounts] = useState(false)
   // Local grade edit state
   const [regularScore, setRegularScore] = useState('')
   const [midtermScore, setMidtermScore] = useState('')
@@ -716,6 +717,34 @@ const handleEditGrade = (student) => {
 
   // (handleDownloadTemplate đã được tích hợp trong StudentImportDialog component)
 
+  const handleCreateAccounts = async () => {
+    try {
+      setCreatingAccounts(true)
+      // Determine target student_ids
+      let studentIds = []
+      if (selectedStudents.length > 0) {
+        const selectedSet = new Set(selectedStudents)
+        studentIds = students
+          .filter(s => selectedSet.has(s.id))
+          .map(s => s.student_id)
+      }
+      const payload = {
+        // If empty -> backend will process all students in class (filtered by only_without_user)
+        ...(studentIds.length > 0 ? { student_ids: studentIds } : {}),
+        only_without_user: true,
+      }
+      const res = await classService.createStudentAccounts(classId, payload)
+      const data = res?.data || {}
+      alert(`Tạo tài khoản hoàn tất:\n✓ Tạo mới: ${data.created || 0}\n↻ Cập nhật: ${data.updated || 0}\n⏭ Bỏ qua: ${data.skipped || 0}`)
+      // no need to reload the whole page, but we can refresh class detail to reflect linked users later if needed
+    } catch (e) {
+      const detail = e?.response?.data?.error || e?.message || 'Không thể tạo tài khoản'
+      alert(`Lỗi: ${detail}`)
+    } finally {
+      setCreatingAccounts(false)
+    }
+  }
+
   if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -1061,6 +1090,15 @@ const handleEditGrade = (student) => {
                       onClick={() => setImportStudentsOpen(true)}
                     >
                       Import danh sách
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      startIcon={<PersonAddIcon />}
+                      size="small"
+                      onClick={handleCreateAccounts}
+                      disabled={creatingAccounts}
+                    >
+                      {creatingAccounts ? 'Đang tạo...' : 'Tạo tài khoản'}
                     </Button>
                     <Button 
                       variant="outlined" 

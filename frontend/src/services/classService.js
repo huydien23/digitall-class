@@ -31,6 +31,8 @@ const classService = {
   
   // Class detail with students, attendance, and grades
   getClassDetail: (classId) => apiService.axiosInstance.get(`/classes/${classId}/detail/`),
+  // Create student accounts for a class
+  createStudentAccounts: (classId, payload) => apiService.axiosInstance.post(`/classes/${classId}/create-student-accounts/`, payload),
 
   // Copy and roster import
   copyClass: (data) => apiService.axiosInstance.post('/classes/copy/', data),

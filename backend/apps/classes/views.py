@@ -12,6 +12,7 @@ import logging
 from apps.accounts.models import User
 from apps.students.models import Student
 from apps.students.serializers import StudentSerializer
+from apps.students.utils import create_user_for_student
 from apps.attendance.models import AttendanceSession, Attendance
 from apps.grades.models import Grade, GradeSummary
 
@@ -280,6 +281,84 @@ def create_join_token(request, class_id):
             'expires_at': join_token.expires_at,
             'max_uses': join_token.max_uses,
             'join_link': f"/api/classes/join/?token={join_token.token}"
+        })
+    except Class.DoesNotExist:
+        return Response({'error': 'Không tìm thấy lớp học'}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def create_student_accounts_for_class(request, class_id):
+    """
+    Create User accounts for students of a class.
+    - Accepts optional list of student_ids to limit scope
+    - Flags:
+        - only_without_user (default True): only create for students without linked User
+        - force (default False): update existing user if exists
+        - password (optional): set a custom default password; defaults to MSSV
+    """
+    try:
+        cls = Class.objects.get(id=class_id)
+        # Permission: teacher owns the class or admin
+        if request.user.role != 'admin' and cls.teacher != request.user:
+            return Response({'error': 'Bạn không có quyền thao tác lớp này'}, status=status.HTTP_403_FORBIDDEN)
+
+        student_ids = request.data.get('student_ids') or []
+        only_without_user = bool(request.data.get('only_without_user', True))
+        force = bool(request.data.get('force', False))
+        password = request.data.get('password') or None
+
+        # Base queryset: students in this class
+        qs = ClassStudent.objects.filter(class_obj=cls, is_active=True).select_related('student')
+        if student_ids:
+            qs = qs.filter(student__student_id__in=student_ids)
+        if only_without_user:
+            qs = qs.filter(student__user__isnull=True)
+
+        total = qs.count()
+        if total == 0:
+            return Response({
+                'success': True,
+                'message': 'Không có sinh viên nào cần tạo tài khoản',
+                'created': 0,
+                'updated': 0,
+                'skipped': 0,
+                'total_candidates': 0,
+                'details': []
+            })
+
+        created = 0
+        updated = 0
+        skipped = 0
+        details = []
+
+        for cs in qs:
+            st = cs.student
+            try:
+                user, was_created = create_user_for_student(st, default_password=password, force=force)
+                if was_created:
+                    created += 1
+                    details.append({'student_id': st.student_id, 'email': st.email, 'action': 'created'})
+                else:
+                    if force:
+                        updated += 1
+                        details.append({'student_id': st.student_id, 'email': st.email, 'action': 'updated'})
+                    else:
+                        skipped += 1
+                        details.append({'student_id': st.student_id, 'email': st.email, 'action': 'skipped'})
+            except Exception as e:
+                details.append({'student_id': st.student_id, 'email': st.email, 'action': 'error', 'error': str(e)})
+
+        return Response({
+            'success': True,
+            'message': f'Tạo/ cập nhật tài khoản hoàn tất cho lớp {cls.class_id}',
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'total_candidates': total,
+            'details': details
         })
     except Class.DoesNotExist:
         return Response({'error': 'Không tìm thấy lớp học'}, status=status.HTTP_404_NOT_FOUND)
