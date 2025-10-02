@@ -13,33 +13,43 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.CreateModel(
-            name='AcademicYear',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('code', models.CharField(max_length=16, unique=True)),
-                ('name', models.CharField(max_length=32)),
-                ('start_date', models.DateField(blank=True, null=True)),
-                ('end_date', models.DateField(blank=True, null=True)),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.CreateModel(
+                    name='AcademicYear',
+                    fields=[
+                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('code', models.CharField(max_length=16, unique=True)),
+                        ('name', models.CharField(max_length=32)),
+                        ('start_date', models.DateField(blank=True, null=True)),
+                        ('end_date', models.DateField(blank=True, null=True)),
+                    ],
+                    options={
+                        'db_table': 'academic_years',
+                        'ordering': ['-code'],
+                    },
+                )
             ],
-            options={
-                'db_table': 'academic_years',
-                'ordering': ['-code'],
-            },
+            database_operations=[],
         ),
-        migrations.CreateModel(
-            name='Subject',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('code', models.CharField(max_length=32, unique=True)),
-                ('name', models.CharField(max_length=128)),
-                ('credits', models.PositiveSmallIntegerField(default=3)),
-                ('description', models.TextField(blank=True, null=True)),
+        migrations.SeparateDatabaseAndState(
+            state_operations=[
+                migrations.CreateModel(
+                    name='Subject',
+                    fields=[
+                        ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                        ('code', models.CharField(max_length=32, unique=True)),
+                        ('name', models.CharField(max_length=128)),
+                        ('credits', models.PositiveSmallIntegerField(default=3)),
+                        ('description', models.TextField(blank=True, null=True)),
+                    ],
+                    options={
+                        'db_table': 'subjects',
+                        'ordering': ['code'],
+                    },
+                )
             ],
-            options={
-                'db_table': 'subjects',
-                'ordering': ['code'],
-            },
+            database_operations=[],
         ),
         migrations.CreateModel(
             name='Term',
