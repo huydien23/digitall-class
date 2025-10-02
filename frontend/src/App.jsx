@@ -33,6 +33,7 @@ import Schedule from "./pages/Schedule/Schedule";
 import ClassAssignmentsPage from "./pages/Assignments/ClassAssignmentsPage";
 import AssignmentSubmissionsPage from "./pages/Assignments/AssignmentSubmissionsPage";
 import Teachers from "./pages/Teachers/Teachers";
+import StudentManagement from "./pages/Teachers/StudentManagement";
 import ScheduleManagement from "./pages/ScheduleManagement/ScheduleManagement";
 import Rooms from "./pages/Rooms/Rooms";
 import SystemReports from "./pages/Reports/SystemReports";
@@ -328,6 +329,16 @@ const App = () => {
               <ProtectedRoute requiredRole={["admin"]}>
                 <Layout>
                   <Teachers />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/teacher/students"
+            element={
+              <ProtectedRoute requiredRole={["teacher", "admin"]}>
+                <Layout>
+                  <StudentManagement />
                 </Layout>
               </ProtectedRoute>
             }

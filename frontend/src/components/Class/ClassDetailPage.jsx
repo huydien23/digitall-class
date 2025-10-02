@@ -728,15 +728,22 @@ const handleEditGrade = (student) => {
           .filter(s => selectedSet.has(s.id))
           .map(s => s.student_id)
       }
+
+      // Ask whether to force update existing accounts
+      const doForce = window.confirm(
+        'Mặc định chỉ tạo cho SV chưa có tài khoản.\n\nBấm OK nếu bạn muốn CẬP NHẬT/ĐẶT LẠI mật khẩu = MSSV cho các SV đã có tài khoản trong lớp.\nBấm Cancel để chỉ tạo tài khoản cho SV chưa có.'
+      )
+
       const payload = {
-        // If empty -> backend will process all students in class (filtered by only_without_user)
         ...(studentIds.length > 0 ? { student_ids: studentIds } : {}),
-        only_without_user: true,
+        only_without_user: !doForce, // if force -> include all students
+        force: !!doForce,            // update existing accounts
+        // password: undefined -> backend default = MSSV
       }
+
       const res = await classService.createStudentAccounts(classId, payload)
       const data = res?.data || {}
       alert(`Tạo tài khoản hoàn tất:\n✓ Tạo mới: ${data.created || 0}\n↻ Cập nhật: ${data.updated || 0}\n⏭ Bỏ qua: ${data.skipped || 0}`)
-      // no need to reload the whole page, but we can refresh class detail to reflect linked users later if needed
     } catch (e) {
       const detail = e?.response?.data?.error || e?.message || 'Không thể tạo tài khoản'
       alert(`Lỗi: ${detail}`)

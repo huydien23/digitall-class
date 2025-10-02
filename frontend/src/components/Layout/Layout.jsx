@@ -152,6 +152,11 @@ const getNavigationItems = (userRole) => {
             path: "/classes",
           },
           {
+            text: "Quản lý sinh viên",
+            icon: <PersonIcon />,
+            path: "/teacher/students",
+          },
+          {
             text: "Thời khóa biểu",
             icon: <CalendarToday />,
             path: "/schedule",
