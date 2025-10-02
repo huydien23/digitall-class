@@ -1,14 +1,6 @@
 from django.contrib import admin
-from .models import Subject, Grade, GradeSummary
-
-
-@admin.register(Subject)
-class SubjectAdmin(admin.ModelAdmin):
-    list_display = ('subject_id', 'subject_name', 'credits', 'is_active', 'created_at')
-    list_filter = ('is_active', 'credits', 'created_at')
-    search_fields = ('subject_id', 'subject_name', 'description')
-    ordering = ('subject_id',)
-    readonly_fields = ('created_at', 'updated_at')
+from .models import Grade, GradeSummary
+# Subject model đã được quản lý trong classes app
 
 
 @admin.register(Grade)

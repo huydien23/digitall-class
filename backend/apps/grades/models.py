@@ -2,27 +2,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.accounts.models import User
 from apps.students.models import Student
-from apps.classes.models import Class
-
-
-class Subject(models.Model):
-    """Subject model for grades app"""
-    subject_id = models.CharField(max_length=20, unique=True)
-    subject_name = models.CharField(max_length=100)
-    description = models.TextField(blank=True, null=True)
-    credits = models.PositiveIntegerField(default=3)
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        db_table = 'grades_subjects'  # Different table name to avoid conflict
-        verbose_name = 'Môn học (Grades)'
-        verbose_name_plural = 'Môn học (Grades)'
-        ordering = ['subject_id']
-    
-    def __str__(self):
-        return f"{self.subject_id} - {self.subject_name}"
+from apps.classes.models import Class, Subject  # Import Subject từ classes app
 
 
 class Grade(models.Model):
@@ -42,7 +22,7 @@ class Grade(models.Model):
     
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='grades')
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='grades')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='grades')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='grade_records')
     grade_type = models.CharField(max_length=20, choices=GRADE_TYPE_CHOICES)
     component = models.CharField(max_length=20, choices=COMPONENT_CHOICES, blank=True, null=True)
     score = models.DecimalField(
@@ -106,7 +86,7 @@ class GradeSummary(models.Model):
     """Grade summary for each student in each class"""
     student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='grade_summaries')
     class_obj = models.ForeignKey(Class, on_delete=models.CASCADE, related_name='grade_summaries')
-    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='grade_summaries')
+    subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='grade_summary_records')
     midterm_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     final_score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     assignment_avg = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)

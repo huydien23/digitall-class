@@ -5,6 +5,7 @@ import os
 from apps.accounts.models import User
 from apps.classes.models import Class, ClassStudent
 from apps.students.models import Student
+from apps.core.validators import validate_document_upload, sanitize_filename
 
 SUBMISSION_ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx', 'zip'}
 SUBMISSION_MAX_FILE_SIZE_MB = 20
@@ -12,8 +13,8 @@ SUBMISSION_MAX_FILE_SIZE = SUBMISSION_MAX_FILE_SIZE_MB * 1024 * 1024
 
 
 def submission_upload_path(instance, filename):
-    # Organize by class and student codes for easier browsing
-    base = os.path.basename(filename)
+    # Sanitize and organize by class and student codes for easier browsing
+    base = sanitize_filename(os.path.basename(filename))
     return f"submissions/{instance.class_obj.class_id}/{instance.student.student_id}/{base}"
 
 
@@ -48,14 +49,17 @@ class Submission(models.Model):
             return ''
 
     def clean(self):
-        # Validate file extension and size
+        # Validate file
         if not self.file:
             raise ValidationError({'file': 'Cần chọn file để nộp.'})
-        ext = os.path.splitext(self.file.name)[1].lower().lstrip('.')
-        if ext not in SUBMISSION_ALLOWED_EXTENSIONS:
-            allowed = ', '.join(sorted(SUBMISSION_ALLOWED_EXTENSIONS))
-            raise ValidationError({'file': f'Định dạng không hợp lệ. Cho phép: {allowed}.'})
-        size = getattr(self.file, 'size', 0)
-        if size and size > SUBMISSION_MAX_FILE_SIZE:
-            raise ValidationError({'file': f'File quá lớn (>{SUBMISSION_MAX_FILE_SIZE_MB}MB). Vui lòng nén hoặc chia nhỏ.'})
+
+        # Sanitize filename
+        self.file.name = sanitize_filename(self.file.name)
+
+        # Validate using improved validator
+        try:
+            validate_document_upload(self.file, SUBMISSION_ALLOWED_EXTENSIONS)
+        except ValidationError as e:
+            raise ValidationError({'file': str(e)})
+
         return super().clean()

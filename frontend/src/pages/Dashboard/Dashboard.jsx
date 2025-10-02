@@ -4,7 +4,6 @@ import { Box, CircularProgress, Typography } from '@mui/material'
 import ProductionAdminDashboard from './ProductionAdminDashboard'
 import ProperTeacherDashboard from './ProperTeacherDashboard'
 import ProductionStudentDashboard from './ProductionStudentDashboard'
-import { AdminMockDataProvider } from '../../components/Dashboard/AdminMockDataProvider'
 
 const Dashboard = () => {
   const { user, isLoading } = useSelector((state) => state.auth)
@@ -37,11 +36,7 @@ const Dashboard = () => {
   
   switch (userRole) {
     case 'admin':
-      return (
-        <AdminMockDataProvider user={user}>
-          <ProductionAdminDashboard />
-        </AdminMockDataProvider>
-      )
+      return <ProductionAdminDashboard />
     case 'teacher':
       return <ProperTeacherDashboard />
     case 'student':

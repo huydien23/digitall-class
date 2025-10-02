@@ -22,9 +22,15 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tabs,
+  Tab,
+  Paper,
 } from '@mui/material'
-import { Add as AddIcon, ContentCopy as CopyIcon } from '@mui/icons-material'
+import { Add as AddIcon, ContentCopy as CopyIcon, CalendarMonth as CalendarIcon, Book as BookIcon, Class as ClassIcon } from '@mui/icons-material'
 import classService from '../../services/classService'
+import AcademicYearManagement from '../Academic/AcademicYearManagement'
+import SubjectManagement from '../Academic/SubjectManagement'
+import CreateClassWizard from '../Class/CreateClassWizard'
 
 const seasons = [
   { value: 'hk1', label: 'HK1' },
@@ -33,6 +39,8 @@ const seasons = [
 ]
 
 const TeachingManagement = () => {
+  // Tab state
+  const [activeTab, setActiveTab] = useState(0)
   // UI state
   const [loading, setLoading] = useState(false)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' })
@@ -85,7 +93,7 @@ const TeachingManagement = () => {
     (async () => {
       try {
         setLoading(true)
-        await Promise.all([loadYears(), loadSubjects()])
+        await Promise.all([loadYears(), loadSubjects(), loadClasses({})])
       } catch (e) {
         setSnackbar({ open: true, message: 'Không thể tải dữ liệu ban đầu', severity: 'error' })
       } finally {
@@ -107,7 +115,7 @@ const TeachingManagement = () => {
     if (selectedYearId) filters.year_code = years.find(y => y.id === selectedYearId)?.code
     if (selectedTermId) filters.term_id = selectedTermId
     loadClasses(filters)
-  }, [selectedYearId, selectedTermId])
+  }, [selectedYearId, selectedTermId, years])
 
   const currentYearCode = useMemo(() => years.find(y => y.id === selectedYearId)?.code || '', [years, selectedYearId])
 
@@ -202,8 +210,27 @@ const TeachingManagement = () => {
     }
   }
 
+  // If showing other tabs, render them directly
+  if (activeTab === 0) {
+    return <CreateClassWizard onClose={() => window.history.back()} />
+  }
+  if (activeTab === 1) {
+    return <AcademicYearManagement />
+  }
+  if (activeTab === 2) {
+    return <SubjectManagement />
+  }
+
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Tab Navigation */}
+      <Paper sx={{ mb: 3 }}>
+        <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)}>
+          <Tab icon={<ClassIcon />} label="Tạo lớp học" />
+          <Tab icon={<CalendarIcon />} label="Năm học & Học kỳ" />
+          <Tab icon={<BookIcon />} label="Môn học" />
+        </Tabs>
+      </Paper>
       <Box mb={4}>
         <Typography variant="h4" fontWeight={700} gutterBottom>
           Quản lý giảng dạy

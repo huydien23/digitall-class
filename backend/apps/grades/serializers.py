@@ -1,33 +1,9 @@
 from rest_framework import serializers
 from apps.accounts.serializers import UserSerializer
 from apps.students.serializers import StudentSerializer
-from apps.classes.serializers import ClassSerializer
-from .models import Subject, Grade, GradeSummary
-
-
-class SubjectSerializer(serializers.ModelSerializer):
-    """Serializer for Subject model"""
-    
-    class Meta:
-        model = Subject
-        fields = [
-            'id', 'subject_id', 'subject_name', 'description', 
-            'credits', 'is_active', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-
-class SubjectCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating subjects"""
-    
-    class Meta:
-        model = Subject
-        fields = ['subject_id', 'subject_name', 'description', 'credits']
-    
-    def validate_subject_id(self, value):
-        if Subject.objects.filter(subject_id=value).exists():
-            raise serializers.ValidationError("Mã môn học đã tồn tại")
-        return value
+from apps.classes.serializers import ClassSerializer, SubjectSerializer
+from apps.classes.models import Subject  # Import Subject từ classes app
+from .models import Grade, GradeSummary
 
 
 class GradeSerializer(serializers.ModelSerializer):
@@ -68,8 +44,7 @@ class GradeCreateSerializer(serializers.ModelSerializer):
         subject_id = validated_data.pop('subject_id')
         
         from apps.students.models import Student
-        from apps.classes.models import Class
-        from apps.grades.models import Subject
+        from apps.classes.models import Class, Subject
         
         student = Student.objects.get(student_id=student_id)
         class_obj = Class.objects.get(id=class_id)

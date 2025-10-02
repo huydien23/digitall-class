@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Container,
   Typography,
@@ -57,60 +57,59 @@ const SystemReports = () => {
   const [dateRange, setDateRange] = useState('month')
   const [selectedSemester, setSelectedSemester] = useState('hk1-2024')
 
-  // Mock data for reports
-  const mockData = {
-    attendanceStats: [
-      { month: 'T9', attendance: 85, target: 90 },
-      { month: 'T10', attendance: 88, target: 90 },
-      { month: 'T11', attendance: 92, target: 90 },
-      { month: 'T12', attendance: 89, target: 90 }
-    ],
-    gradeDistribution: [
-      { name: 'A (9.0-10)', value: 15, color: '#4caf50' },
-      { name: 'B (8.0-8.9)', value: 25, color: '#8bc34a' },
-      { name: 'C (7.0-7.9)', value: 30, color: '#ffc107' },
-      { name: 'D (6.0-6.9)', value: 20, color: '#ff9800' },
-      { name: 'F (<6.0)', value: 10, color: '#f44336' }
-    ],
-    systemUsage: [
-      { time: '00:00', users: 5 },
-      { time: '06:00', users: 15 },
-      { time: '08:00', users: 45 },
-      { time: '10:00', users: 38 },
-      { time: '12:00', users: 25 },
-      { time: '14:00', users: 42 },
-      { time: '16:00', users: 35 },
-      { time: '18:00', users: 20 },
-      { time: '20:00', users: 12 },
-      { time: '22:00', users: 8 }
-    ],
-    topClasses: [
-      { name: 'Lập trình Python', attendance: 95, avgGrade: 8.2, students: 56 },
-      { name: 'Cơ sở dữ liệu', attendance: 89, avgGrade: 7.8, students: 38 },
-      { name: 'Mạng máy tính', attendance: 92, avgGrade: 8.0, students: 35 },
-      { name: 'Trí tuệ nhân tạo', attendance: 87, avgGrade: 7.5, students: 28 }
-    ],
-    teacherPerformance: [
-      { name: 'Đặng Mạnh Huy', classes: 3, students: 120, avgGrade: 8.5, attendance: 94 },
-      { name: 'Nguyễn Văn A', classes: 2, students: 80, avgGrade: 7.8, attendance: 89 },
-      { name: 'Trần Thị B', classes: 1, students: 35, avgGrade: 8.0, attendance: 92 },
-      { name: 'Lê Văn C', classes: 1, students: 28, avgGrade: 7.5, attendance: 87 }
-    ],
+  // State for report data
+  const [loading, setLoading] = useState(true)
+  const [reportData, setReportData] = useState({
+    attendanceStats: [],
+    gradeDistribution: [],
+    systemUsage: [],
+    topClasses: [],
+    teacherPerformance: [],
     systemHealth: {
-      uptime: '99.9%',
-      responseTime: '120ms',
-      errorRate: '0.1%',
-      activeUsers: 45,
-      totalRequests: 1250,
-      databaseSize: '2.3GB'
+      uptime: '0%',
+      responseTime: '0ms',
+      errorRate: '0%',
+      activeUsers: 0,
+      totalRequests: 0,
+      databaseSize: '0GB'
     },
-    recentActivities: [
-      { action: 'Đăng nhập', user: 'Đặng Mạnh Huy', time: '08:30', type: 'info' },
-      { action: 'Nhập điểm', user: 'Nguyễn Văn A', time: '09:15', type: 'success' },
-      { action: 'Tạo lớp mới', user: 'Admin', time: '10:00', type: 'info' },
-      { action: 'Lỗi hệ thống', user: 'System', time: '10:30', type: 'error' },
-      { action: 'Xuất báo cáo', user: 'Admin', time: '11:00', type: 'success' }
-    ]
+    recentActivities: []
+  })
+
+  // Load data on mount
+  useEffect(() => {
+    loadReportData()
+  }, [dateRange, selectedSemester])
+
+  const loadReportData = async () => {
+    try {
+      setLoading(true)
+      // TODO: Replace with actual API calls
+      // const response = await reportService.getSystemReports({ dateRange, selectedSemester })
+      // setReportData(response.data)
+      
+      // For now, set empty data
+      setReportData({
+        attendanceStats: [],
+        gradeDistribution: [],
+        systemUsage: [],
+        topClasses: [],
+        teacherPerformance: [],
+        systemHealth: {
+          uptime: '99.9%',
+          responseTime: '120ms',
+          errorRate: '0.1%',
+          activeUsers: 0,
+          totalRequests: 0,
+          databaseSize: '0GB'
+        },
+        recentActivities: []
+      })
+    } catch (error) {
+      console.error('Error loading report data:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const StatCard = ({ title, value, icon, color, trend, subtitle }) => (
@@ -283,7 +282,7 @@ const SystemReports = () => {
                     Xu hướng điểm danh theo tháng
                   </Typography>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={mockData.attendanceStats}>
+                    <LineChart data={reportData.attendanceStats}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="month" />
                       <YAxis />
@@ -305,7 +304,7 @@ const SystemReports = () => {
                   <ResponsiveContainer width="100%" height={300}>
                     <PieChart>
                       <Pie
-                        data={mockData.gradeDistribution}
+                        data={reportData.gradeDistribution}
                         cx="50%"
                         cy="50%"
                         labelLine={false}
@@ -314,7 +313,7 @@ const SystemReports = () => {
                         fill="#8884d8"
                         dataKey="value"
                       >
-                        {mockData.gradeDistribution.map((entry, index) => (
+                        {reportData.gradeDistribution.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
@@ -347,7 +346,7 @@ const SystemReports = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {mockData.topClasses.map((classItem, index) => (
+                        {reportData.topClasses.map((classItem, index) => (
                           <TableRow key={index}>
                             <TableCell>{classItem.name}</TableCell>
                             <TableCell>
@@ -420,7 +419,7 @@ const SystemReports = () => {
                     Phân bố điểm số chi tiết
                   </Typography>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={mockData.gradeDistribution}>
+                    <BarChart data={reportData.gradeDistribution}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" />
                       <YAxis />
@@ -488,7 +487,7 @@ const SystemReports = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {mockData.teacherPerformance.map((teacher, index) => (
+                    {reportData.teacherPerformance.map((teacher, index) => (
                       <TableRow key={index}>
                         <TableCell>{teacher.name}</TableCell>
                         <TableCell>{teacher.classes}</TableCell>
@@ -525,7 +524,7 @@ const SystemReports = () => {
                     Sử dụng hệ thống theo giờ
                   </Typography>
                   <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={mockData.systemUsage}>
+                    <LineChart data={reportData.systemUsage}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="time" />
                       <YAxis />
@@ -549,7 +548,7 @@ const SystemReports = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary="Uptime"
-                        secondary={mockData.systemHealth.uptime}
+                        secondary={reportData.systemHealth.uptime}
                       />
                     </ListItem>
                     <ListItem>
@@ -558,7 +557,7 @@ const SystemReports = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary="Thời gian phản hồi"
-                        secondary={mockData.systemHealth.responseTime}
+                        secondary={reportData.systemHealth.responseTime}
                       />
                     </ListItem>
                     <ListItem>
@@ -567,7 +566,7 @@ const SystemReports = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary="Tỷ lệ lỗi"
-                        secondary={mockData.systemHealth.errorRate}
+                        secondary={reportData.systemHealth.errorRate}
                       />
                     </ListItem>
                     <ListItem>
@@ -576,7 +575,7 @@ const SystemReports = () => {
                       </ListItemIcon>
                       <ListItemText
                         primary="Người dùng hoạt động"
-                        secondary={mockData.systemHealth.activeUsers}
+                        secondary={reportData.systemHealth.activeUsers}
                       />
                     </ListItem>
                   </List>
@@ -590,7 +589,7 @@ const SystemReports = () => {
                     Hoạt động gần đây
                   </Typography>
                   <List>
-                    {mockData.recentActivities.map((activity, index) => (
+                    {reportData.recentActivities.map((activity, index) => (
                       <ListItem key={index}>
                         <ListItemIcon>
                           {getActivityIcon(activity.type)}
@@ -613,3 +612,4 @@ const SystemReports = () => {
 }
 
 export default SystemReports
+

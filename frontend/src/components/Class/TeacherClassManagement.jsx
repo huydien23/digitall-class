@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Container,
@@ -59,15 +59,15 @@ import {
 } from '@mui/icons-material'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { useTeacherMockData } from '../Dashboard/TeacherMockDataProvider'
-import MockDataNotice from '../Dashboard/MockDataNotice'
+import classService from '../../services/classService'
 
 const TeacherClassManagement = () => {
-  const { mockData, isLoading } = useTeacherMockData()
+  const [loading, setLoading] = useState(true)
+  const [classes, setClasses] = useState([])
   const navigate = useNavigate()
   const [selectedClass, setSelectedClass] = useState(null)
   const [showStudentList, setShowStudentList] = useState(false)
-  const [showMockNotice, setShowMockNotice] = useState(true)
+  // Mock notice removed
   const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [sessionDialogOpen, setSessionDialogOpen] = useState(false)
 
@@ -110,7 +110,26 @@ const TeacherClassManagement = () => {
     window.location.reload()
   }
 
-  if (isLoading) {
+  // Load real data on mount
+  useEffect(() => {
+    loadClasses()
+  }, [])
+
+  const loadClasses = async () => {
+    try {
+      setLoading(true)
+      const response = await classService.getClasses()
+      const data = response.data?.results || response.data || []
+      setClasses(data)
+    } catch (error) {
+      console.error('Error loading classes:', error)
+      setClasses([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
     return (
       <Container maxWidth="xl" sx={{ py: 4 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -137,17 +156,11 @@ const TeacherClassManagement = () => {
         </Typography>
       </Box>
 
-      {/* Mock Data Notice */}
-      {showMockNotice && (
-        <MockDataNotice
-          onRefresh={handleRefresh}
-          onDismiss={() => setShowMockNotice(false)}
-        />
-      )}
+      {/* Data loaded from API */}
 
       {/* Class List */}
       <Grid container spacing={3}>
-        {mockData.assignedClasses.map((classItem) => (
+        {classes.map((classItem) => (
           <Grid item xs={12} key={classItem.id}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
