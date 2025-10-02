@@ -369,7 +369,7 @@ const Layout = ({ children }) => {
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="body2" noWrap fontWeight={600}>
-              {user?.first_name} {user?.last_name}
+              {(user?.last_name || '') + (user?.first_name ? ' ' + user.first_name : '')}
             </Typography>
             <Chip
               label={
@@ -632,7 +632,7 @@ const Layout = ({ children }) => {
                 }}
               >
                 <Typography variant="subtitle2" fontWeight={600}>
-                  {user?.first_name} {user?.last_name}
+                  {(user?.last_name || '') + (user?.first_name ? ' ' + user.first_name : '')}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   {user?.email}

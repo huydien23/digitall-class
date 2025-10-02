@@ -36,6 +36,7 @@ const Navbar = () => {
   const { isAuthenticated, user } = useSelector((state) => state.auth);
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const displayName = (user?.full_name) || ((user?.last_name || '') + (user?.first_name ? ' ' + user.first_name : ''));
 
   const handleAvatarClick = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
@@ -89,7 +90,7 @@ const Navbar = () => {
                   </MenuItem>
                   <MenuItem onClick={() => { setMobileMenuOpen(false); navigate('/profile'); }}>
                     <Avatar sx={{ width: 24, height: 24, mr: 1 }} />
-                    {user?.fullName || 'Tài khoản'}
+                    {displayName || 'Tài khoản'}
                   </MenuItem>
                 </>
               ) : (
@@ -129,7 +130,7 @@ const Navbar = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', ml: 2 }}>
                   <Box sx={{ mr: 2, textAlign: 'right' }}>
                     <Typography variant="body2" fontWeight={600}>
-                      {user?.fullName || 'User'}
+                      {displayName || 'User'}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {user?.role === 'teacher' ? 'Giảng viên' : 
@@ -138,7 +139,7 @@ const Navbar = () => {
                   </Box>
                   <IconButton onClick={handleAvatarClick}>
                     <Avatar sx={{ width: 36, height: 36 }} src={user?.avatar}>
-                      {user?.fullName?.charAt(0) || 'U'}
+                      {displayName?.charAt(0) || 'U'}
                     </Avatar>
                   </IconButton>
                 </Box>

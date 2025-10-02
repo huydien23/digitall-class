@@ -97,7 +97,7 @@ const Navigation = ({ mobileOpen, handleDrawerToggle, isMobile }) => {
                 </Avatar>
                 <Box>
                   <Typography variant="body2" fontWeight={600}>
-                    {user?.first_name} {user?.last_name}
+                    {(user?.last_name || '') + (user?.first_name ? ' ' + user.first_name : '')}
                   </Typography>
                   <Chip 
                     label={user?.role === 'admin' ? 'Admin' : user?.role === 'teacher' ? 'Giảng viên' : 'Sinh viên'}
