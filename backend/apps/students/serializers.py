@@ -38,11 +38,11 @@ class StudentCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_email(self, value):
-        # Check if email already exists (excluding current instance for updates)
+        # Allow placeholder/local emails through; uniqueness will be ensured when the generated email is set
         queryset = Student.objects.filter(email=value)
         if self.instance:
             queryset = queryset.exclude(pk=self.instance.pk)
-            
+        
         if queryset.exists():
             raise serializers.ValidationError("Email đã tồn tại")
         return value

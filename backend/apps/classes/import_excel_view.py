@@ -5,6 +5,8 @@ from django.utils import timezone
 
 from .models import Class, ClassStudent
 from apps.students.models import Student
+from django.conf import settings
+from apps.students.utils import build_student_email
 
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
@@ -187,7 +189,11 @@ def import_students_from_excel(request, class_id):
 
                 # Set defaults
                 if not row_data.get('email'):
-                    row_data['email'] = f"{row_data['student_id']}@student.local"
+                    row_data['email'] = build_student_email(
+                        given_name=row_data.get('first_name', ''),
+                        student_id=row_data['student_id'],
+                        domain=settings.STUDENT_EMAIL_DOMAIN,
+                    )
                 if not row_data.get('phone'):
                     row_data['phone'] = ''
                 if not isinstance(row_data.get('date_of_birth'), date):

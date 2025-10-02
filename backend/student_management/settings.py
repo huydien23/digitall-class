@@ -228,6 +228,9 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
 
+# Student email configuration
+STUDENT_EMAIL_DOMAIN = config('STUDENT_EMAIL_DOMAIN', default='student.nctu.edu.vn')
+
 # Logging configuration
 LOGGING = {
     'version': 1,

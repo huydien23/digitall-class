@@ -29,6 +29,7 @@ class Student(models.Model):
             message='Mã sinh viên chỉ được chứa chữ hoa và số'
         )]
     )
+    # In this project, first_name is the given name ("Tên"), last_name is the family + middle ("Họ đệm")
     first_name = models.CharField(max_length=50)
     last_name = models.CharField(max_length=50)
     email = models.EmailField(unique=True)
@@ -59,7 +60,8 @@ class Student(models.Model):
     
     @property
     def full_name(self):
-        return f"{self.first_name} {self.last_name}".strip()
+        # Keep display consistent with Vietnamese name order: "Họ đệm" + "Tên"
+        return f"{self.last_name} {self.first_name}".strip()
     
     @property
     def age(self):
