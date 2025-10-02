@@ -94,6 +94,24 @@ const CreateClassWizard = ({ onClose }) => {
   });
   const [autoGenerateCode, setAutoGenerateCode] = useState(true);
 
+  // Year creation modal state
+  const [showCreateYearModal, setShowCreateYearModal] = useState(false);
+  const [yearFormData, setYearFormData] = useState({
+    code: '',
+    name: '',
+    start_date: '',
+    end_date: '',
+  });
+
+  // Term creation modal state
+  const [showCreateTermModal, setShowCreateTermModal] = useState(false);
+  const [termFormData, setTermFormData] = useState({
+    season: 'hk1',
+    name: '',
+    start_date: '',
+    end_date: '',
+  });
+
   // Load initial data
   useEffect(() => {
     loadInitialData();
@@ -310,6 +328,93 @@ const CreateClassWizard = ({ onClose }) => {
     }
   };
 
+  const handleCreateYear = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        code: yearFormData.code.trim(),
+        name: yearFormData.name.trim() || `Năm học ${yearFormData.code.trim()}`,
+        start_date: yearFormData.start_date || null,
+        end_date: yearFormData.end_date || null,
+      };
+      
+      const response = await classService.createYear(payload);
+      const newYear = response.data;
+      
+      // Refresh years list
+      const yearsRes = await classService.listYears();
+      setYears(yearsRes.data || []);
+      
+      // Auto-select the new year and load its terms
+      setFormData(prev => ({ ...prev, year_id: newYear.id, term_id: '' }));
+      loadTermsForYear(newYear.id);
+      
+      // Close modal and reset form
+      setShowCreateYearModal(false);
+      setYearFormData({ code: '', name: '', start_date: '', end_date: '' });
+      
+      setError(''); // Clear any previous errors
+    } catch (err) {
+      let errorMsg = 'Không thể tạo năm học';
+      
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data.error === 'string') {
+          errorMsg = data.error;
+        } else if (data.details && typeof data.details === 'object') {
+          errorMsg = Object.values(data.details).flat().join(', ');
+        }
+      }
+      
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTerm = async () => {
+    try {
+      setLoading(true);
+      const payload = {
+        year_id: formData.year_id,
+        season: termFormData.season,
+        name: termFormData.name.trim(),  // Để trống để backend tự generate
+        start_date: termFormData.start_date || null,
+        end_date: termFormData.end_date || null,
+      };
+      
+      const response = await classService.createTerm(payload);
+      const newTerm = response.data;
+      
+      // Refresh terms list for current year
+      await loadTermsForYear(formData.year_id);
+      
+      // Auto-select the new term
+      setFormData(prev => ({ ...prev, term_id: newTerm.id }));
+      
+      // Close modal and reset form
+      setShowCreateTermModal(false);
+      setTermFormData({ season: 'hk1', name: '', start_date: '', end_date: '' });
+      
+      setError(''); // Clear any previous errors
+    } catch (err) {
+      let errorMsg = 'Không thể tạo học kỳ';
+      
+      if (err.response?.data) {
+        const data = err.response.data;
+        if (typeof data.error === 'string') {
+          errorMsg = data.error;
+        } else if (data.details && typeof data.details === 'object') {
+          errorMsg = Object.values(data.details).flat().join(', ');
+        }
+      }
+      
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getSelectedYear = () => years.find(y => y.id === formData.year_id);
   const getSelectedTerm = () => terms.find(t => t.id === formData.term_id);
   const getSelectedSubject = () => subjects.find(s => s.id === formData.subject_id);
@@ -379,42 +484,63 @@ const CreateClassWizard = ({ onClose }) => {
             <StepContent>
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Năm học</InputLabel>
-                    <Select
-                      value={formData.year_id}
-                      onChange={(e) => handleYearChange(e.target.value)}
-                      label="Năm học"
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <FormControl fullWidth>
+                      <InputLabel>Năm học</InputLabel>
+                      <Select
+                        value={formData.year_id}
+                        onChange={(e) => handleYearChange(e.target.value)}
+                        label="Năm học"
+                      >
+                        {years.map(year => (
+                          <MenuItem key={year.id} value={year.id}>
+                            {year.name || `Năm học ${year.code}`}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <IconButton
+                      color="primary"
+                      onClick={() => setShowCreateYearModal(true)}
+                      sx={{ height: 56 }}
+                      title="Tạo năm học mới"
                     >
-                      {years.map(year => (
-                        <MenuItem key={year.id} value={year.id}>
-                          {year.name || `Năm học ${year.code}`}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      <AddIcon />
+                    </IconButton>
+                  </Box>
                 </Grid>
                 
                 <Grid item xs={12} md={6}>
-                  <FormControl fullWidth disabled={!formData.year_id}>
-                    <InputLabel>Học kỳ</InputLabel>
-                    <Select
-                      value={formData.term_id}
-                      onChange={(e) => setFormData(prev => ({ ...prev, term_id: e.target.value }))}
-                      label="Học kỳ"
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <FormControl fullWidth disabled={!formData.year_id}>
+                      <InputLabel>Học kỳ</InputLabel>
+                      <Select
+                        value={formData.term_id}
+                        onChange={(e) => setFormData(prev => ({ ...prev, term_id: e.target.value }))}
+                        label="Học kỳ"
+                      >
+                        {terms.map(term => (
+                          <MenuItem key={term.id} value={term.id}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {term.name}
+                              {term.is_current && (
+                                <Chip label="Hiện tại" size="small" color="primary" />
+                              )}
+                            </Box>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <IconButton
+                      color="primary"
+                      onClick={() => setShowCreateTermModal(true)}
+                      disabled={!formData.year_id}
+                      sx={{ height: 56 }}
+                      title="Tạo học kỳ mới"
                     >
-                      {terms.map(term => (
-                        <MenuItem key={term.id} value={term.id}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {term.name}
-                            {term.is_current && (
-                              <Chip label="Hiện tại" size="small" color="primary" />
-                            )}
-                          </Box>
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
+                      <AddIcon />
+                    </IconButton>
+                  </Box>
                 </Grid>
               </Grid>
 
@@ -853,6 +979,165 @@ const CreateClassWizard = ({ onClose }) => {
             startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
           >
             {loading ? 'Đang tạo...' : 'Tạo môn học'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Year Modal */}
+      <Dialog
+        open={showCreateYearModal}
+        onClose={() => !loading && setShowCreateYearModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CalendarIcon color="primary" />
+            Tạo năm học mới
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <TextField
+              fullWidth
+              label="Mã năm học"
+              value={yearFormData.code}
+              onChange={(e) => setYearFormData(prev => ({ ...prev, code: e.target.value }))}
+              placeholder="Ví dụ: 2025-2026"
+              required
+              helperText="Format: YYYY-YYYY (năm bắt đầu - năm kết thúc)"
+            />
+            
+            <TextField
+              fullWidth
+              label="Tên năm học (tùy chọn)"
+              value={yearFormData.name}
+              onChange={(e) => setYearFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Ví dụ: Năm học 2025-2026"
+              helperText="Để trống để tự động tạo tên"
+            />
+            
+            <TextField
+              fullWidth
+              type="date"
+              label="Ngày bắt đầu (tùy chọn)"
+              value={yearFormData.start_date}
+              onChange={(e) => setYearFormData(prev => ({ ...prev, start_date: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
+            
+            <TextField
+              fullWidth
+              type="date"
+              label="Ngày kết thúc (tùy chọn)"
+              value={yearFormData.end_date}
+              onChange={(e) => setYearFormData(prev => ({ ...prev, end_date: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+        </DialogContent>
+        
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setShowCreateYearModal(false);
+              setYearFormData({ code: '', name: '', start_date: '', end_date: '' });
+            }} 
+            disabled={loading}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateYear}
+            disabled={loading || !yearFormData.code.trim()}
+            startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            {loading ? 'Đang tạo...' : 'Tạo năm học'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create Term Modal */}
+      <Dialog
+        open={showCreateTermModal}
+        onClose={() => !loading && setShowCreateTermModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CalendarIcon color="primary" />
+            Tạo học kỳ mới
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+            <Alert severity="info" sx={{ mb: 1 }}>
+              Tạo học kỳ cho năm học: {years.find(y => y.id === formData.year_id)?.name || 'N/A'}
+            </Alert>
+            
+            <FormControl fullWidth>
+              <InputLabel>Học kỳ</InputLabel>
+              <Select
+                value={termFormData.season}
+                onChange={(e) => setTermFormData(prev => ({ ...prev, season: e.target.value }))}
+                label="Học kỳ"
+              >
+                <MenuItem value="hk1">HK1</MenuItem>
+                <MenuItem value="hk2">HK2</MenuItem>
+                <MenuItem value="hk3">HK3</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <TextField
+              fullWidth
+              label="Tên học kỳ (tùy chọn)"
+              value={termFormData.name}
+              onChange={(e) => setTermFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Ví dụ: HK1 2025-2026"
+              helperText="Để trống để tự động tạo tên"
+            />
+            
+            <TextField
+              fullWidth
+              type="date"
+              label="Ngày bắt đầu (tùy chọn)"
+              value={termFormData.start_date}
+              onChange={(e) => setTermFormData(prev => ({ ...prev, start_date: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
+            
+            <TextField
+              fullWidth
+              type="date"
+              label="Ngày kết thúc (tùy chọn)"
+              value={termFormData.end_date}
+              onChange={(e) => setTermFormData(prev => ({ ...prev, end_date: e.target.value }))}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Box>
+        </DialogContent>
+        
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setShowCreateTermModal(false);
+              setTermFormData({ season: 'hk1', name: '', start_date: '', end_date: '' });
+            }} 
+            disabled={loading}
+          >
+            Hủy
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateTerm}
+            disabled={loading || !formData.year_id}
+            startIcon={loading ? <CircularProgress size={20} /> : <AddIcon />}
+          >
+            {loading ? 'Đang tạo...' : 'Tạo học kỳ'}
           </Button>
         </DialogActions>
       </Dialog>
