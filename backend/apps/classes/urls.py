@@ -5,6 +5,11 @@ urlpatterns = [
     path('', views.ClassListCreateView.as_view(), name='class_list_create'),
     # Use <int:pk>/ so DRF generic views resolve lookup correctly
     path('<int:pk>/', views.ClassDetailView.as_view(), name='class_detail'),
+
+    # Graceful fallback for FE bug calling /classes/undefined/detail/ or /classes/undefined/detail/<int>
+    path('undefined/detail/', views.class_detail_default, name='class_detail_default'),
+    path('undefined/detail/<int:page>/', views.class_detail_default, name='class_detail_default_paged'),
+
     path('<int:class_id>/students/', views.ClassStudentListCreateView.as_view(), name='class_students'),
     path('<int:class_id>/students/<str:student_id>/remove/', views.remove_student_from_class, name='remove_student_from_class'),
     path('<int:class_id>/import-excel/', views.import_students_from_excel, name='import_students_from_excel'),

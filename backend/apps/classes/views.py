@@ -6,6 +6,8 @@ from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django.db import transaction
 from django.core.files.base import ContentFile
+from rest_framework.reverse import reverse
+import logging
 
 from apps.accounts.models import User
 from apps.students.models import Student
@@ -69,6 +71,45 @@ class ClassListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(teacher=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Create class and return backward-compatible payload.
+        - Include id (top-level) and detail_url
+        - Include nested class { id, class_id, class_name } for older FE
+        - Set Location header to detail_url
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        instance = serializer.instance
+
+        # Build detail URL
+        try:
+            detail_url = reverse('class_detail_with_students', kwargs={'class_id': instance.id}, request=request)
+        except Exception:
+            detail_url = f"/api/classes/{instance.id}/detail/"
+
+        # Headers
+        headers = self.get_success_headers(serializer.data)
+        headers = headers or {}
+        headers.setdefault('Location', detail_url)
+
+        payload = {
+            'id': instance.id,
+            'class_id': instance.class_id,
+            'class_name': instance.class_name,
+            'description': instance.description or '',
+            'max_students': instance.max_students,
+            'class_mode': instance.class_mode,
+            'detail_url': detail_url,
+            # Backward-compatible shape
+            'class': {
+                'id': instance.id,
+                'class_id': instance.class_id,
+                'class_name': instance.class_name,
+            }
+        }
+        return Response(payload, status=status.HTTP_201_CREATED, headers=headers)
 
 
 @api_view(['GET'])
@@ -581,6 +622,25 @@ def available_students(request, class_id):
 
     except Class.DoesNotExist:
         return Response({'error': 'Không tìm thấy lớp học'}, status=status.HTTP_404_NOT_FOUND)
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def class_detail_default(request, page=None):
+    """Fallback handler when FE passes 'undefined' as class id.
+    Returns the most recently created class of the current teacher.
+    """
+    try:
+        latest = Class.objects.filter(teacher=request.user).order_by('-id').first()
+        if not latest:
+            logging.getLogger('apps').warning('Fallback undefined/detail: user=%s has no classes', getattr(request.user, 'id', None))
+            return Response({'error': 'Bạn chưa có lớp nào'}, status=status.HTTP_404_NOT_FOUND)
+        logging.getLogger('apps').warning('Fallback undefined/detail used by user=%s -> class id=%s', getattr(request.user, 'id', None), latest.id)
+        # Delegate to the normal detail view
+        return class_detail_with_students(request, latest.id)
+    except Exception as e:
+        logging.getLogger('apps').exception('Fallback undefined/detail error: %s', e)
+        return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(['GET'])
