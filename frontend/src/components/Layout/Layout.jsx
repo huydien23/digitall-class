@@ -46,6 +46,14 @@ import {
   Groups,
   CalendarToday,
   AssignmentTurnedIn,
+  Class as ClassIcon,
+  MenuBook,
+  FactCheck as FactCheckIcon,
+  LibraryBooks,
+  PieChart,
+  Tune,
+  SupervisorAccount,
+  EventAvailable,
 } from "@mui/icons-material";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -143,23 +151,23 @@ const getNavigationItems = (userRole) => {
         items: [
           {
             text: "Quản lý giảng dạy",
-            icon: <School />,
+            icon: <MenuBook />,
             path: "/teaching-management",
           },
           {
             text: "Lớp học",
-            icon: <People />,
+            icon: <ClassIcon />,
             path: "/classes",
           },
           {
             text: "Quản lý sinh viên",
-            icon: <PersonIcon />,
+            icon: <SupervisorAccount />,
             path: "/teacher/students",
           },
           {
             text: "Thời khóa biểu",
-            icon: <CalendarToday />,
-            path: "/schedule",
+            icon: <EventAvailable />,
+            path: "/teacher/schedule",
           },
         ],
       },
@@ -168,24 +176,24 @@ const getNavigationItems = (userRole) => {
         items: [
           {
             text: "Bài tập",
-            icon: <AssignmentTurnedIn />,
+            icon: <Assignment />,
             path: "/assignments",
             badge: 0, // Will be dynamic later
           },
           {
             text: "Điểm danh",
-            icon: <CheckCircle />,
+            icon: <FactCheckIcon />,
             path: "/attendance",
             badge: 0,
           },
           {
             text: "Điểm số",
-            icon: <Grading />,
+            icon: <Assessment />,
             path: "/grades",
           },
           {
             text: "Kho tài liệu",
-            icon: <Folder />,
+            icon: <LibraryBooks />,
             path: "/materials",
           },
           {
@@ -200,12 +208,12 @@ const getNavigationItems = (userRole) => {
         items: [
           {
             text: "Báo cáo",
-            icon: <Assessment />,
+            icon: <BarChart />,
             path: "/reports",
           },
           {
             text: "Thống kê",
-            icon: <BarChart />,
+            icon: <PieChart />,
             path: "/analytics",
           },
         ],
@@ -215,7 +223,7 @@ const getNavigationItems = (userRole) => {
         items: [
           {
             text: "Cài đặt",
-            icon: <Settings />,
+            icon: <Tune />,
             path: "/settings",
           },
         ],
@@ -245,7 +253,7 @@ const getNavigationItems = (userRole) => {
       items: [
         {
           text: "Lớp học",
-          icon: <School />,
+          icon: <ClassIcon />,
           path: "/classes",
         },
         {
@@ -255,12 +263,12 @@ const getNavigationItems = (userRole) => {
         },
         {
           text: "Thời khóa biểu",
-          icon: <Schedule />,
+          icon: <EventAvailable />,
           path: "/schedule",
         },
         {
           text: "Điểm danh",
-          icon: <CheckCircle />,
+          icon: <FactCheckIcon />,
           path: "/attendance",
         },
       ],
@@ -270,7 +278,7 @@ const getNavigationItems = (userRole) => {
       items: [
         {
           text: "Cài đặt",
-          icon: <Settings />,
+          icon: <Tune />,
           path: "/settings",
         },
       ],
@@ -419,7 +427,14 @@ const Layout = ({ children }) => {
                       },
                     }}
                   >
-                    <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                    <ListItemIcon 
+                      sx={{ 
+                        minWidth: 40,
+                        color: location.pathname === item.path ? "primary.main" : "text.secondary"
+                      }}
+                    >
+                      {item.icon}
+                    </ListItemIcon>
                     <ListItemText
                       primary={item.text}
                       primaryTypographyProps={{
@@ -474,7 +489,14 @@ const Layout = ({ children }) => {
                           },
                         }}
                       >
-                        <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                        <ListItemIcon 
+                          sx={{ 
+                            minWidth: 40,
+                            color: location.pathname === item.path ? "primary.main" : "text.secondary"
+                          }}
+                        >
+                          {item.icon}
+                        </ListItemIcon>
                         <ListItemText
                           primary={item.text}
                           primaryTypographyProps={{

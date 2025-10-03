@@ -30,6 +30,7 @@ import Attendance from "./pages/Attendance/Attendance";
 import StudentCheckInPage from "./pages/Attendance/StudentCheckInPage";
 import JoinClassPage from "./pages/Classes/JoinClassPage";
 import Schedule from "./pages/Schedule/Schedule";
+import TeacherScheduleManagement from "./components/Schedule/TeacherScheduleManagement";
 import ClassAssignmentsPage from "./pages/Assignments/ClassAssignmentsPage";
 import AssignmentSubmissionsPage from "./pages/Assignments/AssignmentSubmissionsPage";
 import Teachers from "./pages/Teachers/Teachers";
@@ -319,6 +320,18 @@ const App = () => {
               <ProtectedRoute requiredRole={["admin", "teacher", "student"]}>
                 <Layout>
                   <Schedule />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          {/* Teacher-specific schedule management */}
+          <Route
+            path="/teacher/schedule"
+            element={
+              <ProtectedRoute requiredRole={["teacher", "admin"]}>
+                <Layout>
+                  {/* Directly render teacher management */}
+                  <TeacherScheduleManagement />
                 </Layout>
               </ProtectedRoute>
             }

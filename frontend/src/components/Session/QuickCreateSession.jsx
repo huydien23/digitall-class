@@ -61,7 +61,7 @@ const SESSION_TEMPLATES = {
   }
 }
 
-const QuickCreateSession = ({ open, onClose, classId, onSuccess, lastSession = null }) => {
+const QuickCreateSession = ({ open, onClose, classId = null, classOptions = [], onSuccess, lastSession = null }) => {
   const [formData, setFormData] = useState({
     session_name: '',
     description: '',
@@ -71,6 +71,7 @@ const QuickCreateSession = ({ open, onClose, classId, onSuccess, lastSession = n
     location: '',
     session_type: 'lecture'
   })
+  const [selectedClassId, setSelectedClassId] = useState(classId || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedTemplate, setSelectedTemplate] = useState(null)
@@ -155,9 +156,15 @@ const QuickCreateSession = ({ open, onClose, classId, onSuccess, lastSession = n
         return
       }
       
+      const finalClassId = classId || selectedClassId
+      if (!finalClassId) {
+        setError('Vui lòng chọn lớp học')
+        return
+      }
+      
       const sessionData = {
         ...formData,
-        class_id: classId
+        class_id: finalClassId
       }
       
       await attendanceService.createSession(sessionData)
@@ -188,9 +195,15 @@ const QuickCreateSession = ({ open, onClose, classId, onSuccess, lastSession = n
         return
       }
       
+      const finalClassId = classId || selectedClassId
+      if (!finalClassId) {
+        setError('Vui lòng chọn lớp học')
+        return
+      }
+      
       const sessionData = {
         ...formData,
-        class_id: classId
+        class_id: finalClassId
       }
       
       await attendanceService.createSession(sessionData)
@@ -271,6 +284,26 @@ const QuickCreateSession = ({ open, onClose, classId, onSuccess, lastSession = n
         </Box>
         
         <Grid container spacing={2}>
+          {/* Class Selection (only when no classId passed) */}
+          {!classId && (
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel>Chọn lớp</InputLabel>
+                <Select
+                  value={selectedClassId}
+                  onChange={(e) => setSelectedClassId(e.target.value)}
+                  label="Chọn lớp"
+                >
+                  {classOptions.map((cls) => (
+                    <MenuItem key={cls.id} value={cls.id}>
+                      {cls.class_name || cls.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          )}
+
           {/* Session Name with Auto-generate */}
           <Grid item xs={12}>
             <Box display="flex" gap={1}>

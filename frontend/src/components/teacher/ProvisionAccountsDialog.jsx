@@ -23,11 +23,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
+  Chip,
 } from '@mui/material'
 import {
   PersonAdd as PersonAddIcon,
   Visibility as VisibilityIcon,
   PlayArrow as PlayArrowIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
 } from '@mui/icons-material'
 import classService from '../../services/classService'
 
@@ -41,7 +45,8 @@ const ProvisionAccountsDialog = ({
 }) => {
   const [scope, setScope] = useState('selected') // selected | no_user | all
   const [action, setAction] = useState('create_only') // create_only | create_or_update
-  const [passwordPolicy, setPasswordPolicy] = useState('mssv') // mssv | dob | random
+  const [passwordPolicy, setPasswordPolicy] = useState('mssv') // mssv | dob | random | custom
+  const [customPassword, setCustomPassword] = useState('')
   const [requireChangeOnFirstLogin, setRequireChangeOnFirstLogin] = useState(false)
   const [dryRun, setDryRun] = useState(false)
   
@@ -65,10 +70,11 @@ const ProvisionAccountsDialog = ({
   }
 
   const getSelectedStudents = () => {
+    const hasUser = (s) => !!(s?.user?.id || s?.has_user || s?.user_id)
     if (scope === 'selected') {
       return allStudents.filter((s) => selectedStudentIds.includes(s.id))
     } else if (scope === 'no_user') {
-      return allStudents.filter((s) => !s.user || !s.user.id)
+      return allStudents.filter((s) => !hasUser(s))
     } else {
       return allStudents
     }
@@ -95,25 +101,24 @@ const ProvisionAccountsDialog = ({
       const candidates = getCandidates()
       const studentIds = candidates.map((s) => s.student_id)
 
-      // Simulate dry-run response (in real app, backend should support dry_run parameter)
       const payload = {
         student_ids: studentIds.length > 0 ? studentIds : undefined,
         only_without_user: action === 'create_only',
         force: action === 'create_or_update',
-        // password_policy: passwordPolicy, // Will be supported by backend
-        // require_change_on_first_login: requireChangeOnFirstLogin, // Will be supported by backend
+        password_policy: passwordPolicy,
+        ...(passwordPolicy === 'custom' && customPassword ? { password: customPassword } : {}),
+        require_change_on_first_login: requireChangeOnFirstLogin,
+        dry_run: true,
       }
 
-      // For now, simulate dry-run locally
-      const wouldCreate = candidates.filter((s) => !s.user || !s.user.id).length
-      const wouldUpdate = action === 'create_or_update' ? candidates.filter((s) => s.user && s.user.id).length : 0
-      const wouldSkip = candidates.length - wouldCreate - wouldUpdate
+      const res = await classService.createStudentAccounts(classId, payload)
+      const data = res?.data || {}
 
       setDryRunResult({
-        total_candidates: candidates.length,
-        would_create: wouldCreate,
-        would_update: wouldUpdate,
-        would_skip: wouldSkip,
+        total_candidates: data.total_candidates ?? candidates.length,
+        would_create: data.would_create ?? data.created ?? 0,
+        would_update: data.would_update ?? data.updated ?? 0,
+        would_skip: data.would_skip ?? data.skipped ?? 0,
         sample: candidates.slice(0, 10),
       })
     } catch (err) {
@@ -131,7 +136,7 @@ const ProvisionAccountsDialog = ({
 
     const confirm = window.confirm(
       `Bạn có chắc chắn muốn ${action === 'create_or_update' ? 'TẠO/CẬP NHẬT' : 'TẠO'} tài khoản cho ${getCandidates().length} sinh viên?\n\n` +
-      `Mật khẩu sẽ được đặt theo: ${passwordPolicy === 'mssv' ? 'MSSV' : passwordPolicy === 'dob' ? 'Ngày sinh' : 'Ngẫu nhiên'}\n` +
+      `Mật khẩu sẽ được đặt theo: ${passwordPolicy === 'mssv' ? 'MSSV' : passwordPolicy === 'dob' ? 'Ngày sinh' : passwordPolicy === 'random' ? 'Ngẫu nhiên' : 'Tự chọn'}\n` +
       (requireChangeOnFirstLogin ? 'Sinh viên sẽ phải đổi mật khẩu khi đăng nhập lần đầu.' : '')
     )
     
@@ -148,12 +153,18 @@ const ProvisionAccountsDialog = ({
         student_ids: studentIds.length > 0 ? studentIds : undefined,
         only_without_user: action === 'create_only',
         force: action === 'create_or_update',
-        // password_policy: passwordPolicy, // TODO: Backend support
-        // require_change_on_first_login: requireChangeOnFirstLogin, // TODO: Backend support
+        password_policy: passwordPolicy,
+        ...(passwordPolicy === 'custom' && customPassword ? { password: customPassword } : {}),
+        require_change_on_first_login: requireChangeOnFirstLogin,
       }
 
       const res = await classService.createStudentAccounts(classId, payload)
       const data = res?.data || {}
+      
+      // Affected students (by student_id) – dùng để FE cập nhật trạng thái "Có TK" ngay lập tức
+      const affectedStudentIds = studentIds.length > 0 
+        ? studentIds 
+        : getCandidates().map((s) => s.student_id)
       
       if (onComplete) {
         onComplete({
@@ -161,6 +172,7 @@ const ProvisionAccountsDialog = ({
           created: data.created || 0,
           updated: data.updated || 0,
           skipped: data.skipped || 0,
+          affected_student_ids: affectedStudentIds,
         })
       }
 
@@ -175,15 +187,20 @@ const ProvisionAccountsDialog = ({
   const candidates = getCandidates()
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="md" 
+      fullWidth
+    >
       <DialogTitle>
         <Box display="flex" alignItems="center" gap={1}>
-          <PersonAddIcon />
-          <Typography variant="h6">Tạo/Cập nhật tài khoản sinh viên</Typography>
+          <PersonAddIcon color="primary" />
+          <Typography variant="h6" fontWeight={600}>Tạo/Cập nhật tài khoản sinh viên</Typography>
         </Box>
       </DialogTitle>
       
-      <DialogContent dividers>
+      <DialogContent>
         {error && (
           <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>
             {error}
@@ -191,9 +208,9 @@ const ProvisionAccountsDialog = ({
         )}
 
         {/* Scope */}
-        <Box mb={3}>
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Phạm vi</FormLabel>
+        <Box mb={2}>
+          <Typography variant="subtitle2" fontWeight={600} mb={1.5}>Phạm vi</Typography>
+          <FormControl component="fieldset" fullWidth>
             <RadioGroup value={scope} onChange={(e) => {
               setScope(e.target.value)
               setDryRunResult(null)
@@ -209,17 +226,21 @@ const ProvisionAccountsDialog = ({
                 control={<Radio />}
                 label="Chỉ sinh viên chưa có tài khoản"
               />
-              <FormControlLabel value="all" control={<Radio />} label="Tất cả sinh viên trong phạm vi" />
+              <FormControlLabel 
+                value="all" 
+                control={<Radio />} 
+                label="Tất cả sinh viên trong phạm vi"
+              />
             </RadioGroup>
           </FormControl>
         </Box>
 
         <Divider sx={{ my: 2 }} />
-
+        
         {/* Action */}
-        <Box mb={3}>
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Hành động</FormLabel>
+        <Box mb={2}>
+          <Typography variant="subtitle2" fontWeight={600} mb={1.5}>Hành động</Typography>
+          <FormControl component="fieldset" fullWidth>
             <RadioGroup value={action} onChange={(e) => {
               setAction(e.target.value)
               setDryRunResult(null)
@@ -239,33 +260,59 @@ const ProvisionAccountsDialog = ({
         </Box>
 
         <Divider sx={{ my: 2 }} />
-
+        
         {/* Password Policy */}
-        <Box mb={3}>
-          <FormControl component="fieldset">
-            <FormLabel component="legend">Chính sách mật khẩu mặc định</FormLabel>
+        <Box mb={2}>
+          <Typography variant="subtitle2" fontWeight={600} mb={1.5}>Chính sách mật khẩu mặc định</Typography>
+          <FormControl component="fieldset" fullWidth>
             <RadioGroup value={passwordPolicy} onChange={(e) => setPasswordPolicy(e.target.value)}>
-              <FormControlLabel value="mssv" control={<Radio />} label="MSSV (Mã sinh viên)" />
-              <FormControlLabel value="dob" control={<Radio />} label="Ngày sinh (YYYYMMDD)" disabled />
-              <FormControlLabel value="random" control={<Radio />} label="Ngẫu nhiên (10-12 ký tự)" disabled />
+              <FormControlLabel 
+                value="mssv" 
+                control={<Radio />} 
+                label="MSSV (Mã sinh viên)"
+              />
+              <FormControlLabel 
+                value="dob" 
+                control={<Radio />} 
+                label="Ngày sinh (YYYYMMDD)"
+              />
+              <FormControlLabel 
+                value="random" 
+                control={<Radio />} 
+                label="Ngẫu nhiên (12 ký tự)"
+              />
+              <FormControlLabel 
+                value="custom" 
+                control={<Radio />} 
+                label="Tự chọn (nhập mật khẩu)"
+              />
             </RadioGroup>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
-              Lưu ý: Chỉ MSSV được hỗ trợ hiện tại. Các tùy chọn khác đang phát triển.
-            </Typography>
+            {passwordPolicy === 'custom' && (
+              <TextField
+                fullWidth
+                size="small"
+                type="text"
+                label="Mật khẩu tùy chọn"
+                value={customPassword}
+                onChange={(e) => setCustomPassword(e.target.value)}
+                placeholder="Nhập mật khẩu áp dụng cho tất cả sinh viên"
+                sx={{ mt: 2 }}
+                helperText="Tối thiểu 6 ký tự"
+              />
+            )}
           </FormControl>
         </Box>
 
         {/* Require change on first login */}
-        <Box mb={3}>
+        <Box mb={2}>
           <FormControlLabel
             control={
               <Checkbox
                 checked={requireChangeOnFirstLogin}
                 onChange={(e) => setRequireChangeOnFirstLogin(e.target.checked)}
-                disabled
               />
             }
-            label="Yêu cầu đổi mật khẩu khi đăng nhập lần đầu (chưa hỗ trợ)"
+            label="Yêu cầu đổi mật khẩu khi đăng nhập lần đầu"
           />
         </Box>
 
@@ -274,70 +321,87 @@ const ProvisionAccountsDialog = ({
         {/* Summary */}
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2" fontWeight={600} gutterBottom>
-            Tóm tắt:
+            Tóm tắt
           </Typography>
           <Typography variant="body2">
-            • Sẽ xử lý: <strong>{candidates.length}</strong> sinh viên
+            • Số lượng: <strong>{getCandidates().length}</strong> sinh viên
           </Typography>
           <Typography variant="body2">
             • Hành động: <strong>{action === 'create_only' ? 'Chỉ tạo mới' : 'Tạo/Cập nhật'}</strong>
           </Typography>
           <Typography variant="body2">
-            • Mật khẩu: <strong>{passwordPolicy === 'mssv' ? 'MSSV' : passwordPolicy}</strong>
+            • Mật khẩu: <strong>{passwordPolicy === 'mssv' ? 'MSSV' : passwordPolicy === 'dob' ? 'Ngày sinh' : passwordPolicy === 'random' ? 'Ngẫu nhiên' : 'Tùy chọn'}</strong>
           </Typography>
         </Alert>
-
         {/* Dry-run result */}
         {dryRunResult && (
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.light' }}>
-            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              Kết quả xem trước (Dry-run):
-            </Typography>
-            <Typography variant="body2">✓ Sẽ tạo mới: {dryRunResult.would_create}</Typography>
-            <Typography variant="body2">↻ Sẽ cập nhật: {dryRunResult.would_update}</Typography>
-            <Typography variant="body2">⏭ Sẽ bỏ qua: {dryRunResult.would_skip}</Typography>
+          <Box sx={{ mb: 2 }}>
+            <Alert severity="success" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                Kết quả xem trước
+              </Typography>
+              <Typography variant="body2">
+                Tổng: {dryRunResult.total_candidates || 0} sinh viên • 
+                Tạo mới: <strong>{dryRunResult.would_create || 0}</strong> • 
+                Cập nhật: <strong>{dryRunResult.would_update || 0}</strong> • 
+                Bỏ qua: <strong>{dryRunResult.would_skip || 0}</strong>
+              </Typography>
+            </Alert>
             
             {dryRunResult.sample && dryRunResult.sample.length > 0 && (
-              <Box mt={2}>
-                <Typography variant="caption" color="text.secondary">
+              <Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   Mẫu 10 sinh viên đầu tiên:
                 </Typography>
-                <TableContainer sx={{ mt: 1, maxHeight: 200 }}>
-                  <Table size="small">
+                <TableContainer component={Paper} sx={{ maxHeight: 250 }}>
+                  <Table size="small" stickyHeader>
                     <TableHead>
                       <TableRow>
                         <TableCell>MSSV</TableCell>
-                        <TableCell>Tên</TableCell>
+                        <TableCell>Họ tên</TableCell>
+                        <TableCell>Email</TableCell>
                         <TableCell>Trạng thái</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {dryRunResult.sample.map((s) => (
-                        <TableRow key={s.id}>
-                          <TableCell>{s.student_id}</TableCell>
-                          <TableCell>{s.last_name} {s.first_name}</TableCell>
-                          <TableCell>
-                            {s.user?.id ? '✓ Có TK' : '⚠ Chưa có TK'}
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                      {dryRunResult.sample.map((s, idx) => {
+                        const hasUser = !!(s?.user?.id || s?.has_user || s?.user_id)
+                        return (
+                          <TableRow key={s.id || idx} hover>
+                            <TableCell>{s.student_id}</TableCell>
+                            <TableCell>{s.last_name} {s.first_name}</TableCell>
+                            <TableCell>
+                              <Typography variant="caption" color="text.secondary">
+                                {s.email || '—'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip 
+                                size="small"
+                                label={hasUser ? 'Có TK' : 'Chưa TK'}
+                                color={hasUser ? 'success' : 'default'}
+                              />
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
                     </TableBody>
                   </Table>
                 </TableContainer>
               </Box>
             )}
-          </Paper>
+          </Box>
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, py: 2 }}>
+      <DialogActions>
         <Button onClick={handleClose} disabled={loading}>
           Hủy
         </Button>
         <Button
           onClick={handleDryRun}
           startIcon={loading ? <CircularProgress size={16} /> : <VisibilityIcon />}
-          disabled={loading || candidates.length === 0}
+          disabled={loading || getCandidates().length === 0}
           variant="outlined"
         >
           Xem trước
@@ -345,7 +409,7 @@ const ProvisionAccountsDialog = ({
         <Button
           onClick={handleExecute}
           startIcon={loading ? <CircularProgress size={16} /> : <PlayArrowIcon />}
-          disabled={loading || candidates.length === 0}
+          disabled={loading || getCandidates().length === 0}
           variant="contained"
           color="primary"
         >

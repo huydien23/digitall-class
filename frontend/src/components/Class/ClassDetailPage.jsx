@@ -87,6 +87,7 @@ import BulkCreateSessions from '../Session/BulkCreateSessions'
 import SessionManagementDialog from '../Session/SessionManagementDialog'
 import EditSessionDialog from '../Session/EditSessionDialog'
 import AssignmentsInline from '../Assignments/AssignmentsInline'
+import ProvisionAccountsDialog from '../teacher/ProvisionAccountsDialog'
 
 const ClassDetailPage = () => {
   const { classId } = useParams()
@@ -162,6 +163,9 @@ const ClassDetailPage = () => {
   // Bulk selection for students
   const [selectedStudents, setSelectedStudents] = useState([])
   const [selectAll, setSelectAll] = useState(false)
+  
+  // Provision accounts dialog
+  const [provisionDialogOpen, setProvisionDialogOpen] = useState(false)
 
   // Sessions ascending for attendance table (Buổi 1 -> ...)
   const sessionsAsc = useMemo(() => {
@@ -198,7 +202,6 @@ const ClassDetailPage = () => {
       const response = await classService.getClassDetail(classId)
       const data = response.data
       
-      console.log('Class detail API response:', data) // Debug log
       
       setClassData(data.class || data)
       setStudents(data.students || [])
@@ -208,7 +211,6 @@ const ClassDetailPage = () => {
         const sessionsRes = await attendanceService.getSessions({ class_id: classId })
         const sessions = sessionsRes?.data?.results || sessionsRes?.data || data.attendance_sessions || []
         setAttendanceSessions(sessions)
-        console.log('Attendance sessions loaded:', sessions.length)
       } catch (e) {
         console.warn('Failed to load sessions:', e)
         setAttendanceSessions(data.attendance_sessions || [])
@@ -491,9 +493,7 @@ const handleEditGrade = (student) => {
     }
     if (!window.confirm(`Xóa ${student.name || student.full_name || student.email} khỏi lớp?`)) return
     try {
-      console.log(`Removing student ${code} from class ${classId}...`)
       await classService.removeStudentFromClass(classId, code)
-      console.log(`Successfully removed student ${code}`)
       
       // Reload data from server to ensure consistency
       await loadClassData()
@@ -1102,10 +1102,9 @@ const handleEditGrade = (student) => {
                       variant="outlined" 
                       startIcon={<PersonAddIcon />}
                       size="small"
-                      onClick={handleCreateAccounts}
-                      disabled={creatingAccounts}
+                      onClick={() => setProvisionDialogOpen(true)}
                     >
-                      {creatingAccounts ? 'Đang tạo...' : 'Tạo tài khoản'}
+                      Tạo tài khoản
                     </Button>
                     <Button 
                       variant="outlined" 
@@ -1993,7 +1992,6 @@ const handleEditGrade = (student) => {
         initialSessionId={qrInitialSessionId}
         title="QR Code Điểm Danh"
         onSessionUpdate={(updatedSession) => {
-          console.log('Session updated:', updatedSession)
         }}
       />
 
@@ -2105,6 +2103,27 @@ const handleEditGrade = (student) => {
           setQuickCreateSessionOpen(false)
         }}
       />
+
+      {/* Provision Accounts Dialog */}
+      {provisionDialogOpen && (
+        <ProvisionAccountsDialog
+          open={provisionDialogOpen}
+          onClose={() => setProvisionDialogOpen(false)}
+          selectedStudentIds={selectedStudents}
+          allStudents={students}
+          classId={classId}
+          onComplete={(result) => {
+            setProvisionDialogOpen(false)
+            try {
+              if (result) {
+                const { created = 0, updated = 0, skipped = 0 } = result
+                alert(`Tạo/Cập nhật tài khoản hoàn tất:\n✓ Tạo mới: ${created}\n↻ Cập nhật: ${updated}\n⏭ Bỏ qua: ${skipped}`)
+              }
+            } catch {}
+            loadClassData()
+          }}
+        />
+      )}
       
       {/* Bulk Create Sessions Dialog - NEW */}
       <BulkCreateSessions

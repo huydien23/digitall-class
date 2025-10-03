@@ -13,8 +13,9 @@ const ProtectedRoute = ({
 }) => {  
   const { user, isLoading, isAuthenticated } = useSelector((state) => state.auth);
   
-  // Show loading spinner while checking authentication
-  if (isLoading) {
+  // If we need role checks but user profile chưa sẵn sàng, hiển thị loading để tránh 401/403 giả khi reload
+  const needRoleCheck = Boolean(requiredRole || requireAdmin || requireTeacher)
+  if (isLoading || (needRoleCheck && isAuthenticated && !user)) {
     return (
       <Box
         sx={{
@@ -40,7 +41,7 @@ const ProtectedRoute = ({
   }
 
   // Check admin access
-  if (requireAdmin) {
+  if (requireAdmin && user) {
     const userRole = user?.role || 'student'
     if (userRole !== 'admin') {
       return <Navigate to="/unauthorized" replace />;
@@ -48,15 +49,15 @@ const ProtectedRoute = ({
   }
 
   // Check teacher access (admin can also access teacher routes)
-  if (requireTeacher) {
+  if (requireTeacher && user) {
     const userRole = user?.role || 'student'
     if (!['admin', 'teacher'].includes(userRole)) {
       return <Navigate to="/unauthorized" replace />;
     }
   }
 
-  // Check specific role requirement
-  if (requiredRole) {
+  // Check specific role requirement (chỉ chạy khi đã có user)
+  if (requiredRole && user) {
     if (Array.isArray(requiredRole)) {
       // Check if user has any of the required roles
       // If user doesn't have role, assume student (default)

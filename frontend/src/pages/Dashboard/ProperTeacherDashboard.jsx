@@ -23,6 +23,10 @@ import {
   ListItemText,
   ListItemIcon,
   ListItemSecondaryAction,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -37,6 +41,8 @@ import {
   Visibility as VisibilityIcon,
   Add as AddIcon,
   Edit as EditIcon,
+  History as HistoryIcon,
+  Grade as GradeIcon,
   ContentCopy as CopyIcon,
 } from '@mui/icons-material'
 import { useSelector, useDispatch } from 'react-redux'
@@ -45,6 +51,7 @@ import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import SessionManagement from '../../components/SessionManagement/SessionManagement'
 import ClassJoinTokenDialog from '../../components/Class/ClassJoinTokenDialog'
+import QuickCreateSession from '../../components/Session/QuickCreateSession'
 import classService from '../../services/classService'
 import attendanceService from '../../services/attendanceService'
 import gradeService from '../../services/gradeService'
@@ -54,8 +61,10 @@ const ProperTeacherDashboard = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
+  const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
   const [joinTokenDialogOpen, setJoinTokenDialogOpen] = useState(false)
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false)
+  const [selectedQuickClassId, setSelectedQuickClassId] = useState('')
   const [teacherData, setTeacherData] = useState({
     statistics: {
       totalClasses: 0,
@@ -64,7 +73,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
       averageGrade: 0
     },
     todaySessions: [],
-    assignedClasses: []
+    assignedClasses: [],
+    recentActivities: [], // sẽ được bạn nối dữ liệu thực sau
   })
 
   const loadTeacherData = useCallback(async () => {
@@ -122,7 +132,8 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
       const safeAvg = Number.isFinite(averageGradeNum) ? Math.round(averageGradeNum * 100) / 100 : 0
       const safeRate = Number.isFinite(attendanceRateNum) ? Math.round(attendanceRateNum) : 0
 
-      setTeacherData({
+      setTeacherData((prev) => ({
+        ...prev,
         assignedClasses: teacherClasses,
         todaySessions,
         recentGrades: recentGrades.slice(0, 10),
@@ -132,7 +143,13 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
           attendanceRate: safeRate,
           averageGrade: safeAvg
         }
-      })
+      }))
+
+      // Init selected class (remember last choice)
+      const remembered = localStorage.getItem('dashboard.selectedClassId')
+      const isValid = teacherClasses.some((c) => String(c.id) === String(remembered))
+      const initial = isValid ? remembered : (teacherClasses[0]?.id || '')
+      setSelectedQuickClassId(initial)
     } catch (err) {
       console.error('Error loading teacher data:', err)
       setError('Failed to load teacher data')
@@ -149,11 +166,30 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
     loadTeacherData()
   }
 
+  // Helper: thêm một activity mới vào đầu danh sách (giới hạn 20 mục)
+  const addActivity = (activity) => {
+    const withId = {
+      id: activity.id || `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      time: activity.time || new Date().toISOString(),
+      ...activity,
+    }
+    setTeacherData((prev) => ({
+      ...prev,
+      recentActivities: [withId, ...(prev.recentActivities || [])].slice(0, 20),
+    }))
+  }
+
   const handleGenerateQR = async (sessionId) => {
     try {
       const response = await attendanceService.generateQRCode(sessionId)
       // Handle QR code generation
       console.log('QR Code generated:', response.data)
+      // Ghi nhận hoạt động gần đây
+      addActivity({
+        type: 'qr_generated',
+        title: 'Đã tạo QR điểm danh',
+        description: `Phiên điểm danh #${sessionId}`,
+      })
     } catch (err) {
       console.error('Error generating QR code:', err)
     }
@@ -161,17 +197,25 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
 
   // Quick action: generate QR for the first available session today, otherwise open session management
   const handleQuickGenerateQR = () => {
-    if (teacherData.todaySessions && teacherData.todaySessions.length > 0) {
-      handleGenerateQR(teacherData.todaySessions[0].id)
-    } else {
-      setSessionManagementOpen(true)
+    if (selectedQuickClassId && teacherData.todaySessions && teacherData.todaySessions.length > 0) {
+      const target = teacherData.todaySessions.find((s) => String(s.class_id || s.classId) === String(selectedQuickClassId))
+      if (target) {
+        handleGenerateQR(target.id)
+        return
+      }
     }
+    setSessionManagementOpen(true)
   }
 
   const handleStartSession = async (sessionId) => {
     try {
       await attendanceService.updateSession(sessionId, { is_active: true })
       loadTeacherData()
+      addActivity({
+        type: 'session_started',
+        title: 'Đã bắt đầu buổi học',
+        description: `Phiên điểm danh #${sessionId} đã được bắt đầu`,
+      })
     } catch (err) {
       console.error('Error starting session:', err)
     }
@@ -181,6 +225,11 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
     try {
       await attendanceService.updateSession(sessionId, { is_active: false })
       loadTeacherData()
+      addActivity({
+        type: 'session_stopped',
+        title: 'Đã kết thúc buổi học',
+        description: `Phiên điểm danh #${sessionId} đã kết thúc`,
+      })
     } catch (err) {
       console.error('Error stopping session:', err)
     }
@@ -190,11 +239,57 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
   const handleSessionCreated = () => {
     console.log('Session created successfully')
     loadTeacherData() // Refresh teacher data
+    addActivity({
+      type: 'session_created',
+      title: 'Tạo buổi học mới',
+      description: 'Một buổi học vừa được tạo trong hệ thống',
+    })
   }
 
   const handleSessionUpdated = () => {
     console.log('Session updated successfully')
     loadTeacherData() // Refresh teacher data
+    addActivity({
+      type: 'session_updated',
+      title: 'Cập nhật buổi học',
+      description: 'Thông tin buổi học đã được cập nhật',
+    })
+  }
+
+  // Map type -> icon & color cho activity item
+  const getActivityMeta = (type) => {
+    switch (type) {
+      case 'submission':
+        return { icon: <AssignmentIcon fontSize="small" />, color: 'primary' }
+      case 'grade_updated':
+        return { icon: <GradeIcon fontSize="small" />, color: 'success' }
+      case 'session_created':
+      case 'session_updated':
+      case 'session_started':
+      case 'session_stopped':
+        return { icon: <ScheduleIcon fontSize="small" />, color: 'info' }
+      case 'qr_generated':
+        return { icon: <QrCodeIcon fontSize="small" />, color: 'warning' }
+      case 'class_joined':
+        return { icon: <PeopleIcon fontSize="small" />, color: 'secondary' }
+      default:
+        return { icon: <HistoryIcon fontSize="small" />, color: 'default' }
+    }
+  }
+
+  // Hiển thị thời gian tương đối đơn giản (không phụ thuộc lib ngoài)
+  const formatRelativeTime = (isoString) => {
+    if (!isoString) return ''
+    const now = Date.now()
+    const ts = new Date(isoString).getTime()
+    const diffSec = Math.max(1, Math.floor((now - ts) / 1000))
+    const mins = Math.floor(diffSec / 60)
+    const hours = Math.floor(mins / 60)
+    const days = Math.floor(hours / 24)
+    if (days > 0) return `${days} ngày trước`
+    if (hours > 0) return `${hours} giờ trước`
+    if (mins > 0) return `${mins} phút trước`
+    return `${diffSec} giây trước`
   }
 
   const StatCard = ({ title, value, icon, color, subtitle }) => (
@@ -429,13 +524,48 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
               Thao tác nhanh
             </Typography>
             <Divider sx={{ mb: 2 }} />
+
+            {/* Class selector for quick actions */}
+            <Box display="flex" alignItems="center" gap={2} mb={2}>
+              <FormControl size="small" sx={{ minWidth: 260 }}>
+                <InputLabel>Chọn lớp cho thao tác</InputLabel>
+                <Select
+                  label="Chọn lớp cho thao tác"
+                  value={selectedQuickClassId}
+                  onChange={(e) => {
+                    setSelectedQuickClassId(e.target.value)
+                    localStorage.setItem('dashboard.selectedClassId', e.target.value)
+                  }}
+                >
+                  {(teacherData.assignedClasses || []).map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.class_name || c.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="text.secondary">
+                Hệ thống sẽ ghi nhớ lớp bạn chọn cho lần sau
+              </Typography>
+            </Box>
+
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6} md={3}>
                 <Button
                   variant="contained"
                   fullWidth
                   startIcon={<AddIcon />}
-                  onClick={() => setSessionManagementOpen(true)}
+                  onClick={() => {
+                    if (teacherData.assignedClasses && teacherData.assignedClasses.length > 0) {
+                      if (!selectedQuickClassId) {
+                        alert('Vui lòng chọn lớp ở mục "Chọn lớp cho thao tác"')
+                        return
+                      }
+                      setQuickCreateOpen(true)
+                    } else {
+                      setSessionManagementOpen(true)
+                    }
+                  }}
                   sx={{ py: 1.5 }}
                 >
                   Tạo buổi học
@@ -469,11 +599,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   variant="contained"
                   fullWidth
                   startIcon={<AssignmentIcon />}
-                  onClick={() => {
-                    const firstId = teacherData.assignedClasses?.[0]?.id
-                    if (firstId) navigate(`/classes/${firstId}/assignments`)
-                    else navigate('/classes')
-                  }}
+                  onClick={() => navigate('/grades')}
                   sx={{ py: 1.5 }}
                 >
                   Nhập điểm
@@ -484,7 +610,7 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
                   variant="contained"
                   fullWidth
                   startIcon={<VisibilityIcon />}
-                  onClick={() => window.alert('Tính năng báo cáo đang phát triển')}
+                  onClick={() => navigate('/reports')}
                   sx={{ py: 1.5 }}
                 >
                   Xem báo cáo
@@ -495,6 +621,59 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
         </Card>
 
         {/* Import từ Excel đã ẩn cho giao diện gọn hơn */}
+
+        {/* Hoạt động gần đây */}
+        <Card sx={{ mt: 3 }}>
+          <CardContent>
+            <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box display="flex" alignItems="center" gap={1}>
+                <HistoryIcon color="action" />
+                <Typography variant="h6" fontWeight={600}>
+                  Hoạt động gần đây
+                </Typography>
+              </Box>
+              <Button size="small" onClick={() => navigate('/reports')}>
+                Xem tất cả
+              </Button>
+            </Box>
+
+            {teacherData.recentActivities?.length === 0 ? (
+              <Box textAlign="center" py={4}>
+                <HistoryIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                <Typography variant="body2" color="text.secondary">
+                  Chưa có hoạt động nào gần đây
+                </Typography>
+              </Box>
+            ) : (
+              <List>
+                {teacherData.recentActivities.map((act) => {
+                  const meta = getActivityMeta(act.type)
+                  return (
+                    <ListItem key={act.id} divider>
+                      <ListItemIcon>
+                        <Avatar sx={{ bgcolor: `${meta.color}.light`, color: `${meta.color}.dark` }}>
+                          {meta.icon}
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={act.title}
+                        secondary={act.description}
+                        primaryTypographyProps={{ fontWeight: 600, variant: 'body2' }}
+                        secondaryTypographyProps={{ variant: 'caption' }}
+                      />
+                      <ListItemSecondaryAction>
+                        <Typography variant="caption" color="text.secondary">
+                          {formatRelativeTime(act.time)}
+                        </Typography>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  )
+                })}
+              </List>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Session Management Dialog */}
         <SessionManagement
           open={sessionManagementOpen}
@@ -508,7 +687,23 @@ const [sessionManagementOpen, setSessionManagementOpen] = useState(false)
           open={joinTokenDialogOpen}
           onClose={() => setJoinTokenDialogOpen(false)}
           classOptions={teacherData.assignedClasses || []}
-          defaultClassId={teacherData.assignedClasses?.[0]?.id}
+          defaultClassId={selectedQuickClassId || teacherData.assignedClasses?.[0]?.id}
+        />
+
+        {/* Quick Create Session (nhẹ, dành cho tạo nhanh) */}
+        <QuickCreateSession
+          open={quickCreateOpen}
+          onClose={() => setQuickCreateOpen(false)}
+          classId={selectedQuickClassId}
+          classOptions={teacherData.assignedClasses || []}
+          onSuccess={() => {
+            addActivity({
+              type: 'session_created',
+              title: 'Tạo buổi học mới',
+              description: 'Bạn vừa tạo một buổi học',
+            })
+            loadTeacherData()
+          }}
         />
       </Container>
     </>

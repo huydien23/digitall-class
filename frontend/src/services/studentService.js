@@ -59,6 +59,20 @@ const studentService = {
     }
     return apiService.axiosInstance.get('/students/', { params })
   },
+
+  // Admin/teacher tools
+  resetPassword: (studentId, new_password) =>
+    apiService.axiosInstance.post(`/students/${studentId}/reset-password/`, { new_password }),
+
+  // Optional batch endpoints (will be used if backend supports)
+  resetPasswordBatch: (student_ids, new_password) =>
+    apiService.axiosInstance.post('/students/reset-password/batch/', { student_ids, new_password }),
+  deleteStudents: (student_ids) =>
+    apiService.axiosInstance.post('/students/delete/batch/', { student_ids }),
+
+  // Optional email notification
+  sendPasswordEmail: (student_ids, payload = {}) =>
+    apiService.axiosInstance.post('/students/password-email/', { student_ids, ...payload }),
 }
 
 export default studentService

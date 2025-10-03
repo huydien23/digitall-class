@@ -292,12 +292,19 @@ def create_join_token(request, class_id):
 @permission_classes([permissions.IsAuthenticated])
 def create_student_accounts_for_class(request, class_id):
     """
-    Create User accounts for students of a class.
-    - Accepts optional list of student_ids to limit scope
+    Create or update User accounts for students of a class.
+    - Accepts optional list of student_ids to limit scope.
     - Flags:
-        - only_without_user (default True): only create for students without linked User
-        - force (default False): update existing user if exists
-        - password (optional): set a custom default password; defaults to MSSV
+        - only_without_user (default True): only create for students without linked User.
+        - force (default False): if True, update existing user if exists (and optionally reset password).
+        - password_policy (optional): one of ['mssv', 'dob', 'random', 'custom'].
+            * mssv (default): use student_id as password.
+            * dob: use YYYYMMDD from date_of_birth; fallback to student_id if unavailable.
+            * random: generate a random strong password.
+            * custom: use the provided 'password' field for all processed students.
+        - password (optional): used when password_policy = 'custom'.
+        - dry_run (optional, default False): if True, do not change data, only return what would happen.
+        - require_change_on_first_login (optional, default False): annotate intent in user.status_note (no enforcement here).
     """
     try:
         cls = Class.objects.get(id=class_id)
@@ -305,10 +312,14 @@ def create_student_accounts_for_class(request, class_id):
         if request.user.role != 'admin' and cls.teacher != request.user:
             return Response({'error': 'Bạn không có quyền thao tác lớp này'}, status=status.HTTP_403_FORBIDDEN)
 
+        # Params
         student_ids = request.data.get('student_ids') or []
         only_without_user = bool(request.data.get('only_without_user', True))
         force = bool(request.data.get('force', False))
-        password = request.data.get('password') or None
+        password_policy = (request.data.get('password_policy') or 'mssv').lower().strip()
+        custom_password = request.data.get('password') or None
+        dry_run = bool(request.data.get('dry_run', False))
+        require_change_on_first_login = bool(request.data.get('require_change_on_first_login', False))
 
         # Base queryset: students in this class
         qs = ClassStudent.objects.filter(class_obj=cls, is_active=True).select_related('student')
@@ -329,6 +340,74 @@ def create_student_accounts_for_class(request, class_id):
                 'details': []
             })
 
+        def compute_password(st):
+            try:
+                if password_policy == 'custom' and custom_password:
+                    return custom_password
+                if password_policy == 'dob':
+                    dob = getattr(st, 'date_of_birth', None)
+                    if dob:
+                        # dob could be date or string 'YYYY-MM-DD'
+                        try:
+                            return dob.strftime('%Y%m%d')
+                        except Exception:
+                            s = str(dob)
+                            # Accept 'YYYY-MM-DD' or 'DD/MM/YYYY'
+                            if len(s) >= 10 and s[4] == '-':
+                                return s[:10].replace('-', '')
+                            parts = s.replace('-', '/').split('/')
+                            if len(parts) == 3 and len(parts[2]) == 4:
+                                # assume D/M/YYYY
+                                dd = parts[0].zfill(2); mm = parts[1].zfill(2); yyyy = parts[2]
+                                return f"{yyyy}{mm}{dd}"
+                    # fallback
+                    return st.student_id or ''
+                if password_policy == 'random':
+                    return get_random_string(12)
+                # default mssv
+                return st.student_id or ''
+            except Exception:
+                return st.student_id or ''
+
+        # DRY RUN branch: no changes, only statistics
+        if dry_run:
+            from apps.accounts.models import User
+            would_create = 0
+            would_update = 0
+            would_skip = 0
+            details = []
+            for cs in qs:
+                st = cs.student
+                # Match existing by email or student_id (same rule as utils.create_user_for_student)
+                existing_user = User.objects.filter(
+                    Q(email=st.email) | Q(student_id=st.student_id)
+                ).first()
+                if existing_user:
+                    if force:
+                        would_update += 1
+                        details.append({'student_id': st.student_id, 'email': st.email, 'action': 'would_update'})
+                    else:
+                        would_skip += 1
+                        details.append({'student_id': st.student_id, 'email': st.email, 'action': 'would_skip'})
+                else:
+                    would_create += 1
+                    details.append({'student_id': st.student_id, 'email': st.email, 'action': 'would_create'})
+
+            return Response({
+                'success': True,
+                'message': f'Xem trước tạo/cập nhật tài khoản cho lớp {cls.class_id}',
+                'dry_run': True,
+                'would_create': would_create,
+                'would_update': would_update,
+                'would_skip': would_skip,
+                'total_candidates': total,
+                'details': details,
+                'password_policy': password_policy,
+                'force': force,
+                'only_without_user': only_without_user,
+            })
+
+        # EXECUTION branch
         created = 0
         updated = 0
         skipped = 0
@@ -337,15 +416,34 @@ def create_student_accounts_for_class(request, class_id):
         for cs in qs:
             st = cs.student
             try:
-                # If forcing update and no explicit password provided, default to MSSV (student_id)
-                effective_password = (password or st.student_id) if force else password
+                # If forcing update, always provide a password so reset can happen; otherwise provide for create.
+                effective_password = compute_password(st) if (force or password_policy in {'dob', 'random', 'custom'}) else None
                 user, was_created = create_user_for_student(st, default_password=effective_password, force=force)
                 if was_created:
                     created += 1
+                    # Annotate requirement in status_note (no enforcement here)
+                    if require_change_on_first_login and getattr(user, 'status_note', None) is not None:
+                        try:
+                            note = (user.status_note or '').strip()
+                            suffix = 'require_change_on_first_login=true'
+                            if suffix not in note:
+                                user.status_note = (note + ('\n' if note else '') + suffix)
+                                user.save(update_fields=['status_note'])
+                        except Exception:
+                            pass
                     details.append({'student_id': st.student_id, 'email': st.email, 'action': 'created'})
                 else:
                     if force:
                         updated += 1
+                        if require_change_on_first_login and getattr(user, 'status_note', None) is not None:
+                            try:
+                                note = (user.status_note or '').strip()
+                                suffix = 'require_change_on_first_login=true'
+                                if suffix not in note:
+                                    user.status_note = (note + ('\n' if note else '') + suffix)
+                                    user.save(update_fields=['status_note'])
+                            except Exception:
+                                pass
                         details.append({'student_id': st.student_id, 'email': st.email, 'action': 'updated'})
                     else:
                         skipped += 1
@@ -360,7 +458,10 @@ def create_student_accounts_for_class(request, class_id):
             'updated': updated,
             'skipped': skipped,
             'total_candidates': total,
-            'details': details
+            'details': details,
+            'password_policy': password_policy,
+            'force': force,
+            'only_without_user': only_without_user,
         })
     except Class.DoesNotExist:
         return Response({'error': 'Không tìm thấy lớp học'}, status=status.HTTP_404_NOT_FOUND)
@@ -797,6 +898,8 @@ def class_detail_with_students(request, class_id):
                 'phone': student.phone,
                 'gender': student.gender,
                 'date_of_birth': student.date_of_birth.isoformat() if student.date_of_birth else None,
+                'has_user': bool(getattr(student, 'user_id', None)),
+                'user_id': getattr(student, 'user_id', None),
                 'attendance': attendance_records,
                 'grades': grades_data
             })
